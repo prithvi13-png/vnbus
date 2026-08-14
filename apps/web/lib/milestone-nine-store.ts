@@ -1,0 +1,210 @@
+"use client";
+
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import type {
+  NotificationRecord,
+  SearchSuggestionRecord,
+  TripRecommendationRecord,
+} from "@vnbus/types";
+
+interface MilestoneNineState {
+  notifications: NotificationRecord[];
+  recommendations: TripRecommendationRecord[];
+  recentSearches: SearchSuggestionRecord[];
+  favoriteRoutes: SearchSuggestionRecord[];
+  markAllRead: () => void;
+  archiveNotification: (id: string) => void;
+  deleteNotification: (id: string) => void;
+  addRecentSearch: (search: SearchSuggestionRecord) => void;
+  toggleFavoriteRoute: (route: SearchSuggestionRecord) => void;
+}
+
+const now = "2026-08-08T10:00:00.000Z";
+
+export const useMilestoneNineStore = create<MilestoneNineState>()(
+  persist(
+    (set) => ({
+      notifications: seedNotifications(),
+      recommendations: seedRecommendations(),
+      recentSearches: [
+        suggestion("Bangalore", "Hyderabad", 128),
+        suggestion("Chennai", "Coimbatore", 96),
+      ],
+      favoriteRoutes: [suggestion("Pune", "Goa", 84)],
+      markAllRead: () =>
+        set((state) => ({
+          notifications: state.notifications.map((notification) =>
+            notification.readStatus === "UNREAD"
+              ? { ...notification, readStatus: "READ", readAt: new Date().toISOString() }
+              : notification,
+          ),
+        })),
+      archiveNotification: (id) =>
+        set((state) => ({
+          notifications: state.notifications.map((notification) =>
+            notification.id === id
+              ? {
+                  ...notification,
+                  readStatus: "ARCHIVED",
+                  archivedAt: new Date().toISOString(),
+                }
+              : notification,
+          ),
+        })),
+      deleteNotification: (id) =>
+        set((state) => ({
+          notifications: state.notifications.filter((notification) => notification.id !== id),
+        })),
+      addRecentSearch: (search) =>
+        set((state) => ({
+          recentSearches: [
+            search,
+            ...state.recentSearches.filter((item) => item.label !== search.label),
+          ].slice(0, 6),
+        })),
+      toggleFavoriteRoute: (route) =>
+        set((state) => {
+          const exists = state.favoriteRoutes.some((item) => item.label === route.label);
+
+          return {
+            favoriteRoutes: exists
+              ? state.favoriteRoutes.filter((item) => item.label !== route.label)
+              : [route, ...state.favoriteRoutes].slice(0, 8),
+          };
+        }),
+    }),
+    {
+      name: "vnbus-milestone-nine",
+      partialize: (state) => ({
+        favoriteRoutes: state.favoriteRoutes,
+        notifications: state.notifications,
+        recommendations: state.recommendations,
+        recentSearches: state.recentSearches,
+      }),
+    },
+  ),
+);
+
+function seedNotifications(): NotificationRecord[] {
+  return [
+    {
+      id: "NTF-M9-001",
+      type: "BOOKING_CONFIRMED",
+      readStatus: "UNREAD",
+      channel: "IN_APP",
+      title: "Booking confirmed",
+      body: "VNB-M9-001 ticket is ready for download.",
+      bookingId: "VNB-M9-001",
+      createdAt: now,
+      readAt: null,
+    },
+    {
+      id: "NTF-M9-002",
+      type: "JOURNEY_REMINDER",
+      readStatus: "UNREAD",
+      channel: "PUSH",
+      title: "Journey reminder",
+      body: "Bangalore to Hyderabad departs at 21:30.",
+      bookingId: "VNB-M9-002",
+      createdAt: now,
+      readAt: null,
+    },
+    {
+      id: "NTF-M9-003",
+      type: "ADMIN_ANNOUNCEMENT",
+      readStatus: "READ",
+      channel: "EMAIL",
+      title: "Maintenance window",
+      body: "Queue workers will run in mock maintenance mode tonight.",
+      createdAt: now,
+      readAt: now,
+    },
+  ];
+}
+
+function seedRecommendations(): TripRecommendationRecord[] {
+  return [
+    recommendation(
+      "CHEAPEST_ROUTE",
+      "Cheapest Route",
+      "Bangalore",
+      "Hyderabad",
+      990,
+      520,
+      "Eastern Travels",
+      4.6,
+    ),
+    recommendation(
+      "FASTEST_ROUTE",
+      "Fastest Route",
+      "Chennai",
+      "Coimbatore",
+      840,
+      390,
+      "GreenLine Roadways",
+      4.4,
+    ),
+    recommendation(
+      "WEEKEND_SUGGESTION",
+      "Weekend Suggestion",
+      "Pune",
+      "Goa",
+      1120,
+      610,
+      "Royal Express",
+      4.2,
+    ),
+    recommendation(
+      "TRENDING_ROUTE",
+      "Trending Route",
+      "Mumbai",
+      "Pune",
+      760,
+      210,
+      "Metro Travels",
+      4.5,
+    ),
+  ];
+}
+
+function recommendation(
+  type: TripRecommendationRecord["type"],
+  title: string,
+  sourceCity: string,
+  destinationCity: string,
+  amount: number,
+  durationMinutes: number,
+  operatorName: string,
+  rating: number,
+): TripRecommendationRecord {
+  return {
+    recommendationId: `REC-${type}`,
+    type,
+    title,
+    route: `${sourceCity} to ${destinationCity}`,
+    sourceCity,
+    destinationCity,
+    reason: "Generated by the M9 mock recommendation rules engine.",
+    confidenceScore: 0.86,
+    fare: { amount, currency: "INR" },
+    durationMinutes,
+    operatorName,
+    rating,
+    tags: ["Mock Rules", "LLM Ready"],
+    generatedAt: now,
+  };
+}
+
+function suggestion(
+  sourceCity: string,
+  destinationCity: string,
+  searchCount: number,
+): SearchSuggestionRecord {
+  return {
+    label: `${sourceCity} to ${destinationCity}`,
+    sourceCity,
+    destinationCity,
+    searchCount,
+  };
+}

@@ -1,0 +1,1129 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum BookingStatus {
+  DRAFT
+  SEAT_HELD
+  PENDING_PAYMENT
+  CONFIRMED
+  TICKET_GENERATED
+  CANCELLATION_REQUESTED
+  CANCELLED
+  REFUND_PENDING
+  EXPIRED
+  FAILED
+  RESCHEDULED
+}
+
+enum TicketStatus {
+  ISSUED
+  GENERATED
+  DOWNLOADED
+  EMAIL_SENT
+  CANCELLED
+  REFUNDED
+}
+
+enum BookingTimelineType {
+  BOOKING_CREATED
+  SEAT_RESERVED
+  PAYMENT_PENDING
+  PAYMENT_CONFIRMED
+  TICKET_GENERATED
+  TICKET_DOWNLOADED
+  EMAIL_SENT
+  EMAIL_RETRY_SCHEDULED
+  JOURNEY_COMPLETED
+  CANCELLATION_REQUESTED
+  CANCELLED
+  REFUND_PENDING
+  RESCHEDULE_REQUESTED
+  RESCHEDULED
+}
+
+enum NotificationType {
+  BOOKING_CREATED
+  BOOKING_CONFIRMED
+  BOOKING_CANCELLED
+  BOOKING_RESCHEDULED
+  JOURNEY_REMINDER
+  PASSWORD_CHANGED
+  WELCOME
+  ADMIN_ANNOUNCEMENT
+  AGENT_ANNOUNCEMENT
+  BOOKING_UPDATE
+  CANCELLATION_UPDATE
+  RESCHEDULE_UPDATE
+  EMAIL_HISTORY
+  AGENT_BOOKING_CREATED
+  AGENT_BOOKING_CANCELLED
+  AGENT_JOURNEY_REMINDER
+  AGENT_SYSTEM
+  ADMIN_BROADCAST
+  ADMIN_CUSTOMER_MESSAGE
+  ADMIN_AGENT_MESSAGE
+  ADMIN_SYSTEM
+}
+
+enum EmailDeliveryStatus {
+  QUEUED
+  SENT
+  FAILED
+  RETRY_SCHEDULED
+}
+
+enum TicketDownloadStatus {
+  READY
+  DOWNLOADED
+  FAILED
+}
+
+enum SeatInventoryStatus {
+  AVAILABLE
+  BOOKED
+  LADIES
+  RESERVED
+  BLOCKED
+}
+
+enum SeatDeck {
+  LOWER
+  UPPER
+}
+
+enum SeatKind {
+  SEATER
+  SLEEPER
+  SEMI_SLEEPER
+}
+
+enum ReservationStatus {
+  DRAFT
+  SEAT_HELD
+  PENDING_PAYMENT
+  CONFIRMED
+  CANCELLED
+  EXPIRED
+}
+
+enum CouponDiscountType {
+  FIXED
+  PERCENTAGE
+}
+
+enum NotificationChannel {
+  EMAIL
+  SMS
+  IN_APP
+  PUSH
+}
+
+enum NotificationStatus {
+  PENDING
+  QUEUED
+  SENT
+  FAILED
+  READ
+}
+
+enum ReportStatus {
+  REQUESTED
+  PROCESSING
+  READY
+  FAILED
+  EXPIRED
+}
+
+enum ActivityActorType {
+  USER
+  SYSTEM
+  SUPPLIER
+}
+
+model User {
+  id                      String                   @id @default(uuid()) @db.Uuid
+  firstName               String                   @map("first_name") @db.VarChar(80)
+  lastName                String                   @map("last_name") @db.VarChar(80)
+  email                   String                   @unique @db.VarChar(320)
+  phone                   String                   @unique @db.VarChar(20)
+  passwordHash            String                   @map("password")
+  avatar                  String?
+  roleId                  String                   @map("role_id") @db.Uuid
+  status                  UserStatus               @default(PENDING_VERIFICATION)
+  emailVerified           Boolean                  @default(false) @map("email_verified")
+  emailVerifiedAt         DateTime?                @map("email_verified_at")
+  lastLoginAt             DateTime?                @map("last_login_at")
+  forcePasswordChange     Boolean                  @default(false) @map("force_password_change")
+  deletedAt               DateTime?                @map("deleted_at")
+  createdAt               DateTime                 @default(now()) @map("created_at")
+  updatedAt               DateTime                 @updatedAt @map("updated_at")
+  customer                Customer?
+  agent                   Agent?
+  roles                   UserRoleAssignment[]
+  role                    Role                     @relation("PrimaryUserRole", fields: [roleId], references: [id])
+  refreshTokens           RefreshToken[]
+  passwordResetTokens     PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
+  bookings                Booking[]                @relation("BookingUser")
+  notifications           Notification[]
+  auditLogs               AuditLog[]               @relation("AuditActor")
+  activityLogs            ActivityLog[]            @relation("ActivityActor")
+  reports                 Report[]                 @relation("ReportRequester")
+
+  @@index([roleId])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+model Role {
+  id           String               @id @default(uuid()) @db.Uuid
+  code         String               @unique @db.VarChar(80)
+  name         String               @db.VarChar(120)
+  description  String?
+  isSystem     Boolean              @default(false) @map("is_system")
+  createdAt    DateTime             @default(now()) @map("created_at")
+  updatedAt    DateTime             @updatedAt @map("updated_at")
+  users        UserRoleAssignment[]
+  primaryUsers User[]               @relation("PrimaryUserRole")
+  permissions  RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String           @id @default(uuid()) @db.Uuid
+  code        String           @unique @db.VarChar(120)
+  description String?
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+  roles       RolePermission[]
+
+  @@map("permissions")
+}
+
+model UserRoleAssignment {
+  userId       String   @map("user_id") @db.Uuid
+  roleId       String   @map("role_id") @db.Uuid
+  assignedAt   DateTime @default(now()) @map("assigned_at")
+  assignedById String?  @map("assigned_by_id") @db.Uuid
+  role         Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  roleId       String     @map("role_id") @db.Uuid
+  permissionId String     @map("permission_id") @db.Uuid
+  assignedAt   DateTime   @default(now()) @map("assigned_at")
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+model Customer {
+  id               String         @id @default(uuid()) @db.Uuid
+  userId           String         @unique @map("user_id") @db.Uuid
+  fullName         String         @map("full_name") @db.VarChar(160)
+  email            String?        @db.VarChar(320)
+  phone            String         @db.VarChar(20)
+  gender           Gender?
+  dateOfBirth      DateTime?      @map("date_of_birth") @db.Date
+  emergencyContact String?        @map("emergency_contact") @db.VarChar(20)
+  preferredRoutes  Json           @default("[]") @map("preferred_routes")
+  status           String         @default("ACTIVE") @db.VarChar(40)
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookings         Booking[]
+  notes            CustomerNote[]
+  tags             CustomerTag[]
+
+  @@index([phone])
+  @@index([email])
+  @@index([status])
+  @@map("customers")
+}
+
+model Agent {
+  id                      String             @id @default(uuid()) @db.Uuid
+  userId                  String             @unique @map("user_id") @db.Uuid
+  agencyName              String             @map("agency_name") @db.VarChar(180)
+  agencyAddress           String?            @map("agency_address")
+  contactName             String             @map("contact_name") @db.VarChar(160)
+  phone                   String             @db.VarChar(20)
+  logoUrl                 String?            @map("logo_url")
+  gstin                   String?            @db.VarChar(20)
+  status                  String             @default("PENDING_REVIEW") @db.VarChar(40)
+  commissionRate          Decimal            @default(0) @map("commission_rate") @db.Decimal(5, 2)
+  emailPreferences        Json               @default("{}") @map("email_preferences")
+  notificationPreferences Json               @default("{}") @map("notification_preferences")
+  createdAt               DateTime           @default(now()) @map("created_at")
+  updatedAt               DateTime           @updatedAt @map("updated_at")
+  user                    User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookings                Booking[]
+  reports                 AgentReport[]
+  activityLogs            AgentActivityLog[]
+
+  @@index([status])
+  @@map("agents")
+}
+
+model CustomerNote {
+  id         String   @id @default(uuid()) @db.Uuid
+  customerId String   @map("customer_id") @db.Uuid
+  body       String
+  createdBy  String?  @map("created_by") @db.VarChar(160)
+  createdAt  DateTime @default(now()) @map("created_at")
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId, createdAt])
+  @@map("customer_notes")
+}
+
+model CustomerTag {
+  id         String   @id @default(uuid()) @db.Uuid
+  customerId String   @map("customer_id") @db.Uuid
+  label      String   @db.VarChar(80)
+  color      String   @default("gray") @db.VarChar(40)
+  createdAt  DateTime @default(now()) @map("created_at")
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, label])
+  @@index([label])
+  @@map("customer_tags")
+}
+
+model AgentReport {
+  id          String   @id @default(uuid()) @db.Uuid
+  agentId     String   @map("agent_id") @db.Uuid
+  name        String   @db.VarChar(180)
+  type        String   @db.VarChar(80)
+  status      String   @default("READY") @db.VarChar(40)
+  filters     Json?
+  data        Json     @default("{}")
+  generatedAt DateTime @default(now()) @map("generated_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  agent       Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([agentId, type, status])
+  @@map("agent_reports")
+}
+
+model AgentActivityLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  agentId    String   @map("agent_id") @db.Uuid
+  action     String   @db.VarChar(120)
+  message    String
+  entityType String?  @map("entity_type") @db.VarChar(120)
+  entityId   String?  @map("entity_id") @db.VarChar(120)
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+  agent      Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([agentId, createdAt])
+  @@index([entityType, entityId])
+  @@map("agent_activity_logs")
+}
+
+model RefreshToken {
+  id                String    @id @db.Uuid
+  userId            String    @map("user_id") @db.Uuid
+  tokenHash         String    @map("token_hash")
+  tokenFamily       String    @map("token_family") @db.Uuid
+  expiresAt         DateTime  @map("expires_at")
+  revokedAt         DateTime? @map("revoked_at")
+  replacedByTokenId String?   @map("replaced_by_token_id") @db.Uuid
+  ipAddress         String?   @map("ip_address") @db.VarChar(80)
+  userAgent         String?   @map("user_agent")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenFamily])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+model PasswordResetToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  tokenHash  String    @map("token_hash")
+  expiresAt  DateTime  @map("expires_at")
+  consumedAt DateTime? @map("consumed_at")
+  ipAddress  String?   @map("ip_address") @db.VarChar(80)
+  userAgent  String?   @map("user_agent")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tokenHash])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
+}
+
+model EmailVerificationToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  tokenHash  String    @map("token_hash")
+  expiresAt  DateTime  @map("expires_at")
+  consumedAt DateTime? @map("consumed_at")
+  ipAddress  String?   @map("ip_address") @db.VarChar(80)
+  userAgent  String?   @map("user_agent")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tokenHash])
+  @@index([expiresAt])
+  @@map("email_verification_tokens")
+}
+
+model Booking {
+  id                String        @id @default(uuid()) @db.Uuid
+  bookingReference  String        @unique @map("booking_reference") @db.VarChar(40)
+  userId            String        @map("user_id") @db.Uuid
+  customerId        String?       @map("customer_id") @db.Uuid
+  agentId           String?       @map("agent_id") @db.Uuid
+  couponId          String?       @map("coupon_id") @db.Uuid
+  supplierCode      String?       @map("supplier_code") @db.VarChar(40)
+  supplierBookingId String?       @map("supplier_booking_id") @db.VarChar(120)
+  pnr               String?       @db.VarChar(80)
+  sourceCity        String        @map("source_city") @db.VarChar(120)
+  destinationCity   String        @map("destination_city") @db.VarChar(120)
+  journeyDate       DateTime      @map("journey_date") @db.Date
+  departureTime     DateTime?     @map("departure_time")
+  arrivalTime       DateTime?     @map("arrival_time")
+  boardingPointId   String?       @map("boarding_point_id") @db.VarChar(120)
+  boardingPointName String?       @map("boarding_point_name") @db.VarChar(180)
+  droppingPointId   String?       @map("dropping_point_id") @db.VarChar(120)
+  droppingPointName String?       @map("dropping_point_name") @db.VarChar(180)
+  status            BookingStatus @default(DRAFT)
+  seatCount         Int           @default(1) @map("seat_count")
+  baseFare          Decimal       @map("base_fare") @db.Decimal(12, 2)
+  taxAmount         Decimal       @default(0) @map("tax_amount") @db.Decimal(12, 2)
+  discountAmount    Decimal       @default(0) @map("discount_amount") @db.Decimal(12, 2)
+  totalAmount       Decimal       @map("total_amount") @db.Decimal(12, 2)
+  currency          String        @default("INR") @db.VarChar(3)
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+  cancelledAt       DateTime?     @map("cancelled_at")
+  rescheduledAt     DateTime?     @map("rescheduled_at")
+  newJourneyDate    DateTime?     @map("new_journey_date") @db.Date
+  agent             Agent?        @relation(fields: [agentId], references: [id])
+  coupon            Coupon?       @relation(fields: [couponId], references: [id])
+  customer          Customer?     @relation(fields: [customerId], references: [id])
+  user              User          @relation("BookingUser", fields: [userId], references: [id])
+  passengers        Passenger[]
+  tickets           Ticket[]
+  reservations      Reservation[]
+  timeline          BookingTimeline[]
+
+  @@index([userId, status])
+  @@index([customerId, status])
+  @@index([agentId, status])
+  @@index([status, journeyDate])
+  @@index([journeyDate])
+  @@index([sourceCity, destinationCity, journeyDate])
+  @@index([pnr])
+  @@index([supplierCode])
+  @@index([supplierCode, supplierBookingId])
+  @@map("bookings")
+}
+
+model Passenger {
+  id               String   @id @default(uuid()) @db.Uuid
+  bookingId        String   @map("booking_id") @db.Uuid
+  firstName        String?  @map("first_name") @db.VarChar(80)
+  lastName         String?  @map("last_name") @db.VarChar(80)
+  fullName         String   @map("full_name") @db.VarChar(160)
+  age              Int
+  gender           Gender
+  phone            String?  @db.VarChar(20)
+  email            String?  @db.VarChar(320)
+  emergencyContact String?  @map("emergency_contact") @db.VarChar(20)
+  seatNumber       String   @map("seat_number") @db.VarChar(20)
+  createdAt        DateTime @default(now()) @map("created_at")
+  booking          Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@index([email])
+  @@index([phone])
+  @@map("passengers")
+}
+
+model SeatLayout {
+  id            String   @id @default(uuid()) @db.Uuid
+  supplierCode  String   @map("supplier_code") @db.VarChar(40)
+  tripId        String   @map("trip_id") @db.VarChar(120)
+  journeyDate   DateTime @map("journey_date") @db.Date
+  operatorName  String   @map("operator_name") @db.VarChar(180)
+  busType       String   @map("bus_type") @db.VarChar(80)
+  vehicleLayout String   @map("vehicle_layout") @db.VarChar(80)
+  axleType      String   @map("axle_type") @db.VarChar(40)
+  maxSelectable Int      @default(6) @map("max_selectable")
+  holdSeconds   Int      @default(600) @map("hold_seconds")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  seats         Seat[]
+
+  @@unique([supplierCode, tripId, journeyDate])
+  @@index([tripId, journeyDate])
+  @@map("seat_layouts")
+}
+
+model Seat {
+  id                String              @id @default(uuid()) @db.Uuid
+  layoutId          String              @map("layout_id") @db.Uuid
+  seatNumber        String              @map("seat_number") @db.VarChar(20)
+  deck              SeatDeck
+  row               Int
+  column            Int
+  kind              SeatKind
+  status            SeatInventoryStatus @default(AVAILABLE)
+  fareAmount        Decimal             @map("fare_amount") @db.Decimal(12, 2)
+  currency          String              @default("INR") @db.VarChar(3)
+  isWindow          Boolean             @default(false) @map("is_window")
+  isEmergencyExit   Boolean             @default(false) @map("is_emergency_exit")
+  hasExtraLegroom   Boolean             @default(false) @map("has_extra_legroom")
+  genderRestriction String?             @map("gender_restriction") @db.VarChar(20)
+  layout            SeatLayout          @relation(fields: [layoutId], references: [id], onDelete: Cascade)
+
+  @@unique([layoutId, seatNumber])
+  @@index([status])
+  @@map("seats")
+}
+
+model Reservation {
+  id           String            @id @default(uuid()) @db.Uuid
+  bookingId    String?           @map("booking_id") @db.Uuid
+  supplierCode String            @map("supplier_code") @db.VarChar(40)
+  tripId       String            @map("trip_id") @db.VarChar(120)
+  journeyDate  DateTime          @map("journey_date") @db.Date
+  seatNumbers  Json              @map("seat_numbers")
+  status       ReservationStatus @default(SEAT_HELD)
+  expiresAt    DateTime          @map("expires_at")
+  releasedAt   DateTime?         @map("released_at")
+  confirmedAt  DateTime?         @map("confirmed_at")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+  booking      Booking?          @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  logs         ReservationLog[]
+
+  @@index([tripId, journeyDate, status])
+  @@index([supplierCode, journeyDate, status])
+  @@index([bookingId])
+  @@index([expiresAt])
+  @@map("reservations")
+}
+
+model ReservationLog {
+  id            String      @id @default(uuid()) @db.Uuid
+  reservationId String      @map("reservation_id") @db.Uuid
+  action        String      @db.VarChar(80)
+  message       String
+  metadata      Json?
+  createdAt     DateTime    @default(now()) @map("created_at")
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  @@index([reservationId, createdAt])
+  @@map("reservation_logs")
+}
+
+model Ticket {
+  id           String       @id @default(uuid()) @db.Uuid
+  bookingId    String       @map("booking_id") @db.Uuid
+  ticketNumber String       @unique @map("ticket_number") @db.VarChar(80)
+  pnr          String       @db.VarChar(80)
+  journeyDate  DateTime     @map("journey_date") @db.Date
+  busNumber    String       @map("bus_number") @db.VarChar(40)
+  qrPayload    Json         @map("qr_payload")
+  support      Json         @default("{}")
+  status       TicketStatus @default(GENERATED)
+  pdfObjectKey String?      @map("pdf_object_key")
+  issuedAt     DateTime?    @map("issued_at")
+  emailedAt    DateTime?    @map("emailed_at")
+  downloadedAt DateTime?    @map("downloaded_at")
+  cancelledAt  DateTime?    @map("cancelled_at")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+  booking      Booking      @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  downloads    TicketDownload[]
+
+  @@index([bookingId])
+  @@index([status])
+  @@index([pnr])
+  @@index([journeyDate, status])
+  @@map("tickets")
+}
+
+model TicketDownload {
+  id           String               @id @default(uuid()) @db.Uuid
+  ticketId     String               @map("ticket_id") @db.Uuid
+  fileName     String               @map("file_name") @db.VarChar(180)
+  mimeType     String               @default("application/pdf") @map("mime_type") @db.VarChar(80)
+  status       TicketDownloadStatus @default(DOWNLOADED)
+  downloadedAt DateTime             @default(now()) @map("downloaded_at")
+  metadata     Json?
+  ticket       Ticket               @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, downloadedAt])
+  @@map("ticket_downloads")
+}
+
+model BookingTimeline {
+  id          String              @id @default(uuid()) @db.Uuid
+  bookingId   String              @map("booking_id") @db.Uuid
+  type        BookingTimelineType
+  title       String              @db.VarChar(180)
+  description String
+  tone        String              @default("info") @db.VarChar(40)
+  metadata    Json?
+  occurredAt  DateTime            @default(now()) @map("occurred_at")
+  createdAt   DateTime            @default(now()) @map("created_at")
+  booking     Booking             @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId, occurredAt])
+  @@index([type])
+  @@map("booking_timeline")
+}
+
+model Coupon {
+  id                String             @id @default(uuid()) @db.Uuid
+  code              String             @unique @db.VarChar(40)
+  discountType      CouponDiscountType @map("discount_type")
+  discountValue     Decimal            @map("discount_value") @db.Decimal(12, 2)
+  maxDiscountAmount Decimal?           @map("max_discount_amount") @db.Decimal(12, 2)
+  startsAt          DateTime           @map("starts_at")
+  endsAt            DateTime           @map("ends_at")
+  usageLimit        Int?               @map("usage_limit")
+  perUserLimit      Int?               @map("per_user_limit")
+  isActive          Boolean            @default(true) @map("is_active")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+  bookings          Booking[]
+
+  @@index([isActive, startsAt, endsAt])
+  @@map("coupons")
+}
+
+model Offer {
+  id          String   @id @default(uuid()) @db.Uuid
+  slug        String   @unique @db.VarChar(120)
+  title       String   @db.VarChar(180)
+  description String
+  startsAt    DateTime @map("starts_at")
+  endsAt      DateTime @map("ends_at")
+  isActive    Boolean  @default(true) @map("is_active")
+  metadata    Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([isActive, startsAt, endsAt])
+  @@map("offers")
+}
+
+model Notification {
+  id        String              @id @default(uuid()) @db.Uuid
+  userId    String?             @map("user_id") @db.Uuid
+  type      NotificationType    @default(BOOKING_UPDATE)
+  channel   NotificationChannel
+  status    NotificationStatus  @default(PENDING)
+  subject   String?             @db.VarChar(180)
+  body      String
+  data      Json?
+  queuedAt  DateTime?           @map("queued_at")
+  sentAt    DateTime?           @map("sent_at")
+  readAt    DateTime?           @map("read_at")
+  createdAt DateTime            @default(now()) @map("created_at")
+  user      User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, status])
+  @@index([status, createdAt])
+  @@index([queuedAt])
+  @@map("notifications")
+}
+
+model EmailLog {
+  id           String              @id @default(uuid()) @db.Uuid
+  to           String              @db.VarChar(320)
+  templateKey  String              @map("template_key") @db.VarChar(120)
+  subject      String              @db.VarChar(180)
+  status       EmailDeliveryStatus @default(QUEUED)
+  attempts     Int                 @default(0)
+  maxAttempts  Int                 @default(3) @map("max_attempts")
+  queuedAt     DateTime            @default(now()) @map("queued_at")
+  sentAt       DateTime?           @map("sent_at")
+  failedAt     DateTime?           @map("failed_at")
+  nextRetryAt  DateTime?           @map("next_retry_at")
+  errorMessage String?             @map("error_message")
+  metadata     Json?
+
+  @@index([templateKey, status])
+  @@index([queuedAt])
+  @@index([status, nextRetryAt])
+  @@map("email_logs")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  actorUserId String?  @map("actor_user_id") @db.Uuid
+  action      String   @db.VarChar(120)
+  entityType  String   @map("entity_type") @db.VarChar(120)
+  entityId    String?  @map("entity_id") @db.VarChar(120)
+  ipAddress   String?  @map("ip_address") @db.VarChar(80)
+  userAgent   String?  @map("user_agent")
+  metadata    Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+  actor       User?    @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model EmailTemplate {
+  id        String   @id @default(uuid()) @db.Uuid
+  key       String   @unique @db.VarChar(120)
+  subject   String   @db.VarChar(180)
+  htmlBody  String   @map("html_body")
+  textBody  String?  @map("text_body")
+  variables Json     @default("{}")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("email_templates")
+}
+
+model Setting {
+  id                String   @id @default(uuid()) @db.Uuid
+  key               String   @unique @db.VarChar(120)
+  value             Json
+  description       String?
+  isSecretReference Boolean  @default(false) @map("is_secret_reference")
+  updatedById       String?  @map("updated_by_id") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@map("settings")
+}
+
+model Report {
+  id            String       @id @default(uuid()) @db.Uuid
+  name          String       @db.VarChar(180)
+  type          String       @db.VarChar(80)
+  status        ReportStatus @default(REQUESTED)
+  requestedById String?      @map("requested_by_id") @db.Uuid
+  objectKey     String?      @map("object_key")
+  filters       Json?
+  generatedAt   DateTime?    @map("generated_at")
+  expiresAt     DateTime?    @map("expires_at")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+  requestedBy   User?        @relation("ReportRequester", fields: [requestedById], references: [id], onDelete: SetNull)
+
+  @@index([requestedById, status])
+  @@map("reports")
+}
+
+model ActivityLog {
+  id          String            @id @default(uuid()) @db.Uuid
+  actorType   ActivityActorType @map("actor_type")
+  actorUserId String?           @map("actor_user_id") @db.Uuid
+  action      String            @db.VarChar(120)
+  message     String
+  entityType  String?           @map("entity_type") @db.VarChar(120)
+  entityId    String?           @map("entity_id") @db.VarChar(120)
+  ipAddress   String?           @map("ip_address") @db.VarChar(80)
+  userAgent   String?           @map("user_agent")
+  requestId   String?           @map("request_id") @db.VarChar(120)
+  metadata    Json?
+  createdAt   DateTime          @default(now()) @map("created_at")
+  actor       User?             @relation("ActivityActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("activity_logs")
+}
+
+model Supplier {
+  id            String   @id @default(uuid()) @db.Uuid
+  code          String   @unique @db.VarChar(40)
+  name          String   @db.VarChar(160)
+  status        String   @default("PENDING_INTEGRATION") @db.VarChar(40)
+  configuration Json?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@map("suppliers")
+}
+
+model CmsPage {
+  id             String    @id @default(uuid()) @db.Uuid
+  key            String    @unique @db.VarChar(120)
+  title          String    @db.VarChar(180)
+  section        String    @db.VarChar(80)
+  status         String    @default("DRAFT") @db.VarChar(40)
+  content        String
+  seoTitle       String?   @map("seo_title") @db.VarChar(180)
+  seoDescription String?   @map("seo_description")
+  updatedById    String?   @map("updated_by_id") @db.Uuid
+  publishedAt    DateTime? @map("published_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@index([section, status])
+  @@map("cms_pages")
+}
+
+model AnalyticsSnapshot {
+  id         String   @id @default(uuid()) @db.Uuid
+  metricKey  String   @map("metric_key") @db.VarChar(120)
+  period     String   @db.VarChar(40)
+  points     Json     @default("[]")
+  summary    Json     @default("{}")
+  snapshotAt DateTime @default(now()) @map("snapshot_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([metricKey, period, snapshotAt])
+  @@map("analytics_snapshots")
+}
+
+model FeatureFlag {
+  id                String   @id @default(uuid()) @db.Uuid
+  key               String   @unique @db.VarChar(120)
+  name              String   @db.VarChar(160)
+  description       String?
+  enabled           Boolean  @default(false)
+  audience          String   @default("GLOBAL") @db.VarChar(80)
+  rolloutPercentage Int      @default(0) @map("rollout_percentage")
+  owner             String   @db.VarChar(120)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@index([enabled, audience])
+  @@map("feature_flags")
+}
+
+model PlatformSetting {
+  id                String   @id @default(uuid()) @db.Uuid
+  key               String   @unique @db.VarChar(120)
+  category          String   @db.VarChar(80)
+  label             String   @db.VarChar(160)
+  value             Json
+  description       String?
+  isSecretReference Boolean  @default(false) @map("is_secret_reference")
+  updatedById       String?  @map("updated_by_id") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@index([category])
+  @@map("platform_settings")
+}
+
+model SupplierConfiguration {
+  id              String   @id @default(uuid()) @db.Uuid
+  code            String   @unique @db.VarChar(40)
+  name            String   @db.VarChar(160)
+  enabled         Boolean  @default(false)
+  priority        Int      @default(100)
+  healthStatus    String   @default("DISABLED") @map("health_status") @db.VarChar(40)
+  environment     String   @default("MOCK") @db.VarChar(80)
+  apiKeySecretRef String?  @map("api_key_secret_ref")
+  configuration   Json?
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([enabled, priority])
+  @@map("supplier_configurations")
+}
+
+model SupplierRequestLog {
+  id            String   @id @default(uuid()) @db.Uuid
+  requestId     String   @unique @map("request_id") @db.VarChar(120)
+  supplierCode  String   @map("supplier_code") @db.VarChar(40)
+  operation     String   @db.VarChar(80)
+  timestamp     DateTime @default(now())
+  durationMs    Int      @default(0) @map("duration_ms")
+  httpStatus    Int?     @map("http_status")
+  success       Boolean
+  errorCode     String?  @map("error_code") @db.VarChar(80)
+  correlationId String   @map("correlation_id") @db.VarChar(120)
+  traceId       String   @map("trace_id") @db.VarChar(120)
+  metadata      Json     @default("{}")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([supplierCode, operation, timestamp])
+  @@index([success, timestamp])
+  @@index([errorCode, timestamp])
+  @@index([correlationId])
+  @@map("supplier_request_logs")
+}
+
+model SupplierHealthSnapshot {
+  id                      String   @id @default(uuid()) @db.Uuid
+  supplierCode            String   @map("supplier_code") @db.VarChar(40)
+  status                  String   @db.VarChar(40)
+  responseTimeMs          Int      @default(0) @map("response_time_ms")
+  successRate             Decimal  @default(0) @map("success_rate") @db.Decimal(5, 4)
+  failureRate             Decimal  @default(0) @map("failure_rate") @db.Decimal(5, 4)
+  lastSuccessfulRequestAt DateTime? @map("last_successful_request_at")
+  lastFailureAt           DateTime? @map("last_failure_at")
+  checkedAt               DateTime @default(now()) @map("checked_at")
+  createdAt               DateTime @default(now()) @map("created_at")
+
+  @@index([supplierCode, checkedAt])
+  @@index([status])
+  @@map("supplier_health_snapshots")
+}
+
+model SupplierCircuitState {
+  id            String   @id @default(uuid()) @db.Uuid
+  supplierCode  String   @unique @map("supplier_code") @db.VarChar(40)
+  state         String   @db.VarChar(40)
+  failureCount  Int      @default(0) @map("failure_count")
+  openedAt      DateTime? @map("opened_at")
+  nextRetryAt   DateTime? @map("next_retry_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([state, nextRetryAt])
+  @@map("supplier_circuit_states")
+}
+
+model PaymentProviderConfiguration {
+  id                  String   @id @default(uuid()) @db.Uuid
+  code                String   @unique @db.VarChar(40)
+  name                String   @db.VarChar(160)
+  enabled             Boolean  @default(false)
+  environment         String   @default("SANDBOX_PLACEHOLDER") @db.VarChar(80)
+  currency            String   @default("INR") @db.VarChar(10)
+  credentialSecretRef String?  @map("credential_secret_ref")
+  configuration       Json     @default("{}")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@index([enabled, environment])
+  @@map("payment_provider_configurations")
+}
+
+model PaymentTransaction {
+  id                String   @id @default(uuid()) @db.Uuid
+  transactionId     String   @unique @map("transaction_id") @db.VarChar(120)
+  paymentIntentId   String   @map("payment_intent_id") @db.VarChar(120)
+  providerCode      String   @map("provider_code") @db.VarChar(40)
+  status            String   @db.VarChar(40)
+  amount            Decimal  @db.Decimal(12, 2)
+  currency          String   @default("INR") @db.VarChar(10)
+  providerReference String?  @map("provider_reference") @db.VarChar(160)
+  metadata          Json     @default("{}")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@index([paymentIntentId])
+  @@index([providerCode, status])
+  @@index([status, createdAt])
+  @@index([providerReference])
+  @@map("payment_transactions")
+}
+
+model PaymentWebhookEvent {
+  id            String   @id @default(uuid()) @db.Uuid
+  providerCode  String   @map("provider_code") @db.VarChar(40)
+  eventId       String   @map("event_id") @db.VarChar(160)
+  eventType     String   @map("event_type") @db.VarChar(120)
+  payload       Json     @default("{}")
+  status        String   @db.VarChar(40)
+  receivedAt    DateTime @default(now()) @map("received_at")
+  processedAt   DateTime? @map("processed_at")
+  errorMessage  String?  @map("error_message")
+
+  @@unique([providerCode, eventId])
+  @@index([status, receivedAt])
+  @@index([providerCode, status, receivedAt])
+  @@map("payment_webhook_events")
+}
+
+model IdempotencyKey {
+  id          String   @id @default(uuid()) @db.Uuid
+  scope       String   @db.VarChar(80)
+  key         String   @db.VarChar(180)
+  fingerprint String   @db.VarChar(128)
+  status      String   @db.VarChar(40)
+  response    Json?
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([scope, key])
+  @@index([expiresAt])
+  @@map("idempotency_keys")
+}
+
+model DistributedLock {
+  id        String   @id @default(uuid()) @db.Uuid
+  lockKey   String   @unique @map("lock_key") @db.VarChar(180)
+  owner     String   @db.VarChar(180)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([expiresAt])
+  @@map("distributed_locks")
+}
+
+model MonitoringSnapshot {
+  id               String   @id @default(uuid()) @db.Uuid
+  component        String   @db.VarChar(120)
+  status           String   @db.VarChar(40)
+  latencyMs        Int      @default(0) @map("latency_ms")
+  uptimePercentage Decimal  @default(100) @map("uptime_percentage") @db.Decimal(5, 2)
+  details          Json     @default("{}")
+  sampledAt        DateTime @default(now()) @map("sampled_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([component, sampledAt])
+  @@index([status])
+  @@map("monitoring_snapshots")
+}
+
+model CacheEntry {
+  id             String   @id @default(uuid()) @db.Uuid
+  cacheKey       String   @unique @map("cache_key") @db.VarChar(180)
+  namespace      String   @db.VarChar(80)
+  status         String   @db.VarChar(40)
+  ttlSeconds     Int      @map("ttl_seconds")
+  sizeBytes      Int      @default(0) @map("size_bytes")
+  lastAccessedAt DateTime @default(now()) @map("last_accessed_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@index([namespace, status])
+  @@map("cache_entries")
+}
+
+model QueueJob {
+  id              String   @id @default(uuid()) @db.Uuid
+  queueName       String   @map("queue_name") @db.VarChar(80)
+  jobName         String   @map("job_name") @db.VarChar(160)
+  status          String   @db.VarChar(40)
+  attempts        Int      @default(0)
+  maxAttempts     Int      @default(5) @map("max_attempts")
+  payload         Json     @default("{}")
+  errorMessage    String?  @map("error_message")
+  scheduledAt     DateTime @default(now()) @map("scheduled_at")
+  processedAt     DateTime? @map("processed_at")
+  deadLetteredAt  DateTime? @map("dead_lettered_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([queueName, status])
+  @@map("queue_jobs")
+}
+
+model BackgroundJob {
+  id          String   @id @default(uuid()) @db.Uuid
+  jobKey      String   @unique @map("job_key") @db.VarChar(120)
+  name        String   @db.VarChar(160)
+  queueName   String   @map("queue_name") @db.VarChar(80)
+  schedule    String   @db.VarChar(80)
+  status      String   @db.VarChar(40)
+  lastRunAt   DateTime? @map("last_run_at")
+  nextRunAt   DateTime @map("next_run_at")
+  description String
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([queueName, status])
+  @@map("background_jobs")
+}
+
+model SearchInsight {
+  id              String   @id @default(uuid()) @db.Uuid
+  sourceCity      String   @map("source_city") @db.VarChar(120)
+  destinationCity String   @map("destination_city") @db.VarChar(120)
+  searchCount     Int      @default(0) @map("search_count")
+  noResultCount   Int      @default(0) @map("no_result_count")
+  abandonedCount  Int      @default(0) @map("abandoned_count")
+  averageBookingSeconds Int @default(0) @map("average_booking_seconds")
+  snapshotAt      DateTime @default(now()) @map("snapshot_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([sourceCity, destinationCity])
+  @@index([snapshotAt])
+  @@map("search_insights")
+}
+
+model RecommendationEvent {
+  id              String   @id @default(uuid()) @db.Uuid
+  recommendationType String @map("recommendation_type") @db.VarChar(80)
+  sourceCity      String   @map("source_city") @db.VarChar(120)
+  destinationCity String   @map("destination_city") @db.VarChar(120)
+  reason          String
+  confidenceScore Decimal  @map("confidence_score") @db.Decimal(5, 2)
+  modelProvider   String   @default("NONE") @map("model_provider") @db.VarChar(80)
+  generatedAt     DateTime @default(now()) @map("generated_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([recommendationType, generatedAt])
+  @@map("recommendation_events")
+}
+
+model MetricSnapshot {
+  id            String   @id @default(uuid()) @db.Uuid
+  metricKey     String   @map("metric_key") @db.VarChar(120)
+  value         Decimal  @db.Decimal(14, 4)
+  unit          String   @db.VarChar(40)
+  labels        Json     @default("{}")
+  sampledAt     DateTime @default(now()) @map("sampled_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([metricKey, sampledAt])
+  @@map("metric_snapshots")
+}
+
+model SeoRoute {
+  id              String   @id @default(uuid()) @db.Uuid
+  path            String   @unique @db.VarChar(180)
+  title           String   @db.VarChar(220)
+  description     String
+  canonicalUrl    String   @map("canonical_url")
+  openGraph       Json     @map("open_graph") @default("{}")
+  twitterCard     Json     @map("twitter_card") @default("{}")
+  jsonLd          Json     @map("json_ld") @default("{}")
+  breadcrumbs     Json     @default("[]")
+  isIndexable     Boolean  @default(true) @map("is_indexable")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([isIndexable])
+  @@map("seo_routes")
+}

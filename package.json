@@ -1,0 +1,51 @@
+{
+  "name": "vnbus-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Milestone 11 production-hardening foundation for the Vriddhi Nexus Pvt Ltd bus booking platform with deployment, observability, recovery, supplier, and payment readiness.",
+  "license": "UNLICENSED",
+  "packageManager": "pnpm@11.16.0",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "test": "turbo test",
+    "test:e2e": "pnpm --filter @vnbus/web test && pnpm --filter @vnbus/api test -- --runInBand src/modules/payment/tests/mock-payment-booking.e2e.spec.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:generate": "pnpm --filter @vnbus/api prisma:generate",
+    "db:migrate": "pnpm --filter @vnbus/api prisma:migrate",
+    "prisma:validate": "pnpm --filter @vnbus/api exec prisma validate --schema prisma/schema.prisma",
+    "security:audit": "pnpm audit --audit-level high",
+    "docker:build": "docker build -f apps/api/Dockerfile -t vnbus-api . && docker build -f apps/api/Dockerfile.worker -t vnbus-worker . && docker build -f apps/api/Dockerfile.scheduler -t vnbus-scheduler . && docker build -f apps/web/Dockerfile -t vnbus-web .",
+    "loadtest:staging": "k6 run tests/load/k6-staging.js",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.8.1",
+    "@commitlint/config-conventional": "^19.8.1",
+    "@eslint/js": "^9.33.0",
+    "@next/eslint-plugin-next": "15.5.23",
+    "@playwright/test": "^1.54.2",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.2.0",
+    "eslint": "^9.33.0",
+    "eslint-config-next": "15.5.23",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^16.3.0",
+    "husky": "^9.1.7",
+    "jest": "^30.0.5",
+    "lint-staged": "^16.1.4",
+    "prettier": "^3.6.2",
+    "ts-jest": "^29.4.1",
+    "tsx": "^4.20.3",
+    "turbo": "^2.5.5",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.39.0"
+  }
+}
