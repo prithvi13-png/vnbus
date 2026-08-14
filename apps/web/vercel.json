@@ -1,7 +1,7 @@
 {
   "framework": "nextjs",
   "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
-  "buildCommand": "cd ../.. && pnpm --filter @vnbus/web build",
+  "buildCommand": "cd ../.. && pnpm exec turbo build --filter=@vnbus/web",
   "outputDirectory": ".next",
   "env": {
     "NEXT_PUBLIC_MAINTENANCE_MODE": "false"
