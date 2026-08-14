@@ -1,0 +1,44 @@
+services:
+  - type: web
+    name: vnbus-api
+    runtime: docker
+    plan: free
+    region: ohio
+    branch: main
+    dockerfilePath: apps/api/Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/v1/health/live
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: APP_NAME
+        value: Vriddhi Nexus Bus
+      - key: APP_URL
+        sync: false
+      - key: API_URL
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: MAINTENANCE_MODE
+        value: "false"
+      - key: SUPPLIER_MODE
+        value: mock
+      - key: PAYMENT_PROVIDER
+        value: MOCK
+      - key: EMAIL_PROVIDER
+        value: mock
+      - key: PROMETHEUS_ENABLED
+        value: "true"
+      - key: LOG_LEVEL
+        value: info
