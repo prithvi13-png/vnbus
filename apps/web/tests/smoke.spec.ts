@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 test.setTimeout(60_000);
 
@@ -70,12 +70,14 @@ test("mock booking flow reaches ticket view", async ({ page }) => {
 });
 
 test("admin dashboard route renders", async ({ page }) => {
+  await signInAs(page, "ADMIN");
   await page.goto("/admin/dashboard");
 
   await expect(page.getByRole("heading", { name: "Admin Dashboard" })).toBeVisible();
 });
 
 test("admin integration configuration renders milestone ten controls", async ({ page }) => {
+  await signInAs(page, "ADMIN");
   await page.goto("/admin/supplier-configuration");
 
   await expect(page.getByRole("heading", { name: "Integration Configuration" })).toBeVisible();
@@ -83,6 +85,14 @@ test("admin integration configuration renders milestone ten controls", async ({ 
   await expect(page.getByRole("tab", { name: "Payments" })).toBeVisible();
   await page.getByRole("tab", { name: "Payments" }).click();
   await expect(page.getByText("Razorpay")).toBeVisible();
+});
+
+test("customer cannot access the admin dashboard", async ({ page }) => {
+  await signInAs(page, "CUSTOMER");
+  await page.goto("/admin/dashboard");
+
+  await expect(page).toHaveURL(/\/unauthorized/);
+  await expect(page.getByRole("heading", { name: "Access denied" })).toBeVisible();
 });
 
 test("agent portal routes render milestone seven workspaces", async ({ page }) => {
@@ -118,4 +128,37 @@ function futureIsoDate(): string {
   date.setUTCDate(date.getUTCDate() + 30);
 
   return date.toISOString().slice(0, 10);
+}
+
+async function signInAs(page: Page, role: "ADMIN" | "CUSTOMER"): Promise<void> {
+  await page.addInitScript((selectedRole) => {
+    const user = {
+      id: selectedRole === "ADMIN" ? "test-admin" : "test-customer",
+      firstName: selectedRole === "ADMIN" ? "Admin" : "Customer",
+      lastName: "User",
+      email: selectedRole === "ADMIN" ? "admin@vriddhinexus.com" : "user@vriddhinexus.com",
+      phone: "+919999999999",
+      avatar: null,
+      role: selectedRole,
+      roles: [selectedRole],
+      permissions:
+        selectedRole === "ADMIN"
+          ? ["admin.dashboard", "settings.manage", "users.view"]
+          : ["profile.view", "profile.update", "bookings.view"],
+      status: "ACTIVE",
+      emailVerified: true,
+      forcePasswordChange: false,
+    };
+
+    window.localStorage.setItem(
+      "vnbus-auth",
+      JSON.stringify({
+        state: {
+          accessToken: `${selectedRole.toLowerCase()}-test-token`,
+          user,
+        },
+        version: 0,
+      }),
+    );
+  }, role);
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import type { UserRole } from "@vnbus/types";
 
 export interface AuthUser {
@@ -27,24 +28,43 @@ export interface AuthResponse {
 interface AuthState {
   accessToken: string | null;
   user: AuthUser | null;
+  hasHydrated: boolean;
   sessionExpired: boolean;
   setSession: (response: AuthResponse) => void;
   updateUser: (user: AuthUser) => void;
   clearSession: () => void;
   markSessionExpired: () => void;
+  setHasHydrated: (hasHydrated: boolean) => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
-  accessToken: null,
-  user: null,
-  sessionExpired: false,
-  setSession: (response) =>
-    set({
-      accessToken: response.accessToken,
-      user: response.user,
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set) => ({
+      accessToken: null,
+      user: null,
+      hasHydrated: false,
       sessionExpired: false,
+      setSession: (response) =>
+        set({
+          accessToken: response.accessToken,
+          user: response.user,
+          sessionExpired: false,
+        }),
+      updateUser: (user) => set({ user }),
+      clearSession: () => set({ accessToken: null, user: null, sessionExpired: false }),
+      markSessionExpired: () => set({ accessToken: null, user: null, sessionExpired: true }),
+      setHasHydrated: (hasHydrated) => set({ hasHydrated }),
     }),
-  updateUser: (user) => set({ user }),
-  clearSession: () => set({ accessToken: null, user: null, sessionExpired: false }),
-  markSessionExpired: () => set({ accessToken: null, sessionExpired: true }),
-}));
+    {
+      name: "vnbus-auth",
+      partialize: (state) => ({
+        accessToken: state.accessToken,
+        user: state.user,
+      }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
+      skipHydration: true,
+    },
+  ),
+);
