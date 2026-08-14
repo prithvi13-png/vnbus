@@ -98,6 +98,16 @@ const statusStyles: Record<SeatStatus | "SELECTED", string> = {
   SELECTED: "border-brand-700 bg-brand-700 text-white shadow-sm",
 };
 
+type BookingStepId = "search" | "seats" | "details" | "review" | "ticket";
+
+const bookingSteps: Array<{ id: BookingStepId; label: string }> = [
+  { id: "search", label: "Search" },
+  { id: "seats", label: "Seats" },
+  { id: "details", label: "Details" },
+  { id: "review", label: "Review" },
+  { id: "ticket", label: "Ticket" },
+];
+
 export function SeatSelectionFlow(): React.JSX.Element {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -133,15 +143,42 @@ export function SeatSelectionFlow(): React.JSX.Element {
     [activeLayout, selectedSeats],
   );
   const selectedFare = selectedSeatModels.reduce((total, seat) => total + seat.fare.amount, 0);
+  const canContinue = selectedSeats.length > 0 && Boolean(boardingPoint && droppingPoint);
+
+  React.useEffect(() => {
+    if (!activeLayout) {
+      return;
+    }
+
+    if (
+      !boardingPoint ||
+      !activeLayout.boardingPoints.some((point) => point.id === boardingPoint.id)
+    ) {
+      const firstBoardingPoint = activeLayout.boardingPoints[0];
+      if (firstBoardingPoint) {
+        setBoardingPoint(firstBoardingPoint);
+      }
+    }
+
+    if (
+      !droppingPoint ||
+      !activeLayout.droppingPoints.some((point) => point.id === droppingPoint.id)
+    ) {
+      const firstDroppingPoint = activeLayout.droppingPoints[0];
+      if (firstDroppingPoint) {
+        setDroppingPoint(firstDroppingPoint);
+      }
+    }
+  }, [activeLayout, boardingPoint, droppingPoint, setBoardingPoint, setDroppingPoint]);
 
   async function continueToPassengers(): Promise<void> {
     if (!activeLayout || !boardingPoint || !droppingPoint) {
-      setError("Select seats, boarding point, and dropping point");
+      setError("Select a seat to continue");
 
       return;
     }
     if (!selectedSeats.length) {
-      setError("Select at least one seat");
+      setError("Select a seat to continue");
 
       return;
     }
@@ -166,117 +203,178 @@ export function SeatSelectionFlow(): React.JSX.Element {
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-      <section className="grid gap-5">
-        <TripStrip layout={activeLayout} />
-        {error ? (
-          <Alert variant="danger">
-            <AlertTitle>Seat hold failed</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        ) : null}
-        <SeatLegend />
-        <div className="grid gap-5">
-          {activeLayout.decks.map((deck) => (
-            <Card key={deck.deck}>
-              <CardHeader className="flex-row items-center justify-between space-y-0">
+    <div className="grid gap-6 pb-24 lg:pb-0">
+      <BookingStepHeader
+        activeStep="seats"
+        description="Pick a seat. Boarding and dropping points are already selected for the fastest booking."
+        layout={activeLayout}
+        title="Choose seats and points"
+      />
+
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <section className="grid gap-5">
+          {error ? (
+            <Alert variant="danger">
+              <AlertTitle>Seat hold failed</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          ) : null}
+
+          <Card className="overflow-hidden">
+            <CardHeader className="gap-3 border-b border-gold-100 dark:border-brand-900">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <CardTitle>{deck.label}</CardTitle>
+                  <CardTitle>Select seats</CardTitle>
                   <CardDescription>
                     {activeLayout.vehicleLayout} · {activeLayout.axleType}
                   </CardDescription>
                 </div>
-                <Badge variant="neutral">Driver</Badge>
-              </CardHeader>
-              <CardContent>
-                <div
-                  className="mx-auto grid max-w-2xl gap-2"
-                  style={{
-                    gridTemplateColumns: `repeat(${deck.columns}, minmax(48px, 1fr))`,
-                  }}
-                >
-                  {Array.from({ length: deck.rows * deck.columns }, (_, index) => {
-                    const row = Math.floor(index / deck.columns) + 1;
-                    const column = (index % deck.columns) + 1;
-                    const seat = deck.seats.find(
-                      (item) => item.row === row && item.column === column,
-                    );
-                    if (!seat) {
-                      return <div key={`${deck.deck}-${row}-${column}`} aria-hidden="true" />;
-                    }
+                <SeatLegend />
+              </div>
+            </CardHeader>
+            <CardContent className="grid gap-6 p-4 sm:p-5">
+              {activeLayout.decks.map((deck) => (
+                <section key={deck.deck} className="grid gap-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <h2 className="text-sm font-semibold text-brand-900 dark:text-white">
+                      {deck.label}
+                    </h2>
+                    <Badge variant="neutral">Driver</Badge>
+                  </div>
+                  <div
+                    className="mx-auto grid w-full max-w-2xl gap-2"
+                    style={{
+                      gridTemplateColumns: `repeat(${deck.columns}, minmax(44px, 1fr))`,
+                    }}
+                  >
+                    {Array.from({ length: deck.rows * deck.columns }, (_, index) => {
+                      const row = Math.floor(index / deck.columns) + 1;
+                      const column = (index % deck.columns) + 1;
+                      const seat = deck.seats.find(
+                        (item) => item.row === row && item.column === column,
+                      );
+                      if (!seat) {
+                        return <div key={`${deck.deck}-${row}-${column}`} aria-hidden="true" />;
+                      }
 
-                    const selected = selectedSeats.includes(seat.seatNumber);
-                    const selectable = isSeatSelectable(seat);
+                      const selected = selectedSeats.includes(seat.seatNumber);
+                      const selectable = isSeatSelectable(seat);
 
-                    return (
-                      <button
-                        key={seat.seatNumber}
-                        type="button"
-                        disabled={!selectable}
-                        title={seatTooltip(seat)}
-                        aria-label={seatTooltip(seat)}
-                        aria-pressed={selected}
-                        onClick={() => toggleSeat(seat.seatNumber, activeLayout.maxSelectableSeats)}
-                        className={cn(
-                          "flex min-h-14 flex-col items-center justify-center rounded-md border text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500",
-                          selected ? statusStyles.SELECTED : statusStyles[seat.status],
-                        )}
-                      >
-                        <Armchair className="mb-1 h-4 w-4" aria-hidden="true" />
-                        {seat.seatNumber}
-                      </button>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-        <div className="grid gap-4 lg:grid-cols-2">
-          <PointPicker
-            title="Boarding Point"
-            points={activeLayout.boardingPoints}
-            selectedId={boardingPoint?.id}
-            onSelect={setBoardingPoint}
-            showMap
-          />
-          <PointPicker
-            title="Dropping Point"
-            points={activeLayout.droppingPoints}
-            selectedId={droppingPoint?.id}
-            onSelect={setDroppingPoint}
-          />
-        </div>
-      </section>
-      <aside className="h-max rounded-lg border border-gold-100 bg-white p-5 shadow-sm dark:border-brand-900 dark:bg-brand-950 lg:sticky lg:top-24">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-brand-900 dark:text-white">Selection</h2>
-          {hold ? <HoldTimer secondsLeft={secondsLeft} /> : null}
-        </div>
-        <div className="mt-4 grid gap-3 text-sm">
-          <SummaryRow label="Seats" value={selectedSeats.join(", ") || "None"} />
-          <SummaryRow label="Boarding" value={boardingPoint?.name ?? "Select point"} />
-          <SummaryRow label="Dropping" value={droppingPoint?.name ?? "Select point"} />
-          <SummaryRow label="Base fare" value={`INR ${selectedFare.toLocaleString("en-IN")}`} />
-        </div>
-        {hold ? (
+                      return (
+                        <button
+                          key={seat.seatNumber}
+                          type="button"
+                          disabled={!selectable}
+                          title={seatTooltip(seat)}
+                          aria-label={seatTooltip(seat)}
+                          aria-pressed={selected}
+                          onClick={() =>
+                            toggleSeat(seat.seatNumber, activeLayout.maxSelectableSeats)
+                          }
+                          className={cn(
+                            "flex min-h-12 flex-col items-center justify-center rounded-md border text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 sm:min-h-14",
+                            selected ? statusStyles.SELECTED : statusStyles[seat.status],
+                          )}
+                        >
+                          <Armchair className="mb-1 h-4 w-4" aria-hidden="true" />
+                          {seat.seatNumber}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Boarding and dropping</CardTitle>
+              <CardDescription>Change the point only if you need a different stop.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-5 lg:grid-cols-2">
+              <PointPicker
+                title="Boarding"
+                points={activeLayout.boardingPoints}
+                selectedId={boardingPoint?.id}
+                onSelect={setBoardingPoint}
+              />
+              <PointPicker
+                title="Dropping"
+                points={activeLayout.droppingPoints}
+                selectedId={droppingPoint?.id}
+                onSelect={setDroppingPoint}
+              />
+            </CardContent>
+          </Card>
+        </section>
+
+        <aside className="hidden h-max rounded-lg border border-gold-100 bg-white p-5 shadow-sm dark:border-brand-900 dark:bg-brand-950 lg:sticky lg:top-24 lg:block">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold text-brand-900 dark:text-white">Your ticket</h2>
+            {hold ? <HoldTimer secondsLeft={secondsLeft} /> : null}
+          </div>
+          <div className="mt-4 rounded-md bg-brand-50 p-3 text-sm text-brand-900 dark:bg-brand-900 dark:text-brand-50">
+            <p className="font-semibold">
+              {activeLayout.sourceCity} to {activeLayout.destinationCity}
+            </p>
+            <p className="mt-1 text-xs text-brand-700 dark:text-brand-100">
+              {formatTime(activeLayout.departureTime)} ·{" "}
+              {formatDuration(activeLayout.durationMinutes)}
+            </p>
+          </div>
+          <div className="mt-4 grid gap-3 text-sm">
+            <SummaryRow label="Seats" value={selectedSeats.join(", ") || "Select seat"} />
+            <SummaryRow label="Boarding" value={boardingPoint?.name ?? "Auto selected"} />
+            <SummaryRow label="Dropping" value={droppingPoint?.name ?? "Auto selected"} />
+            <SummaryRow label="Fare" value={`INR ${selectedFare.toLocaleString("en-IN")}`} />
+          </div>
+          {hold ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-4 w-full"
+              onClick={() => {
+                void releaseSeats({ reservationId: hold.reservationId });
+                clearHold();
+              }}
+            >
+              Release held seats
+            </Button>
+          ) : null}
           <Button
             type="button"
-            variant="outline"
             className="mt-4 w-full"
-            onClick={() => {
-              void releaseSeats({ reservationId: hold.reservationId });
-              clearHold();
-            }}
+            disabled={!canContinue}
+            onClick={() => void continueToPassengers()}
           >
-            Release held seats
+            <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+            Continue
           </Button>
-        ) : null}
-        <Button type="button" className="mt-4 w-full" onClick={() => void continueToPassengers()}>
-          <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-          Continue
-        </Button>
-      </aside>
+        </aside>
+      </div>
+
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-gold-100 bg-white/95 p-3 shadow-lg backdrop-blur dark:border-brand-900 dark:bg-brand-950/95 lg:hidden">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
+          <div className="min-w-0 text-sm">
+            <p className="truncate font-semibold text-brand-900 dark:text-white">
+              {selectedSeats.length ? `Seat ${selectedSeats.join(", ")}` : "Select a seat"}
+            </p>
+            <p className="truncate text-xs text-gray-600 dark:text-gray-400">
+              INR {selectedFare.toLocaleString("en-IN")} ·{" "}
+              {boardingPoint?.name ?? "Boarding selected"}
+            </p>
+          </div>
+          <Button
+            type="button"
+            className="shrink-0"
+            disabled={!canContinue}
+            onClick={() => void continueToPassengers()}
+          >
+            Continue
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -317,7 +415,7 @@ export function PassengerDetailsFlow(): React.JSX.Element {
 
   return (
     <form
-      className="grid gap-5"
+      className="grid gap-6"
       onSubmit={(event) => {
         void form.handleSubmit((values: PassengerFormValues) => {
           setPassengers(
@@ -333,73 +431,84 @@ export function PassengerDetailsFlow(): React.JSX.Element {
         })(event);
       }}
     >
-      <Card>
-        <CardHeader className="flex-row items-center justify-between space-y-0">
-          <div>
-            <CardTitle>Passenger Details</CardTitle>
-            <CardDescription>One passenger is required for every selected seat.</CardDescription>
-          </div>
-          <HoldTimer secondsLeft={secondsLeft} />
-        </CardHeader>
-      </Card>
-      {selectedSeats.map((seatNumber, index) => (
-        <Card key={seatNumber}>
-          <CardHeader>
-            <CardTitle className="text-base">Seat {seatNumber}</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-3 sm:grid-cols-2">
-            <Field
-              label="First Name"
-              error={form.formState.errors.passengers?.[index]?.firstName?.message}
-            >
-              <Input {...form.register(`passengers.${index}.firstName`)} />
-            </Field>
-            <Field
-              label="Last Name"
-              error={form.formState.errors.passengers?.[index]?.lastName?.message}
-            >
-              <Input {...form.register(`passengers.${index}.lastName`)} />
-            </Field>
-            <Field label="Age" error={form.formState.errors.passengers?.[index]?.age?.message}>
-              <Input
-                type="number"
-                {...form.register(`passengers.${index}.age`, { valueAsNumber: true })}
-              />
-            </Field>
-            <Field
-              label="Gender"
-              error={form.formState.errors.passengers?.[index]?.gender?.message}
-            >
-              <select
-                className="h-10 rounded-md border border-gray-300 bg-white px-3 text-sm dark:border-gray-700 dark:bg-gray-950"
-                {...form.register(`passengers.${index}.gender`)}
+      <BookingStepHeader
+        activeStep="details"
+        description={`${selectedSeats.length} seat${selectedSeats.length === 1 ? "" : "s"} selected. Add traveller details to continue.`}
+        layout={layout}
+        meta={<HoldTimer secondsLeft={secondsLeft} />}
+        title="Passenger Details"
+      />
+
+      <div className="grid gap-4">
+        {selectedSeats.map((seatNumber, index) => (
+          <Card key={seatNumber}>
+            <CardHeader className="border-b border-gold-100 py-4 dark:border-brand-900">
+              <div className="flex items-center justify-between gap-3">
+                <CardTitle className="text-base">Seat {seatNumber}</CardTitle>
+                <Badge variant="neutral">Traveller {index + 1}</Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
+              <Field
+                label="First Name"
+                error={form.formState.errors.passengers?.[index]?.firstName?.message}
               >
-                <option value="MALE">Male</option>
-                <option value="FEMALE">Female</option>
-                <option value="OTHER">Other</option>
-              </select>
-            </Field>
-            <Field label="Phone" error={form.formState.errors.passengers?.[index]?.phone?.message}>
-              <Input {...form.register(`passengers.${index}.phone`)} />
-            </Field>
-            <Field label="Email" error={form.formState.errors.passengers?.[index]?.email?.message}>
-              <Input type="email" {...form.register(`passengers.${index}.email`)} />
-            </Field>
-            <Field
-              label="Emergency Contact"
-              error={form.formState.errors.passengers?.[index]?.emergencyContact?.message}
-            >
-              <Input {...form.register(`passengers.${index}.emergencyContact`)} />
-            </Field>
-            <input
-              type="hidden"
-              {...form.register(`passengers.${index}.seatNumber`)}
-              value={seatNumber}
-            />
-          </CardContent>
-        </Card>
-      ))}
-      <div className="flex flex-wrap justify-between gap-3">
+                <Input {...form.register(`passengers.${index}.firstName`)} />
+              </Field>
+              <Field
+                label="Last Name"
+                error={form.formState.errors.passengers?.[index]?.lastName?.message}
+              >
+                <Input {...form.register(`passengers.${index}.lastName`)} />
+              </Field>
+              <Field label="Age" error={form.formState.errors.passengers?.[index]?.age?.message}>
+                <Input
+                  type="number"
+                  {...form.register(`passengers.${index}.age`, { valueAsNumber: true })}
+                />
+              </Field>
+              <Field
+                label="Gender"
+                error={form.formState.errors.passengers?.[index]?.gender?.message}
+              >
+                <select
+                  className="h-10 rounded-md border border-gray-300 bg-white px-3 text-sm dark:border-gray-700 dark:bg-gray-950"
+                  {...form.register(`passengers.${index}.gender`)}
+                >
+                  <option value="MALE">Male</option>
+                  <option value="FEMALE">Female</option>
+                  <option value="OTHER">Other</option>
+                </select>
+              </Field>
+              <Field
+                label="Phone"
+                error={form.formState.errors.passengers?.[index]?.phone?.message}
+              >
+                <Input {...form.register(`passengers.${index}.phone`)} />
+              </Field>
+              <Field
+                label="Email"
+                error={form.formState.errors.passengers?.[index]?.email?.message}
+              >
+                <Input type="email" {...form.register(`passengers.${index}.email`)} />
+              </Field>
+              <Field
+                label="Emergency Contact"
+                error={form.formState.errors.passengers?.[index]?.emergencyContact?.message}
+              >
+                <Input {...form.register(`passengers.${index}.emergencyContact`)} />
+              </Field>
+              <input
+                type="hidden"
+                {...form.register(`passengers.${index}.seatNumber`)}
+                value={seatNumber}
+              />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap justify-between gap-3 rounded-lg border border-gold-100 bg-white p-3 shadow-sm dark:border-brand-900 dark:bg-brand-950">
         <Button asChild variant="outline">
           <Link href="/seat-layout">Back to seats</Link>
         </Button>
@@ -477,76 +586,88 @@ export function BookingReviewFlow(): React.JSX.Element {
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-      <section className="grid gap-5">
-        <TripStrip layout={layout} />
-        {error ? (
-          <Alert variant="danger">
-            <AlertTitle>Booking failed</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        ) : null}
-        <Card>
-          <CardHeader>
-            <CardTitle>Booking Review</CardTitle>
-            <CardDescription>Confirm passenger, route, point, and fare details.</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2">
-            <SummaryTile label="Seats" value={selectedSeats.join(", ")} />
-            <SummaryTile label="Passengers" value={`${passengers.length}`} />
-            <SummaryTile
-              label="Boarding"
-              value={`${boardingPoint?.time} · ${boardingPoint?.name}`}
-            />
-            <SummaryTile
-              label="Dropping"
-              value={`${droppingPoint?.time} · ${droppingPoint?.name}`}
-            />
-            <SummaryTile label="Operator" value={layout.operatorName} />
-            <SummaryTile label="Bus Type" value={layout.busType} />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Passengers</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-3">
-            {passengers.map((passenger) => (
-              <div
-                key={passenger.seatNumber}
-                className="flex flex-wrap justify-between gap-3 rounded-md border border-gray-200 p-3 dark:border-gray-800"
-              >
-                <span className="font-medium text-gray-950 dark:text-gray-50">
-                  {passenger.firstName} {passenger.lastName}
-                </span>
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  Seat {passenger.seatNumber} · {passenger.gender} · {passenger.age}
-                </span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </section>
-      <aside className="h-max rounded-lg border border-gold-100 bg-white p-5 shadow-sm dark:border-brand-900 dark:bg-brand-950 lg:sticky lg:top-24">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-brand-900 dark:text-white">Fare Summary</h2>
-          <HoldTimer secondsLeft={secondsLeft} />
-        </div>
-        <FareSummary fare={fare} />
-        <Button
-          type="button"
-          className="mt-5 w-full"
-          disabled={submitting}
-          onClick={() => void confirm()}
-        >
-          {submitting ? (
-            <RefreshCw className="h-4 w-4 animate-spin" aria-hidden="true" />
-          ) : (
-            <Ticket className="h-4 w-4" aria-hidden="true" />
-          )}
-          Confirm Booking
-        </Button>
-      </aside>
+    <div className="grid gap-6">
+      <BookingStepHeader
+        activeStep="review"
+        description="Check the trip, passenger names, and fare before confirming."
+        layout={layout}
+        meta={<HoldTimer secondsLeft={secondsLeft} />}
+        title="Booking Review"
+      />
+
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <section className="grid gap-5">
+          {error ? (
+            <Alert variant="danger">
+              <AlertTitle>Booking failed</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          ) : null}
+          <Card>
+            <CardHeader>
+              <CardTitle>Trip and seats</CardTitle>
+              <CardDescription>
+                {layout.sourceCity} to {layout.destinationCity} · {layout.journeyDate}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3 sm:grid-cols-2">
+              <SummaryTile label="Seats" value={selectedSeats.join(", ")} />
+              <SummaryTile label="Passengers" value={`${passengers.length}`} />
+              <SummaryTile
+                label="Boarding"
+                value={`${boardingPoint?.time} · ${boardingPoint?.name}`}
+              />
+              <SummaryTile
+                label="Dropping"
+                value={`${droppingPoint?.time} · ${droppingPoint?.name}`}
+              />
+              <SummaryTile label="Operator" value={layout.operatorName} />
+              <SummaryTile label="Bus Type" value={layout.busType} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Passengers</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-3">
+              {passengers.map((passenger) => (
+                <div
+                  key={passenger.seatNumber}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-gold-100 bg-white p-3 dark:border-brand-900 dark:bg-brand-950"
+                >
+                  <span className="font-medium text-gray-950 dark:text-gray-50">
+                    {passenger.firstName} {passenger.lastName}
+                  </span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    Seat {passenger.seatNumber} · {passenger.gender} · {passenger.age}
+                  </span>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </section>
+
+        <aside className="h-max rounded-lg border border-gold-100 bg-white p-5 shadow-sm dark:border-brand-900 dark:bg-brand-950 lg:sticky lg:top-24">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-brand-900 dark:text-white">Fare Summary</h2>
+            <HoldTimer secondsLeft={secondsLeft} />
+          </div>
+          <FareSummary fare={fare} />
+          <Button
+            type="button"
+            className="mt-5 w-full"
+            disabled={submitting}
+            onClick={() => void confirm()}
+          >
+            {submitting ? (
+              <RefreshCw className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <Ticket className="h-4 w-4" aria-hidden="true" />
+            )}
+            Confirm Booking
+          </Button>
+        </aside>
+      </div>
     </div>
   );
 }
@@ -785,25 +906,71 @@ export function BookingHistoryDetailFlow(): React.JSX.Element {
   return <BookingDetails booking={booking} />;
 }
 
-function TripStrip({ layout }: { layout: SeatLayoutDetails }): React.JSX.Element {
+function BookingStepHeader({
+  activeStep,
+  description,
+  layout,
+  meta,
+  title,
+}: {
+  activeStep: BookingStepId;
+  description: string;
+  layout?: SeatLayoutDetails;
+  meta?: React.ReactNode;
+  title: string;
+}): React.JSX.Element {
+  const activeIndex = bookingSteps.findIndex((step) => step.id === activeStep);
+
   return (
-    <Card>
-      <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-gray-950 dark:text-gray-50">
-            {layout.operatorName} · {layout.busType}
+    <section className="grid gap-3">
+      <div className="flex flex-col gap-4 rounded-lg border border-gold-100 bg-white p-4 shadow-sm dark:border-brand-900 dark:bg-brand-950 md:flex-row md:items-start md:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-normal text-gold-600 dark:text-gold-100">
+            Book ticket
           </p>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            {layout.sourceCity} to {layout.destinationCity} · {layout.journeyDate}
+          <h1 className="mt-2 text-2xl font-semibold tracking-normal text-brand-900 dark:text-white sm:text-3xl">
+            {title}
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-600 dark:text-gray-400">
+            {description}
           </p>
+          {layout ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Tag>
+                {layout.sourceCity} to {layout.destinationCity}
+              </Tag>
+              <Tag>{layout.journeyDate}</Tag>
+              <Tag>
+                {formatTime(layout.departureTime)} · {formatDuration(layout.durationMinutes)}
+              </Tag>
+            </div>
+          ) : null}
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Tag>{formatTime(layout.departureTime)}</Tag>
-          <Tag>{formatDuration(layout.durationMinutes)}</Tag>
-          <Tag>{layout.vehicleLayout}</Tag>
-        </div>
-      </CardContent>
-    </Card>
+        {meta ? <div className="shrink-0">{meta}</div> : null}
+      </div>
+      <ol className="grid grid-cols-5 gap-2 rounded-lg border border-gold-100 bg-white p-2 shadow-sm dark:border-brand-900 dark:bg-brand-950">
+        {bookingSteps.map((step, index) => {
+          const active = step.id === activeStep;
+          const complete = index < activeIndex;
+
+          return (
+            <li
+              key={step.id}
+              className={cn(
+                "rounded-md px-2 py-2 text-center text-xs font-semibold transition",
+                active
+                  ? "bg-brand-700 text-white"
+                  : complete
+                    ? "bg-gold-50 text-gold-700 dark:bg-gold-500/10 dark:text-gold-100"
+                    : "bg-gray-50 text-gray-500 dark:bg-gray-900 dark:text-gray-400",
+              )}
+            >
+              {step.label}
+            </li>
+          );
+        })}
+      </ol>
+    </section>
   );
 }
 
@@ -847,18 +1014,16 @@ function PointPicker({
   const selected = points.find((point) => point.id === selectedId) ?? points[0];
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-      </CardHeader>
-      <CardContent className="grid gap-3">
+    <section className="grid gap-3">
+      <h3 className="text-sm font-semibold text-brand-900 dark:text-white">{title}</h3>
+      <div className="grid gap-2">
         {points.map((point) => (
           <button
             key={point.id}
             type="button"
             onClick={() => onSelect(point)}
             className={cn(
-              "rounded-md border p-3 text-left text-sm transition",
+              "rounded-md border p-3 text-left text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500",
               selectedId === point.id
                 ? "border-gold-500 bg-gold-50 dark:bg-gold-500/10"
                 : "border-gray-200 bg-white hover:border-gold-200 dark:border-brand-900 dark:bg-brand-950",
@@ -873,16 +1038,16 @@ function PointPicker({
             </span>
           </button>
         ))}
-        {showMap && selected ? (
-          <iframe
-            title={`${selected.name} map preview`}
-            className="h-44 w-full rounded-md border border-gold-100 dark:border-brand-900"
-            loading="lazy"
-            src={`https://www.openstreetmap.org/export/embed.html?marker=${selected.latitude},${selected.longitude}&layer=mapnik`}
-          />
-        ) : null}
-      </CardContent>
-    </Card>
+      </div>
+      {showMap && selected ? (
+        <iframe
+          title={`${selected.name} map preview`}
+          className="h-44 w-full rounded-md border border-gold-100 dark:border-brand-900"
+          loading="lazy"
+          src={`https://www.openstreetmap.org/export/embed.html?marker=${selected.latitude},${selected.longitude}&layer=mapnik`}
+        />
+      ) : null}
+    </section>
   );
 }
 

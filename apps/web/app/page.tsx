@@ -11,10 +11,8 @@ import {
   Headphones,
   MapPinned,
   Route,
-  ShieldCheck,
   Smartphone,
   TicketCheck,
-  UsersRound,
 } from "lucide-react";
 import {
   Accordion,
@@ -39,58 +37,43 @@ import { SiteHeader } from "../components/site-header";
 
 const features = [
   {
-    title: "Customer-ready journeys",
-    description:
-      "Search, passenger, ticket, profile, and notification surfaces share one interface language.",
+    title: "Search in seconds",
+    description: "Choose your route and journey date from a clean booking form.",
+    icon: Route,
+  },
+  {
+    title: "Simple seat choice",
+    description: "Pick available seats and continue with boarding and dropping points preselected.",
+    icon: Bus,
+  },
+  {
+    title: "Ticket and invoice",
+    description: "Confirmed bookings generate ticket and invoice actions for customers.",
     icon: TicketCheck,
-  },
-  {
-    title: "Agent workspaces",
-    description:
-      "Travel agents get fast-search UI, managed customers, booking tables, and reporting previews.",
-    icon: UsersRound,
-  },
-  {
-    title: "Admin governance",
-    description:
-      "Users, agents, bookings, coupons, offers, CMS, analytics, reports, audit logs, and settings are mapped.",
-    icon: ShieldCheck,
   },
 ];
 
 const reasons = [
-  [
-    "Modular by milestone",
-    "Each workflow grows from reusable packages instead of page-specific UI.",
-  ],
-  [
-    "Dark-mode ready",
-    "Tokens and classes are prepared across public, auth, dashboard, and error layouts.",
-  ],
-  [
-    "Operational density",
-    "Tables, charts, filters, badges, and state blocks support repeated back-office use.",
-  ],
-  [
-    "Supplier-neutral",
-    "The UI anticipates external bus inventory without binding to one supplier now.",
-  ],
+  ["Clear search", "Route, destination, and date stay visible at the start."],
+  ["Fewer clicks", "Default stops help customers continue after selecting seats."],
+  ["Easy review", "Trip, passengers, and fare are separated into simple sections."],
+  ["Ready records", "Tickets and invoices are available from completed bookings."],
 ];
 
 const steps = [
   {
     title: "Search",
-    description: "Travellers or agents start with route, date, and passenger context.",
+    description: "Enter from, to, and journey date.",
     icon: Route,
   },
   {
-    title: "Review",
-    description: "Results, seats, passengers, and confirmations stay visually consistent.",
+    title: "Seats",
+    description: "Choose your seat and continue.",
     icon: CalendarCheck,
   },
   {
-    title: "Operate",
-    description: "Admin and support teams monitor demand, reports, and audit activity.",
+    title: "Ticket",
+    description: "Confirm booking and download ticket or invoice.",
     icon: BadgeCheck,
   },
 ];
@@ -104,36 +87,35 @@ const popularRoutes = [
 
 const testimonials = [
   {
-    name: "Operations Lead",
-    role: "Intercity network",
-    quote: "The workspace makes demand, bookings, and operational exceptions easy to scan.",
+    name: "Frequent Traveller",
+    role: "Bengaluru route",
+    quote: "Search, seats, and confirmation feel connected and easy to finish.",
   },
   {
-    name: "Travel Agent",
-    role: "Bengaluru partner",
-    quote: "Quick booking and customer sections feel built for repeated daily work.",
+    name: "Family Customer",
+    role: "Weekend trip",
+    quote: "The seat page keeps the important choices in one place.",
   },
   {
     name: "Customer",
-    role: "Frequent traveller",
-    quote: "Trips, notifications, saved routes, and tickets all feel connected.",
+    role: "Invoice user",
+    quote: "Ticket and invoice actions are visible after booking.",
   },
 ];
 
 const faqs = [
   {
-    question: "Is booking payment live in this milestone?",
+    question: "Can customers book a ticket here?",
     answer:
-      "No. Milestone 3 focuses on UI design system, layouts, dashboards, and dummy application states.",
+      "Yes. Customers can search buses, choose seats, enter passenger details, and confirm a mock booking.",
   },
   {
-    question: "Are customer, travel agent, and admin layouts separate?",
-    answer: "Yes. The platform now has role-specific dashboard shells and navigation surfaces.",
+    question: "Is the admin dashboard separate?",
+    answer: "Yes. Admin pages are protected and customers are sent to the customer experience.",
   },
   {
-    question: "Does the design system include Storybook coverage?",
-    answer:
-      "Yes. Reusable primitives, overlays, navigation, tables, charts, uploads, forms, and states have grouped stories.",
+    question: "Do bookings create invoices?",
+    answer: "Yes. Confirmed customer bookings include invoice download actions.",
   },
 ];
 
@@ -154,18 +136,18 @@ export default function LandingPage(): React.JSX.Element {
           <div className="absolute inset-0 bg-brand-700/85" />
           <div className="relative mx-auto grid min-h-[calc(100svh-9rem)] max-w-7xl content-center px-4 py-16 sm:px-6 lg:px-8">
             <div className="max-w-3xl">
-              <Badge variant="default">Enterprise bus booking platform</Badge>
+              <Badge variant="default">Bus tickets by Vriddhi Nexus</Badge>
               <h1 className="mt-5 max-w-3xl text-4xl font-semibold tracking-normal text-white sm:text-5xl lg:text-6xl">
                 Vriddhi Nexus Pvt Ltd
               </h1>
               <p className="mt-5 max-w-2xl text-base leading-7 text-brand-50 sm:text-lg">
-                A polished booking-platform foundation for customers, travel agents, and
-                administrators, built around a complete reusable UI system.
+                Search routes, choose seats, add passenger details, and receive ticket and invoice
+                actions from one clean booking flow.
               </p>
               <div className="mt-7 flex flex-wrap gap-3">
                 <Button asChild size="lg">
-                  <Link href="/dashboard">
-                    Open dashboards
+                  <Link href="/search">
+                    Book a ticket
                     <ArrowRight className="h-4 w-4" aria-hidden="true" />
                   </Link>
                 </Button>
@@ -175,8 +157,8 @@ export default function LandingPage(): React.JSX.Element {
                   size="lg"
                   className="border-white/70 bg-transparent text-white hover:bg-white hover:text-brand-900"
                 >
-                  <Link href="/search">
-                    Search routes
+                  <Link href="/login">
+                    Customer login
                     <Bus className="h-4 w-4" aria-hidden="true" />
                   </Link>
                 </Button>
@@ -188,9 +170,9 @@ export default function LandingPage(): React.JSX.Element {
         <section className="border-b border-gold-100 bg-white py-6 dark:border-brand-900 dark:bg-brand-950">
           <div className="mx-auto grid max-w-7xl gap-3 px-4 sm:px-6 lg:px-8">
             <SectionHeading
-              eyebrow="Search banner"
-              title="Route Search"
-              description="A reusable search surface for public, customer, and agent experiences."
+              eyebrow="Book now"
+              title="Book your bus ticket"
+              description="Start with route and date. The next screens keep seats, details, and review simple."
             />
             <SearchPanel />
           </div>
@@ -223,8 +205,8 @@ export default function LandingPage(): React.JSX.Element {
           <div className="mx-auto grid max-w-7xl gap-8 px-4 sm:px-6 lg:grid-cols-[0.8fr_1.2fr] lg:px-8">
             <SectionHeading
               eyebrow="Why choose us"
-              title="Built for serious transport operations"
-              description="The product surface is quiet, structured, and ready for repeated work across business roles."
+              title="A calmer booking experience"
+              description="The customer path keeps each choice clear and avoids unnecessary dashboard-style controls."
             />
             <div className="grid gap-3 sm:grid-cols-2">
               {reasons.map(([title, description]) => (
@@ -251,8 +233,8 @@ export default function LandingPage(): React.JSX.Element {
         <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
           <SectionHeading
             eyebrow="How it works"
-            title="One platform shape across the journey"
-            description="The UI system supports the path from public discovery to operational control."
+            title="Three simple steps"
+            description="Search a route, choose a seat, and confirm the booking."
           />
           <div className="mt-6 grid gap-4 md:grid-cols-3">
             {steps.map((step) => {
@@ -278,7 +260,7 @@ export default function LandingPage(): React.JSX.Element {
             <SectionHeading
               eyebrow="Popular routes"
               title="High-demand intercity corridors"
-              description="Representative route cards for browse and recommendation surfaces."
+              description="Common routes customers can search and book quickly."
             />
             <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               {popularRoutes.map((route) => (
@@ -304,8 +286,8 @@ export default function LandingPage(): React.JSX.Element {
         <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
           <SectionHeading
             eyebrow="Testimonials"
-            title="Role-focused feedback"
-            description="Dummy testimonials representing the audiences supported by the milestone."
+            title="Customer feedback"
+            description="Booking surfaces are now focused on clarity and speed."
           />
           <div className="mt-6 grid gap-4 md:grid-cols-3">
             {testimonials.map((testimonial) => (
@@ -331,8 +313,8 @@ export default function LandingPage(): React.JSX.Element {
           <div className="mx-auto grid max-w-7xl gap-8 px-4 sm:px-6 lg:grid-cols-[0.8fr_1.2fr] lg:px-8">
             <SectionHeading
               eyebrow="FAQ"
-              title="Milestone 3 scope"
-              description="Clear boundaries for the current UI milestone."
+              title="Booking questions"
+              description="Quick answers for customers and operators."
             />
             <Accordion type="single" collapsible className="grid gap-3">
               {faqs.map((faq) => (
@@ -359,8 +341,8 @@ export default function LandingPage(): React.JSX.Element {
                 Download App Coming Soon
               </h2>
               <p className="mt-2 text-sm leading-6 text-gray-600 dark:text-gray-400">
-                Mobile app touchpoints are represented in the design direction and ready for a later
-                implementation milestone.
+                Mobile booking touchpoints will follow the same simple search, seats, and ticket
+                flow.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">

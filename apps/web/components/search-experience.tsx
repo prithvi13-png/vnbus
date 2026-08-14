@@ -1,26 +1,12 @@
 "use client";
 
 import * as React from "react";
-import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import {
-  Armchair,
-  BadgeIndianRupee,
-  Filter,
-  Heart,
-  IndianRupee,
-  MapPin,
-  RefreshCw,
-  Route,
-  ShieldCheck,
-  Star,
-  Wifi,
-} from "lucide-react";
+import { Armchair, Filter, Heart, IndianRupee, RefreshCw, Route, Star, Wifi } from "lucide-react";
 import type {
-  BusAmenity,
   BusSearchRequest,
   BusSearchResponse,
   BusSearchResult,
@@ -37,9 +23,6 @@ import {
   Button,
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
   Checkbox,
   EmptyState,
   Input,
@@ -60,14 +43,6 @@ import { searchBuses } from "../lib/api-client";
 import type { SearchFormValues } from "../lib/search-schema";
 import { useSearchStore } from "../lib/search-store";
 import { SearchPanel } from "./search-panel";
-
-const LazyRouteMapPreview = dynamic(
-  () => import("./route-map-preview").then((module) => module.RouteMapPreview),
-  {
-    ssr: false,
-    loading: () => <Skeleton className="h-72 w-full" />,
-  },
-);
 
 type SearchPatch = {
   [Key in keyof BusSearchRequest]?: BusSearchRequest[Key] | undefined;
@@ -111,35 +86,32 @@ export function SearchExperience(): React.JSX.Element {
     return (
       <div className="grid gap-6">
         <SearchPanel initialValues={initialValues} />
-        <Card>
-          <CardHeader>
-            <CardTitle>Favorite Routes</CardTitle>
-            <CardDescription>
-              Start quickly from saved routes and realistic mock inventory.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {favoriteRoutes.map((route) => (
-              <Button
-                key={`${route.sourceCity}-${route.destinationCity}`}
-                type="button"
-                variant="outline"
-                className="h-auto justify-start p-3"
-                onClick={() =>
-                  updateSearch({
-                    sourceCity: route.sourceCity,
-                    destinationCity: route.destinationCity,
-                    journeyDate: request.journeyDate,
-                    passengerCount: 1,
-                  })
-                }
-              >
-                <Route className="h-4 w-4" aria-hidden="true" />
-                {route.sourceCity} to {route.destinationCity}
-              </Button>
-            ))}
-          </CardContent>
-        </Card>
+        {favoriteRoutes.length ? (
+          <section className="rounded-lg border border-gold-100 bg-white p-4 shadow-sm dark:border-brand-900 dark:bg-brand-950">
+            <h2 className="text-sm font-semibold text-brand-900 dark:text-white">Saved routes</h2>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              {favoriteRoutes.map((route) => (
+                <Button
+                  key={`${route.sourceCity}-${route.destinationCity}`}
+                  type="button"
+                  variant="outline"
+                  className="h-auto justify-start p-3"
+                  onClick={() =>
+                    updateSearch({
+                      sourceCity: route.sourceCity,
+                      destinationCity: route.destinationCity,
+                      journeyDate: request.journeyDate,
+                      passengerCount: 1,
+                    })
+                  }
+                >
+                  <Route className="h-4 w-4" aria-hidden="true" />
+                  {route.sourceCity} to {route.destinationCity}
+                </Button>
+              ))}
+            </div>
+          </section>
+        ) : null}
       </div>
     );
   }
@@ -170,17 +142,14 @@ export function SearchExperience(): React.JSX.Element {
       ) : null}
 
       {query.data ? (
-        <div className="grid gap-6 xl:grid-cols-[320px_1fr]">
+        <div className="grid gap-6 xl:grid-cols-[280px_1fr]">
           <SearchFilters request={request} response={query.data} onChange={updateSearch} />
-          <section className="grid gap-5">
+          <section className="order-1 grid gap-5 xl:order-2">
             <ResultsToolbar
               request={request}
               totalResults={query.data.totalResults}
               onChange={updateSearch}
             />
-            {query.data.buses[0]?.routePreview ? (
-              <LazyRouteMapPreview preview={query.data.buses[0].routePreview} />
-            ) : null}
             {query.data.buses.length ? (
               <>
                 <div className="grid gap-4">
@@ -263,38 +232,36 @@ function ResultsToolbar({
   totalResults: number;
 }): React.JSX.Element {
   return (
-    <Card>
-      <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-gray-950 dark:text-gray-50">
-            {totalResults.toLocaleString("en-IN")} buses found
-          </p>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            {request.sourceCity} to {request.destinationCity} · {request.journeyDate}
-          </p>
-        </div>
-        <div className="flex min-w-64 items-center gap-2">
-          <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Sort</span>
-          <Select
-            value={request.sortBy ?? "POPULARITY_DESC"}
-            onValueChange={(value) => onChange({ sortBy: value as SearchSortOption })}
-          >
-            <SelectTrigger aria-label="Sort results">
-              <SelectValue placeholder="Sort results" />
-            </SelectTrigger>
-            <SelectContent>
-              {(Object.entries(SEARCH_SORT_LABELS) as Array<[SearchSortOption, string]>).map(
-                ([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ),
-              )}
-            </SelectContent>
-          </Select>
-        </div>
-      </CardContent>
-    </Card>
+    <section className="flex flex-col gap-3 rounded-lg border border-gold-100 bg-white p-4 shadow-sm dark:border-brand-900 dark:bg-brand-950 md:flex-row md:items-center md:justify-between">
+      <div>
+        <p className="text-sm font-semibold text-gray-950 dark:text-gray-50">
+          {totalResults.toLocaleString("en-IN")} buses found
+        </p>
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          {request.sourceCity} to {request.destinationCity} · {request.journeyDate}
+        </p>
+      </div>
+      <div className="flex min-w-64 items-center gap-2">
+        <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Sort</span>
+        <Select
+          value={request.sortBy ?? "POPULARITY_DESC"}
+          onValueChange={(value) => onChange({ sortBy: value as SearchSortOption })}
+        >
+          <SelectTrigger aria-label="Sort results">
+            <SelectValue placeholder="Sort results" />
+          </SelectTrigger>
+          <SelectContent>
+            {(Object.entries(SEARCH_SORT_LABELS) as Array<[SearchSortOption, string]>).map(
+              ([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ),
+            )}
+          </SelectContent>
+        </Select>
+      </div>
+    </section>
   );
 }
 
@@ -310,7 +277,7 @@ function SearchFilters({
   const filters = response.filters;
 
   return (
-    <aside className="h-max rounded-lg border border-gold-100 bg-white p-4 dark:border-brand-900 dark:bg-brand-950 xl:sticky xl:top-40">
+    <aside className="order-2 h-max rounded-lg border border-gold-100 bg-white p-4 shadow-sm dark:border-brand-900 dark:bg-brand-950 xl:sticky xl:top-40 xl:order-1">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Filter className="h-4 w-4 text-gold-600 dark:text-gold-100" aria-hidden="true" />
@@ -381,21 +348,6 @@ function SearchFilters({
           />
         </FilterGroup>
 
-        <FilterGroup title="Arrival Time">
-          <CheckboxList
-            options={filters.arrivalWindows}
-            selected={request.arrivalWindows ?? []}
-            onToggle={(value) =>
-              onChange({
-                arrivalWindows: toggleValue(
-                  request.arrivalWindows ?? [],
-                  value as SearchTimeWindow,
-                ),
-              })
-            }
-          />
-        </FilterGroup>
-
         <FilterGroup title="Bus Type">
           <CheckboxList
             options={filters.busTypes}
@@ -426,26 +378,6 @@ function SearchFilters({
               onClick={() => onChange({ seater: request.seater ? undefined : true })}
             />
           </div>
-        </FilterGroup>
-
-        <FilterGroup title="Operators">
-          <VirtualizedCheckboxList
-            options={filters.operators}
-            selected={request.operators ?? []}
-            onToggle={(value) =>
-              onChange({ operators: toggleValue(request.operators ?? [], value) })
-            }
-          />
-        </FilterGroup>
-
-        <FilterGroup title="Amenities">
-          <CheckboxList
-            options={filters.amenities}
-            selected={request.amenities ?? []}
-            onToggle={(value) =>
-              onChange({ amenities: toggleValue(request.amenities ?? [], value as BusAmenity) })
-            }
-          />
         </FilterGroup>
 
         <FilterGroup title="Seats, Rating, Tracking">
@@ -509,177 +441,103 @@ function BusResultCard({
   onFavorite: () => void;
 }): React.JSX.Element {
   return (
-    <Card className="overflow-hidden">
-      <CardContent className="grid gap-0 p-0 lg:grid-cols-[180px_1fr]">
-        <div className="hidden bg-brand-50 p-3 dark:bg-brand-950 lg:block">
-          <div className="relative h-full min-h-56 overflow-hidden rounded-md bg-white/80 dark:bg-brand-950/50">
+    <Card>
+      <CardContent className="grid gap-4 p-4 sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex min-w-0 gap-3">
             <Image
-              src={bus.busImageUrl}
-              alt={`${bus.busType} bus`}
-              fill
+              src={bus.operatorLogoUrl}
+              alt=""
+              width={48}
+              height={48}
               loading="lazy"
               unoptimized
-              sizes="156px"
-              className="object-contain"
+              className="h-12 w-12 shrink-0 rounded-md border border-gold-100 bg-white object-cover dark:border-brand-900"
             />
-          </div>
-        </div>
-        <div className="grid gap-5 p-5">
-          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            <div className="flex gap-3">
-              <Image
-                src={bus.operatorLogoUrl}
-                alt=""
-                width={48}
-                height={48}
-                loading="lazy"
-                unoptimized
-                className="h-12 w-12 rounded-md border border-gold-100 bg-white object-cover dark:border-brand-900"
-              />
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-lg font-semibold text-brand-900 dark:text-white">
-                    {bus.operatorName}
-                  </h2>
-                  <Badge variant="neutral">{bus.busType}</Badge>
-                  {bus.liveTracking ? <StatusChip tone="success">Live Tracking</StatusChip> : null}
-                  {bus.discountLabel ? <Badge variant="warning">{bus.discountLabel}</Badge> : null}
-                </div>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <Rating rating={bus.rating} reviews={bus.reviewCount} />
-                  <Tag>{bus.seatLayout.layoutType}</Tag>
-                  <Tag>{bus.seatLayout.decks} deck</Tag>
-                </div>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-lg font-semibold text-brand-900 dark:text-white">
+                  {bus.operatorName}
+                </h2>
+                <Badge variant="neutral">{bus.busType}</Badge>
+                {bus.liveTracking ? <StatusChip tone="success">Live Tracking</StatusChip> : null}
+                {bus.discountLabel ? <Badge variant="warning">{bus.discountLabel}</Badge> : null}
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Rating rating={bus.rating} reviews={bus.reviewCount} />
+                <Tag>{bus.seatLayout.layoutType}</Tag>
+                <Tag>{bus.availableSeats} seats left</Tag>
               </div>
             </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label={favorite ? "Remove favorite route" : "Save favorite route"}
-              onClick={onFavorite}
-            >
-              <Heart
-                className={cn("h-4 w-4", favorite && "fill-red-500 text-red-500")}
-                aria-hidden="true"
-              />
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label={favorite ? "Remove favorite route" : "Save favorite route"}
+            onClick={onFavorite}
+          >
+            <Heart
+              className={cn("h-4 w-4", favorite && "fill-red-500 text-red-500")}
+              aria-hidden="true"
+            />
+          </Button>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-[1fr_auto_1fr_auto] md:items-center">
+          <TripTime label="Depart" city={bus.sourceCity} time={formatTime(bus.departureTime)} />
+          <div className="hidden min-w-28 text-center md:block">
+            <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
+              {formatDuration(bus.durationMinutes)}
+            </p>
+            <div className="mt-2 h-px bg-gray-200 dark:bg-gray-800" />
+          </div>
+          <TripTime label="Arrive" city={bus.destinationCity} time={formatTime(bus.arrivalTime)} />
+          <div className="flex items-center justify-between gap-4 md:block md:text-right">
+            <div>
+              <p className="text-xs uppercase tracking-normal text-gray-500 dark:text-gray-400">
+                Fare
+              </p>
+              <p className="flex items-center text-2xl font-semibold text-gray-950 dark:text-gray-50 md:justify-end">
+                <IndianRupee className="h-5 w-5" aria-hidden="true" />
+                {bus.fare.amount.toLocaleString("en-IN")}
+              </p>
+            </div>
+            <Button asChild className="md:mt-3">
+              <Link href={`/seat-layout?tripId=${bus.tripId}&date=${journeyDate}`}>
+                <Armchair className="h-4 w-4" aria-hidden="true" />
+                View Seats
+              </Link>
             </Button>
           </div>
+        </div>
 
-          <div className="grid gap-4 md:grid-cols-[1fr_auto_1fr_auto] md:items-center">
-            <TripTime label="Depart" city={bus.sourceCity} time={formatTime(bus.departureTime)} />
-            <div className="hidden min-w-28 text-center md:block">
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                {formatDuration(bus.durationMinutes)}
-              </p>
-              <div className="mt-2 h-px bg-gray-200 dark:bg-gray-800" />
-            </div>
-            <TripTime
-              label="Arrive"
-              city={bus.destinationCity}
-              time={formatTime(bus.arrivalTime)}
-            />
-            <div className="flex items-center justify-between gap-4 md:block md:text-right">
-              <div>
-                <p className="text-xs uppercase tracking-normal text-gray-500 dark:text-gray-400">
-                  Starting fare
-                </p>
-                <p className="flex items-center text-2xl font-semibold text-gray-950 dark:text-gray-50 md:justify-end">
-                  <IndianRupee className="h-5 w-5" aria-hidden="true" />
-                  {bus.fare.amount.toLocaleString("en-IN")}
-                </p>
-              </div>
-              <Button asChild>
-                <Link href={`/seat-layout?tripId=${bus.tripId}&date=${journeyDate}`}>
-                  <Armchair className="h-4 w-4" aria-hidden="true" />
-                  View Seats
-                </Link>
-              </Button>
-            </div>
-          </div>
-
-          <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-            <BusDetailsCard bus={bus} />
-            <div className="grid gap-3">
-              <div className="flex flex-wrap gap-2">
-                {bus.amenities.slice(0, 8).map((amenity) => (
-                  <Tag key={amenity}>
-                    <Wifi className="h-3 w-3" aria-hidden="true" />
-                    {amenity}
-                  </Tag>
-                ))}
-              </div>
-              <div className="grid gap-2 text-sm text-gray-600 dark:text-gray-400 sm:grid-cols-3">
-                <Fact icon={Armchair} label="Available seats" value={`${bus.availableSeats}`} />
-                <Fact
-                  icon={BadgeIndianRupee}
-                  label="Discount"
-                  value={bus.discountLabel ?? "Best fare"}
-                />
-                <Fact icon={ShieldCheck} label="Supplier" value={bus.supplierCode} />
-              </div>
-            </div>
-          </div>
+        <div className="grid gap-3 rounded-md border border-gold-100 bg-brand-50/60 p-3 dark:border-brand-900 dark:bg-brand-950 sm:grid-cols-3">
+          <Fact icon={Armchair} label="Seats" value={`${bus.availableSeats} available`} />
+          <Fact
+            icon={Route}
+            label="Boarding"
+            value={bus.boardingPoints[0]?.name ?? bus.sourceCity}
+          />
+          <Fact
+            icon={Wifi}
+            label="Amenities"
+            value={bus.amenities.slice(0, 2).join(", ") || "Standard"}
+          />
         </div>
       </CardContent>
     </Card>
   );
 }
 
-function BusDetailsCard({ bus }: { bus: BusSearchResult }): React.JSX.Element {
-  return (
-    <div className="rounded-md border border-gold-100 p-3 dark:border-brand-900">
-      <h3 className="text-sm font-semibold text-brand-900 dark:text-white">Bus Details</h3>
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <PointList title="Boarding" points={bus.boardingPoints.slice(0, 3)} />
-        <PointList title="Dropping" points={bus.droppingPoints.slice(0, 3)} />
-      </div>
-    </div>
-  );
-}
-
-function PointList({
-  points,
-  title,
-}: {
-  points: BusSearchResult["boardingPoints"];
-  title: string;
-}): React.JSX.Element {
-  return (
-    <div>
-      <p className="text-xs font-semibold uppercase tracking-normal text-gray-500 dark:text-gray-400">
-        {title}
-      </p>
-      <ul className="mt-2 grid gap-1.5">
-        {points.map((point) => (
-          <li
-            key={point.id}
-            className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-400"
-          >
-            <MapPin
-              className="mt-0.5 h-3.5 w-3.5 text-gold-600 dark:text-gold-100"
-              aria-hidden="true"
-            />
-            <span>
-              <span className="font-medium text-gray-800 dark:text-gray-200">{point.time}</span>{" "}
-              {point.name}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
 function SearchSkeleton(): React.JSX.Element {
   return (
-    <div className="grid gap-4 xl:grid-cols-[320px_1fr]">
-      <Skeleton className="h-[620px] w-full" />
+    <div className="grid gap-4 xl:grid-cols-[280px_1fr]">
+      <Skeleton className="h-[420px] w-full" />
       <div className="grid gap-4">
         <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-72 w-full" />
         {[0, 1, 2].map((item) => (
-          <Skeleton key={item} className="h-64 w-full" />
+          <Skeleton key={item} className="h-56 w-full" />
         ))}
       </div>
     </div>
@@ -720,47 +578,6 @@ function CheckboxList({
           selected={selected}
         />
       ))}
-    </div>
-  );
-}
-
-function VirtualizedCheckboxList({
-  onToggle,
-  options,
-  selected,
-}: {
-  onToggle: (value: string) => void;
-  options: SearchFilterOption[];
-  selected: string[];
-}): React.JSX.Element {
-  const itemHeight = 34;
-  const viewportHeight = 238;
-  const [scrollTop, setScrollTop] = React.useState(0);
-  const start = Math.max(0, Math.floor(scrollTop / itemHeight) - 2);
-  const visibleCount = Math.ceil(viewportHeight / itemHeight) + 4;
-  const visible = options.slice(start, start + visibleCount);
-
-  return (
-    <div
-      className="relative overflow-y-auto rounded-md border border-gold-100 dark:border-brand-900"
-      style={{ height: viewportHeight }}
-      onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
-    >
-      <div style={{ height: options.length * itemHeight, position: "relative" }}>
-        <div
-          style={{ transform: `translateY(${start * itemHeight}px)` }}
-          className="absolute inset-x-0 top-0 grid gap-1 p-2"
-        >
-          {visible.map((option) => (
-            <FilterCheckbox
-              key={option.value}
-              onToggle={onToggle}
-              option={option}
-              selected={selected}
-            />
-          ))}
-        </div>
-      </div>
     </div>
   );
 }

@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { PublicLayout } from "@vnbus/ui";
 import { buildSearchParams, buildSearchRequestFromParams } from "@vnbus/shared";
 
-import { MilestoneNineSearchWorkspace } from "../../components/milestone-nine-widgets";
 import { SearchExperience } from "../../components/search-experience";
 import { SiteFooter } from "../../components/site-footer";
 import { SiteHeader } from "../../components/site-header";
@@ -64,7 +63,7 @@ export default async function SearchPage({
         <section className="border-b border-gold-100 bg-white dark:border-brand-900 dark:bg-brand-950">
           <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
             <p className="text-sm font-semibold uppercase tracking-normal text-gold-600 dark:text-gold-100">
-              Bus Search
+              Book ticket
             </p>
             <h1 className="mt-2 text-3xl font-semibold tracking-normal text-brand-900 dark:text-white">
               {hasRoute
@@ -72,15 +71,12 @@ export default async function SearchPage({
                 : "Search buses across Indian routes"}
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-600 dark:text-gray-400">
-              Intercity bus options across popular Indian corridors.
+              Compare timings and fares, then choose seats from the bus that works for you.
             </p>
           </div>
         </section>
         <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
           <SearchExperience />
-        </section>
-        <section className="mx-auto max-w-7xl px-4 pb-10 sm:px-6 lg:px-8">
-          <MilestoneNineSearchWorkspace />
         </section>
         <script
           type="application/ld+json"

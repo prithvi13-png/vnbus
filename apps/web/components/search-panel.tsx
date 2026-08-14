@@ -2,10 +2,10 @@
 
 import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeftRight, CalendarDays, Clock3, MapPin, MapPinned, Search } from "lucide-react";
+import { ArrowLeftRight, CalendarDays, MapPin, MapPinned, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Controller, useForm } from "react-hook-form";
-import { Autocomplete, Badge, Button, Input, Tag, cn, type AutocompleteOption } from "@vnbus/ui";
+import { Autocomplete, Button, Input, cn, type AutocompleteOption } from "@vnbus/ui";
 import { buildSearchParams, getPopularRoutes, normalizeCity, POPULAR_CITIES } from "@vnbus/shared";
 
 import { searchSchema, type SearchFormValues } from "../lib/search-schema";
@@ -17,7 +17,7 @@ const cityOptions: AutocompleteOption[] = POPULAR_CITIES.map((city) => ({
   description: "Popular city",
 }));
 
-const popularRoutes = getPopularRoutes(8);
+const popularRoutes = getPopularRoutes(6);
 
 export function SearchPanel({
   className,
@@ -30,7 +30,6 @@ export function SearchPanel({
 }): React.JSX.Element {
   const router = useRouter();
   const lastSearch = useSearchStore((state) => state.lastSearch);
-  const recentSearches = useSearchStore((state) => state.recentSearches);
   const addRecentSearch = useSearchStore((state) => state.addRecentSearch);
   const setLastSearch = useSearchStore((state) => state.setLastSearch);
   const form = useForm<SearchFormValues>({
@@ -82,7 +81,7 @@ export function SearchPanel({
         onSubmit={(event) => {
           void handleSubmit(submitSearch)(event);
         }}
-        className="grid gap-3 rounded-lg border border-gold-100 bg-white p-4 shadow-soft dark:border-brand-900 dark:bg-brand-950 lg:grid-cols-[1fr_auto_1fr_180px_auto]"
+        className="grid gap-3 rounded-lg border border-gold-100 bg-white p-4 shadow-sm dark:border-brand-900 dark:bg-brand-950 lg:grid-cols-[minmax(0,1fr)_44px_minmax(0,1fr)_180px_auto]"
       >
         <Field
           label="From city"
@@ -148,70 +147,7 @@ export function SearchPanel({
         </Button>
       </form>
 
-      {!compact ? (
-        <div className="grid gap-3 md:grid-cols-2">
-          <QuickList title="Popular Cities">
-            <div className="flex flex-wrap gap-2">
-              {POPULAR_CITIES.slice(0, 10).map((city) => (
-                <button
-                  key={city}
-                  type="button"
-                  className="rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-brand-700 hover:border-gold-200 hover:bg-gold-50 hover:text-brand-900 dark:border-brand-900 dark:bg-brand-950 dark:text-brand-100 dark:hover:border-gold-500 dark:hover:text-gold-100"
-                  onClick={() => setValue("sourceCity", city, { shouldValidate: true })}
-                >
-                  {city}
-                </button>
-              ))}
-            </div>
-          </QuickList>
-          <QuickList title="Popular Routes">
-            <div className="grid gap-2 sm:grid-cols-2">
-              {popularRoutes.slice(0, 6).map((route) => (
-                <button
-                  key={route.id}
-                  type="button"
-                  className="flex items-center justify-between gap-3 rounded-md border border-gray-200 bg-white p-2 text-left text-xs hover:border-gold-200 hover:bg-gold-50 dark:border-brand-900 dark:bg-brand-950 dark:hover:border-gold-500"
-                  onClick={() => applyRoute(route.sourceCity, route.destinationCity)}
-                >
-                  <span className="grid">
-                    <span className="font-semibold text-gray-950 dark:text-gray-50">
-                      {route.sourceCity} to {route.destinationCity}
-                    </span>
-                    <span className="text-gray-500 dark:text-gray-400">
-                      {Math.round(route.durationMinutes / 60)}h · {route.distanceKm} km
-                    </span>
-                  </span>
-                  <MapPinned
-                    className="h-4 w-4 text-gold-600 dark:text-gold-100"
-                    aria-hidden="true"
-                  />
-                </button>
-              ))}
-            </div>
-          </QuickList>
-          {recentSearches.length ? (
-            <QuickList title="Recent Searches" className="md:col-span-2">
-              <div className="flex flex-wrap gap-2">
-                {recentSearches.map((search) => (
-                  <Button
-                    key={`${search.sourceCity}-${search.destinationCity}-${search.journeyDate}`}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      reset(search);
-                      submitSearch(search);
-                    }}
-                  >
-                    <Clock3 className="h-3.5 w-3.5" aria-hidden="true" />
-                    {search.sourceCity} to {search.destinationCity}
-                  </Button>
-                ))}
-              </div>
-            </QuickList>
-          ) : null}
-        </div>
-      ) : null}
+      {!compact ? <QuickRoutes routes={popularRoutes} onSelect={applyRoute} /> : null}
     </div>
   );
 }
@@ -267,27 +203,34 @@ function Field({
   );
 }
 
-function QuickList({
-  children,
-  className,
-  title,
+function QuickRoutes({
+  onSelect,
+  routes,
 }: {
-  children: React.ReactNode;
-  className?: string;
-  title: string;
+  onSelect: (source: string, destination: string) => void;
+  routes: typeof popularRoutes;
 }): React.JSX.Element {
   return (
-    <section
-      className={cn(
-        "rounded-lg border border-gold-100 bg-white p-4 dark:border-brand-900 dark:bg-brand-950",
-        className,
-      )}
-    >
-      <div className="mb-3 flex items-center gap-2">
-        <Badge variant="neutral">{title}</Badge>
-        <Tag>{title === "Popular Cities" ? "Autocomplete" : "Mock data"}</Tag>
+    <section className="rounded-lg border border-gold-100 bg-white p-3 shadow-sm dark:border-brand-900 dark:bg-brand-950">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-sm font-semibold text-brand-900 dark:text-white">Popular routes</h2>
+        <div className="flex flex-wrap gap-2">
+          {routes.map((route) => (
+            <button
+              key={route.id}
+              type="button"
+              className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-left text-xs font-medium text-brand-800 hover:border-gold-200 hover:bg-gold-50 dark:border-brand-900 dark:bg-brand-950 dark:text-brand-100 dark:hover:border-gold-500"
+              onClick={() => onSelect(route.sourceCity, route.destinationCity)}
+            >
+              <MapPinned
+                className="h-3.5 w-3.5 text-gold-600 dark:text-gold-100"
+                aria-hidden="true"
+              />
+              {route.sourceCity} to {route.destinationCity}
+            </button>
+          ))}
+        </div>
       </div>
-      {children}
     </section>
   );
 }
