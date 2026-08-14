@@ -19,6 +19,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:generate": "pnpm --filter @vnbus/api prisma:generate",
+    "db:deploy": "pnpm --filter @vnbus/api prisma:deploy",
     "db:migrate": "pnpm --filter @vnbus/api prisma:migrate",
     "prisma:validate": "pnpm --filter @vnbus/api exec prisma validate --schema prisma/schema.prisma",
     "security:audit": "pnpm audit --audit-level high",

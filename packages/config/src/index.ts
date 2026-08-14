@@ -32,6 +32,7 @@ export const serverEnvSchema = z.object({
   APP_NAME: z.string().default("Vriddhi Nexus Bus"),
   APP_URL: z.string().url().default("http://localhost:3000"),
   API_URL: z.string().url().default("http://localhost:4000"),
+  PORT: optionalPositiveIntSchema,
   API_PORT: z.coerce.number().int().positive().default(4000),
   WEB_PORT: z.coerce.number().int().positive().default(3000),
   REQUEST_BODY_LIMIT: z.string().default("1mb"),

@@ -69,7 +69,7 @@ async function bootstrap(): Promise<void> {
     },
   });
 
-  const port = config.getOrThrow<number>("API_PORT");
+  const port = config.get<number>("PORT") ?? config.getOrThrow<number>("API_PORT");
   await app.listen(port);
   logger.log(`API listening on port ${port}`);
 }
