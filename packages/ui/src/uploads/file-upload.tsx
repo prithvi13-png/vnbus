@@ -14,11 +14,11 @@ export const FileUpload = React.forwardRef<HTMLInputElement, FileUploadProps>(
   ({ className, helperText, label = "Upload file", ...props }, ref) => (
     <label
       className={cn(
-        "flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-white p-6 text-center transition-colors hover:border-blue-300 hover:bg-blue-50/40 dark:border-gray-700 dark:bg-gray-950 dark:hover:border-blue-400/60 dark:hover:bg-blue-400/10",
+        "flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-white p-6 text-center transition-colors hover:border-gold-200 hover:bg-gold-50/60 dark:border-brand-900 dark:bg-brand-950 dark:hover:border-gold-500/60 dark:hover:bg-gold-500/10",
         className,
       )}
     >
-      <UploadCloud className="h-6 w-6 text-blue-700 dark:text-blue-300" aria-hidden="true" />
+      <UploadCloud className="h-6 w-6 text-gold-600 dark:text-gold-100" aria-hidden="true" />
       <span className="mt-3 text-sm font-medium text-gray-950 dark:text-gray-50">{label}</span>
       {helperText ? (
         <span className="mt-1 text-xs text-gray-500 dark:text-gray-400">{helperText}</span>

@@ -30,7 +30,7 @@ export function OtpInput({
           inputMode="numeric"
           maxLength={1}
           value={value[index] ?? ""}
-          className="h-11 w-10 rounded-md border border-gray-300 bg-white text-center text-sm font-semibold text-gray-950 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-600 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-50"
+          className="h-11 w-10 rounded-md border border-gray-300 bg-white text-center text-sm font-semibold text-gray-950 shadow-sm focus:outline-none focus:ring-2 focus:ring-gold-500 dark:border-brand-900 dark:bg-brand-950 dark:text-gray-50"
           onChange={(event) => {
             const next = value.split("");
             next[index] = event.target.value.slice(-1);

@@ -587,7 +587,7 @@ function createMockQrCode(payload: TicketQrCode["payload"]): TicketQrCode {
     }
   }
 
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Ticket verification QR code" viewBox="0 0 ${size} ${size}"><rect width="${size}" height="${size}" fill="#ffffff"/><g fill="#1d4ed8">${squares.join("")}</g></svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Ticket verification QR code" viewBox="0 0 ${size} ${size}"><rect width="${size}" height="${size}" fill="#ffffff"/><g fill="#02553E">${squares.join("")}</g></svg>`;
 
   return {
     payload,

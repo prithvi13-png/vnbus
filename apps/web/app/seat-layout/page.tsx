@@ -17,7 +17,7 @@ export default function SeatLayoutPage(): React.JSX.Element {
       <main className="bg-gray-50 dark:bg-gray-950">
         <section className="border-b border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950">
           <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-            <p className="text-sm font-semibold uppercase tracking-normal text-blue-700 dark:text-blue-300">
+            <p className="text-sm font-semibold uppercase tracking-normal text-gold-600 dark:text-gold-200">
               Seat Selection
             </p>
             <h1 className="mt-2 text-3xl font-semibold tracking-normal text-gray-950 dark:text-gray-50">

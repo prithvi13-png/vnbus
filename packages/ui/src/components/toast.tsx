@@ -45,9 +45,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }): Reac
             className={cn(
               "grid gap-1 rounded-md border bg-white p-4 text-sm shadow-lg dark:bg-gray-950",
               toast.tone === "success" &&
-                "border-emerald-200 text-emerald-900 dark:border-emerald-400/30 dark:text-emerald-100",
+                "border-brand-200 text-brand-900 dark:border-brand-600/30 dark:text-brand-100",
               toast.tone === "warning" &&
-                "border-amber-200 text-amber-900 dark:border-amber-400/30 dark:text-amber-100",
+                "border-gold-200 text-gold-700 dark:border-gold-500/30 dark:text-gold-100",
               toast.tone === "danger" &&
                 "border-red-200 text-red-900 dark:border-red-400/30 dark:text-red-100",
               (!toast.tone || toast.tone === "default") &&
@@ -63,7 +63,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }): Reac
               <ToastPrimitive.Title className="font-semibold tracking-normal">
                 {toast.title}
               </ToastPrimitive.Title>
-              <ToastPrimitive.Close className="rounded-md text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600">
+              <ToastPrimitive.Close className="rounded-md text-gray-500 focus:outline-none focus:ring-2 focus:ring-gold-500">
                 <X className="h-4 w-4" aria-hidden="true" />
               </ToastPrimitive.Close>
             </div>

@@ -45,13 +45,13 @@ export function Autocomplete({
         }}
       />
       {open ? (
-        <div className="absolute z-40 mt-1 max-h-64 w-full overflow-auto rounded-md border border-gray-200 bg-white p-1 shadow-md dark:border-gray-800 dark:bg-gray-950">
+        <div className="absolute z-40 mt-1 max-h-64 w-full overflow-auto rounded-md border border-gold-100 bg-white p-1 shadow-md dark:border-brand-900 dark:bg-brand-950">
           {filtered.length ? (
             filtered.map((option) => (
               <button
                 key={option.value}
                 type="button"
-                className="grid w-full rounded-sm px-3 py-2 text-left text-sm hover:bg-blue-50 focus:bg-blue-50 focus:outline-none dark:hover:bg-blue-400/10 dark:focus:bg-blue-400/10"
+                className="grid w-full rounded-sm px-3 py-2 text-left text-sm hover:bg-gold-50 focus:bg-gold-50 focus:outline-none dark:hover:bg-gold-500/10 dark:focus:bg-gold-500/10"
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => {
                   onChange(option.value);

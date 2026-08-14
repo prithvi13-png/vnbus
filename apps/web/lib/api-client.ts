@@ -711,7 +711,7 @@ export async function createAgentCustomer(
         tagId: createLocalId("TAG", `${label}|${index}`),
         customerId: createLocalId("CUS", `${request.email}|${now}`),
         label,
-        color: label.toLowerCase().includes("vip") ? "blue" : "gray",
+        color: label.toLowerCase().includes("vip") ? "gold" : "gray",
       })),
       status: request.tags?.includes("VIP") ? "VIP" : "ACTIVE",
       bookingCount: 0,
@@ -772,7 +772,7 @@ export async function updateAgentCustomer(
               tagId: createLocalId("TAG", `${customerId}|${label}|${index}`),
               customerId,
               label,
-              color: label.toLowerCase().includes("vip") ? "blue" : "gray",
+              color: label.toLowerCase().includes("vip") ? "gold" : "gray",
             })),
       updatedAt: now,
     };
@@ -1065,12 +1065,12 @@ function seedAgentCustomers(): AgentCustomerRecord[] {
         },
       ],
       tags: [
-        { tagId: "CUS-AGT-001-TAG-001", customerId: "CUS-AGT-001", label: "VIP", color: "blue" },
+        { tagId: "CUS-AGT-001-TAG-001", customerId: "CUS-AGT-001", label: "VIP", color: "gold" },
         {
           tagId: "CUS-AGT-001-TAG-002",
           customerId: "CUS-AGT-001",
           label: "Corporate",
-          color: "emerald",
+          color: "brand",
         },
       ],
       status: "VIP",

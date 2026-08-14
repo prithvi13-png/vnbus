@@ -164,7 +164,7 @@ export function NotificationCenter(): React.JSX.Element {
         <Card key={notification.id}>
           <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex gap-3">
-              <span className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-blue-50 text-blue-700 dark:bg-blue-400/10 dark:text-blue-300">
+              <span className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-gold-50 text-gold-600 dark:bg-gold-500/10 dark:text-gold-200">
                 <Bell className="h-4 w-4" aria-hidden="true" />
               </span>
               <div>
@@ -208,7 +208,7 @@ function BookingHistoryCard({ booking }: { booking: BookingRecord }): React.JSX.
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <Link
-              className="text-base font-semibold text-blue-700 dark:text-blue-300"
+              className="text-base font-semibold text-gold-600 dark:text-gold-200"
               href={`/booking-history/${booking.bookingId}`}
             >
               {booking.bookingReference}

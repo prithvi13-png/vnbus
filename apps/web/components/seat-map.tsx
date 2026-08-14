@@ -52,8 +52,8 @@ export function SeatMap(): React.JSX.Element {
                   seat.blocked && "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400",
                   !seat.blocked &&
                     !selected &&
-                    "border-gray-300 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50",
-                  selected && "border-blue-700 bg-blue-700 text-white",
+                    "border-gray-300 bg-white text-gray-700 hover:border-gold-200 hover:bg-gold-50",
+                  selected && "border-gold-600 bg-gold-600 text-white",
                 )}
                 aria-pressed={selected}
               >

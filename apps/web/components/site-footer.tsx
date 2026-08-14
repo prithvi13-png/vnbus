@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Bus, Facebook, Instagram, Linkedin, Twitter } from "lucide-react";
+import Image from "next/image";
+import { Facebook, Instagram, Linkedin, Twitter } from "lucide-react";
 import { Button, Footer } from "@vnbus/ui";
 
 const columns = [
@@ -41,12 +42,15 @@ export function SiteFooter(): React.JSX.Element {
     <Footer
       className="mt-0"
       brand={
-        <Link
-          href="/"
-          className="flex items-center gap-2 text-sm font-semibold text-gray-950 dark:text-gray-50"
-        >
-          <span className="flex h-9 w-9 items-center justify-center rounded-md bg-blue-700 text-white">
-            <Bus className="h-5 w-5" aria-hidden="true" />
+        <Link href="/" className="flex items-center gap-3 text-sm font-semibold text-white">
+          <span className="flex h-12 w-12 items-center justify-center rounded-md border border-gold-500/30 bg-white">
+            <Image
+              src="/images/vriddhi-nexus-logo.png"
+              alt="Vriddhi Nexus logo"
+              width={42}
+              height={42}
+              className="h-10 w-10 object-contain"
+            />
           </span>
           <span>Vriddhi Nexus Pvt Ltd</span>
         </Link>
@@ -59,7 +63,13 @@ export function SiteFooter(): React.JSX.Element {
             const Icon = social.icon;
 
             return (
-              <Button key={social.label} asChild variant="ghost" size="icon" className="h-8 w-8">
+              <Button
+                key={social.label}
+                asChild
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-gold-100 hover:bg-gold-500/10 hover:text-gold-500"
+              >
                 <a href="#" aria-label={social.label}>
                   <Icon className="h-4 w-4" aria-hidden="true" />
                 </a>

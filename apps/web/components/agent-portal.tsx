@@ -82,7 +82,7 @@ import { useAgentStore } from "../lib/agent-store";
 import { useBookingStore } from "../lib/booking-store";
 import { PageHeader } from "./page-header";
 
-const chartColors = ["#2563eb", "#059669", "#f59e0b", "#dc2626", "#7c3aed"];
+const chartColors = ["#02553E", "#B88327", "#037A58", "#9F6F20", "#dc2626"];
 
 export function AgentDashboardWorkspace(): React.JSX.Element {
   const [dashboard, setDashboard] = React.useState<AgentDashboardResponse | null>(null);
@@ -122,8 +122,8 @@ export function AgentDashboardWorkspace(): React.JSX.Element {
               <AreaChart data={agentTrendData}>
                 <defs>
                   <linearGradient id="agentRevenue" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="5%" stopColor="#2563eb" stopOpacity={0.35} />
-                    <stop offset="95%" stopColor="#2563eb" stopOpacity={0.03} />
+                    <stop offset="5%" stopColor="#B88327" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="#B88327" stopOpacity={0.03} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" />
@@ -133,7 +133,7 @@ export function AgentDashboardWorkspace(): React.JSX.Element {
                 <Area
                   type="monotone"
                   dataKey="bookings"
-                  stroke="#2563eb"
+                  stroke="#B88327"
                   fill="url(#agentRevenue)"
                   strokeWidth={2}
                 />
@@ -162,7 +162,7 @@ export function AgentDashboardWorkspace(): React.JSX.Element {
                   {(dashboard?.bookingStatusSummary ?? []).map((item, index) => (
                     <Cell
                       key={item.status}
-                      fill={chartColors[index % chartColors.length] ?? "#2563eb"}
+                      fill={chartColors[index % chartColors.length] ?? "#B88327"}
                     />
                   ))}
                 </Pie>
@@ -206,7 +206,7 @@ export function AgentDashboardWorkspace(): React.JSX.Element {
                 key={activity.id}
                 className="flex items-start gap-3 rounded-md border border-gray-200 p-3 dark:border-gray-800"
               >
-                <span className="mt-1 h-2.5 w-2.5 rounded-full bg-blue-600" aria-hidden="true" />
+                <span className="mt-1 h-2.5 w-2.5 rounded-full bg-gold-500" aria-hidden="true" />
                 <div>
                   <p className="text-sm font-semibold text-gray-950 dark:text-gray-50">
                     {activity.title}
@@ -385,7 +385,7 @@ export function AgentQuickBookingWorkspace(): React.JSX.Element {
                 <button
                   key={trip.tripId}
                   type="button"
-                  className="rounded-md border border-gray-200 p-4 text-left transition hover:border-blue-500 dark:border-gray-800"
+                  className="rounded-md border border-gray-200 p-4 text-left transition hover:border-gold-500 dark:border-gray-800"
                   onClick={() => void chooseTrip(trip)}
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3">
@@ -449,7 +449,7 @@ export function AgentQuickBookingWorkspace(): React.JSX.Element {
                           aria-pressed={selected}
                           className={`h-10 rounded-md border text-sm font-semibold ${
                             selected
-                              ? "border-blue-700 bg-blue-700 text-white"
+                              ? "border-gold-600 bg-gold-600 text-white"
                               : "border-gray-300 bg-white text-gray-800 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
                           }`}
                           onClick={() =>
@@ -878,7 +878,7 @@ export function AgentReportsWorkspace(): React.JSX.Element {
                 <XAxis dataKey="label" />
                 <YAxis />
                 <RechartsTooltip />
-                <Area dataKey="revenue" stroke="#059669" fill="#d1fae5" strokeWidth={2} />
+                <Area dataKey="revenue" stroke="#02553E" fill="#DCEDE5" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
           </CardContent>
@@ -943,7 +943,7 @@ export function AgentNotificationsWorkspace(): React.JSX.Element {
           <Card key={notification.id}>
             <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex gap-3">
-                <span className="mt-1 flex h-9 w-9 items-center justify-center rounded-md bg-blue-50 text-blue-700">
+                <span className="mt-1 flex h-9 w-9 items-center justify-center rounded-md bg-gold-50 text-gold-600">
                   <Bell className="h-4 w-4" aria-hidden="true" />
                 </span>
                 <div>

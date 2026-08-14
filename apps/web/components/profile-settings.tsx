@@ -54,7 +54,7 @@ export function ProfileSettings(): React.JSX.Element {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-md bg-blue-50 text-blue-700">
+            <span className="flex h-10 w-10 items-center justify-center rounded-md bg-gold-50 text-gold-700">
               <UserRound className="h-5 w-5" aria-hidden="true" />
             </span>
             <CardTitle>Profile</CardTitle>
@@ -70,7 +70,7 @@ export function ProfileSettings(): React.JSX.Element {
             {message ? (
               <div
                 role="status"
-                className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800"
+                className="flex items-center gap-2 rounded-md border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-900"
               >
                 <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
                 {message}
@@ -98,7 +98,7 @@ export function ProfileSettings(): React.JSX.Element {
             <Field label="Avatar URL" error={errors.avatar?.message}>
               <Input autoComplete="url" {...register("avatar")} />
             </Field>
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gold-100 pt-4">
               <Button asChild variant="outline">
                 <Link href="/change-password">
                   <KeyRound className="h-4 w-4" aria-hidden="true" />
@@ -116,7 +116,7 @@ export function ProfileSettings(): React.JSX.Element {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-md bg-emerald-50 text-emerald-700">
+            <span className="flex h-10 w-10 items-center justify-center rounded-md bg-brand-50 text-brand-700">
               <ShieldCheck className="h-5 w-5" aria-hidden="true" />
             </span>
             <CardTitle>Access</CardTitle>
@@ -173,9 +173,9 @@ function Field({
 
 function StatusRow({ label, value }: { label: string; value: string }): React.JSX.Element {
   return (
-    <div className="rounded-md border border-gray-200 p-3">
+    <div className="rounded-md border border-gold-100 p-3">
       <p className="text-xs font-semibold uppercase tracking-normal text-gray-600">{label}</p>
-      <p className="mt-1 break-words text-sm font-medium text-gray-950">{value}</p>
+      <p className="mt-1 break-words text-sm font-medium text-brand-900">{value}</p>
     </div>
   );
 }

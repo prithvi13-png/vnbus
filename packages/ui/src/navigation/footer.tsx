@@ -23,7 +23,7 @@ export function Footer({
   return (
     <footer
       className={cn(
-        "border-t border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950",
+        "border-t border-brand-900 bg-brand-900 text-white dark:border-brand-950 dark:bg-brand-950",
         className,
       )}
     >
@@ -31,21 +31,16 @@ export function Footer({
         <div className="grid gap-4">
           {brand}
           {social ? <div className="flex items-center gap-3">{social}</div> : null}
-          <p className="text-sm text-gray-500 dark:text-gray-400">{copyright}</p>
+          <p className="text-sm text-white/70">{copyright}</p>
         </div>
         <div className="grid gap-6 sm:grid-cols-3">
           {columns.map((column) => (
             <div key={column.title}>
-              <h3 className="text-sm font-semibold tracking-normal text-gray-950 dark:text-gray-50">
-                {column.title}
-              </h3>
+              <h3 className="text-sm font-semibold tracking-normal text-white">{column.title}</h3>
               <ul className="mt-3 grid gap-2">
                 {column.links.map((link) => (
                   <li key={link.href}>
-                    <a
-                      className="text-sm text-gray-600 hover:text-blue-700 dark:text-gray-400 dark:hover:text-blue-300"
-                      href={link.href}
-                    >
+                    <a className="text-sm text-white/70 hover:text-gold-100" href={link.href}>
                       {link.label}
                     </a>
                   </li>

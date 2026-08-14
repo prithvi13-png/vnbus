@@ -82,7 +82,7 @@ export function SearchPanel({
         onSubmit={(event) => {
           void handleSubmit(submitSearch)(event);
         }}
-        className="grid gap-3 rounded-lg border border-gray-200 bg-white p-4 shadow-soft dark:border-gray-800 dark:bg-gray-950 lg:grid-cols-[1fr_auto_1fr_180px_auto]"
+        className="grid gap-3 rounded-lg border border-gold-100 bg-white p-4 shadow-soft dark:border-brand-900 dark:bg-brand-950 lg:grid-cols-[1fr_auto_1fr_180px_auto]"
       >
         <Field
           label="From city"
@@ -156,7 +156,7 @@ export function SearchPanel({
                 <button
                   key={city}
                   type="button"
-                  className="rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:border-blue-300 hover:text-blue-700 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300 dark:hover:border-blue-500 dark:hover:text-blue-200"
+                  className="rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-brand-700 hover:border-gold-200 hover:bg-gold-50 hover:text-brand-900 dark:border-brand-900 dark:bg-brand-950 dark:text-brand-100 dark:hover:border-gold-500 dark:hover:text-gold-100"
                   onClick={() => setValue("sourceCity", city, { shouldValidate: true })}
                 >
                   {city}
@@ -170,7 +170,7 @@ export function SearchPanel({
                 <button
                   key={route.id}
                   type="button"
-                  className="flex items-center justify-between gap-3 rounded-md border border-gray-200 bg-white p-2 text-left text-xs hover:border-blue-300 dark:border-gray-800 dark:bg-gray-950 dark:hover:border-blue-500"
+                  className="flex items-center justify-between gap-3 rounded-md border border-gray-200 bg-white p-2 text-left text-xs hover:border-gold-200 hover:bg-gold-50 dark:border-brand-900 dark:bg-brand-950 dark:hover:border-gold-500"
                   onClick={() => applyRoute(route.sourceCity, route.destinationCity)}
                 >
                   <span className="grid">
@@ -182,7 +182,7 @@ export function SearchPanel({
                     </span>
                   </span>
                   <MapPinned
-                    className="h-4 w-4 text-blue-700 dark:text-blue-300"
+                    className="h-4 w-4 text-gold-600 dark:text-gold-100"
                     aria-hidden="true"
                   />
                 </button>
@@ -257,7 +257,7 @@ function Field({
 }): React.JSX.Element {
   return (
     <label className="grid gap-1.5">
-      <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-normal text-gray-600 dark:text-gray-400">
+      <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-normal text-brand-700 dark:text-brand-100">
         {icon}
         {label}
       </span>
@@ -279,7 +279,7 @@ function QuickList({
   return (
     <section
       className={cn(
-        "rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-950",
+        "rounded-lg border border-gold-100 bg-white p-4 dark:border-brand-900 dark:bg-brand-950",
         className,
       )}
     >

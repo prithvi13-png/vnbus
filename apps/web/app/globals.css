@@ -4,13 +4,16 @@
 
 :root {
   color-scheme: light;
-  --background: #f8fafc;
-  --foreground: #111827;
+  --background: #f8faf7;
+  --foreground: #013c2d;
+  --brand-green: #02553e;
+  --brand-green-dark: #013c2d;
+  --brand-gold: #b88327;
 }
 
 .dark {
   color-scheme: dark;
-  --background: #020617;
+  --background: #012e22;
   --foreground: #f8fafc;
 }
 
@@ -37,8 +40,8 @@ body {
 }
 
 ::selection {
-  background: #bfdbfe;
-  color: #172554;
+  background: #f8e7bf;
+  color: #013c2d;
 }
 
 a {

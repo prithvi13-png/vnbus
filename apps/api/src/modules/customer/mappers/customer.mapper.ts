@@ -101,10 +101,10 @@ export class CustomerMapper {
 function tagColor(label: string): string {
   const normalized = label.toLowerCase();
   if (normalized.includes("vip")) {
-    return "blue";
+    return "gold";
   }
   if (normalized.includes("corporate")) {
-    return "emerald";
+    return "brand";
   }
   if (normalized.includes("family")) {
     return "violet";

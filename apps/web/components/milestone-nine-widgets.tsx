@@ -56,7 +56,7 @@ export function NotificationDrawer(): React.JSX.Element {
           <Bell className="h-4 w-4" aria-hidden="true" />
           Notifications
           {unread ? (
-            <span className="absolute -right-2 -top-2 rounded-full bg-blue-700 px-1.5 py-0.5 text-xs font-semibold text-white">
+            <span className="absolute -right-2 -top-2 rounded-full bg-gold-600 px-1.5 py-0.5 text-xs font-semibold text-white">
               {unread}
             </span>
           ) : null}
@@ -129,7 +129,7 @@ export function RecommendationCards(): React.JSX.Element {
         <Card key={recommendation.recommendationId}>
           <CardHeader>
             <div className="flex items-center justify-between gap-3">
-              <Sparkles className="h-5 w-5 text-blue-700" aria-hidden="true" />
+              <Sparkles className="h-5 w-5 text-gold-600" aria-hidden="true" />
               <StatusChip tone="success">
                 {Math.round(recommendation.confidenceScore * 100)}%
               </StatusChip>
@@ -295,7 +295,7 @@ export function MilestoneNineSearchWorkspace(): React.JSX.Element {
     <div className="grid gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-normal text-blue-700 dark:text-blue-300">
+          <p className="text-sm font-semibold uppercase tracking-normal text-gold-600 dark:text-gold-200">
             Recommendations
           </p>
           <h2 className="mt-1 text-2xl font-semibold text-gray-950 dark:text-gray-50">
@@ -358,9 +358,7 @@ function HealthRow({
           )}
           {label}
         </span>
-        <span className={status === "HEALTHY" ? "text-emerald-700" : "text-amber-700"}>
-          {status}
-        </span>
+        <span className={status === "HEALTHY" ? "text-brand-700" : "text-gold-700"}>{status}</span>
       </div>
       <Progress value={value} />
     </div>

@@ -21,7 +21,7 @@ export function Tag({ children, className, onRemove, ...props }: TagProps): Reac
         <button
           type="button"
           aria-label="Remove tag"
-          className="rounded-sm text-gray-500 hover:text-gray-950 focus:outline-none focus:ring-2 focus:ring-blue-600"
+          className="rounded-sm text-gray-500 hover:text-brand-900 focus:outline-none focus:ring-2 focus:ring-gold-500"
           onClick={onRemove}
         >
           <X className="h-3 w-3" aria-hidden="true" />

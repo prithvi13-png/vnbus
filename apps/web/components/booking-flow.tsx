@@ -89,12 +89,12 @@ const passengerSchema = z.object({
 type PassengerFormValues = z.infer<typeof passengerSchema>;
 
 const statusStyles: Record<SeatStatus | "SELECTED", string> = {
-  AVAILABLE: "border-gray-300 bg-white text-gray-800 hover:border-blue-400 hover:bg-blue-50",
+  AVAILABLE: "border-gray-300 bg-white text-gray-800 hover:border-gold-500 hover:bg-gold-50",
   BOOKED: "cursor-not-allowed border-gray-200 bg-gray-200 text-gray-400",
   LADIES: "border-pink-300 bg-pink-50 text-pink-700 hover:border-pink-500",
-  RESERVED: "cursor-not-allowed border-amber-200 bg-amber-50 text-amber-700",
+  RESERVED: "cursor-not-allowed border-gold-200 bg-gold-50 text-gold-700",
   BLOCKED: "cursor-not-allowed border-gray-300 bg-gray-100 text-gray-400",
-  SELECTED: "border-blue-700 bg-blue-700 text-white shadow-sm",
+  SELECTED: "border-brand-700 bg-brand-700 text-white shadow-sm",
 };
 
 export function SeatSelectionFlow(): React.JSX.Element {
@@ -217,7 +217,7 @@ export function SeatSelectionFlow(): React.JSX.Element {
                         aria-pressed={selected}
                         onClick={() => toggleSeat(seat.seatNumber, activeLayout.maxSelectableSeats)}
                         className={cn(
-                          "flex min-h-14 flex-col items-center justify-center rounded-md border text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600",
+                          "flex min-h-14 flex-col items-center justify-center rounded-md border text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500",
                           selected ? statusStyles.SELECTED : statusStyles[seat.status],
                         )}
                       >
@@ -247,9 +247,9 @@ export function SeatSelectionFlow(): React.JSX.Element {
           />
         </div>
       </section>
-      <aside className="h-max rounded-lg border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-950 lg:sticky lg:top-24">
+      <aside className="h-max rounded-lg border border-gold-100 bg-white p-5 shadow-sm dark:border-brand-900 dark:bg-brand-950 lg:sticky lg:top-24">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-gray-950 dark:text-gray-50">Selection</h2>
+          <h2 className="text-lg font-semibold text-brand-900 dark:text-white">Selection</h2>
           {hold ? <HoldTimer secondsLeft={secondsLeft} /> : null}
         </div>
         <div className="mt-4 grid gap-3 text-sm">
@@ -526,9 +526,9 @@ export function BookingReviewFlow(): React.JSX.Element {
           </CardContent>
         </Card>
       </section>
-      <aside className="h-max rounded-lg border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-950 lg:sticky lg:top-24">
+      <aside className="h-max rounded-lg border border-gold-100 bg-white p-5 shadow-sm dark:border-brand-900 dark:bg-brand-950 lg:sticky lg:top-24">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-950 dark:text-gray-50">Fare Summary</h2>
+          <h2 className="text-lg font-semibold text-brand-900 dark:text-white">Fare Summary</h2>
           <HoldTimer secondsLeft={secondsLeft} />
         </div>
         <FareSummary fare={fare} />
@@ -596,8 +596,8 @@ export function BookingSuccessFlow(): React.JSX.Element {
             </Button>
           </div>
         </div>
-        <div className="flex aspect-square items-center justify-center rounded-lg border border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900">
-          <QrCode className="h-24 w-24 text-blue-700 dark:text-blue-300" aria-hidden="true" />
+        <div className="flex aspect-square items-center justify-center rounded-lg border border-gold-100 bg-brand-50 dark:border-brand-900 dark:bg-brand-950">
+          <QrCode className="h-24 w-24 text-gold-600 dark:text-gold-100" aria-hidden="true" />
         </div>
       </CardContent>
     </Card>
@@ -857,8 +857,8 @@ function PointPicker({
             className={cn(
               "rounded-md border p-3 text-left text-sm transition",
               selectedId === point.id
-                ? "border-blue-600 bg-blue-50 dark:bg-blue-400/10"
-                : "border-gray-200 bg-white hover:border-blue-300 dark:border-gray-800 dark:bg-gray-950",
+                ? "border-gold-500 bg-gold-50 dark:bg-gold-500/10"
+                : "border-gray-200 bg-white hover:border-gold-200 dark:border-brand-900 dark:bg-brand-950",
             )}
           >
             <span className="flex justify-between gap-3">
@@ -873,7 +873,7 @@ function PointPicker({
         {showMap && selected ? (
           <iframe
             title={`${selected.name} map preview`}
-            className="h-44 w-full rounded-md border border-gray-200 dark:border-gray-800"
+            className="h-44 w-full rounded-md border border-gold-100 dark:border-brand-900"
             loading="lazy"
             src={`https://www.openstreetmap.org/export/embed.html?marker=${selected.latitude},${selected.longitude}&layer=mapnik`}
           />
@@ -1227,8 +1227,8 @@ function BookingDetails({ booking }: { booking: BookingRecord }): React.JSX.Elem
                   className={cn(
                     "rounded-md border p-3 text-left text-sm transition",
                     selectedRescheduleTripId === bus.tripId
-                      ? "border-blue-600 bg-blue-50 dark:bg-blue-400/10"
-                      : "border-gray-200 bg-white hover:border-blue-300 dark:border-gray-800 dark:bg-gray-950",
+                      ? "border-gold-500 bg-gold-50 dark:bg-gold-500/10"
+                      : "border-gray-200 bg-white hover:border-gold-200 dark:border-brand-900 dark:bg-brand-950",
                   )}
                 >
                   <span className="flex flex-wrap justify-between gap-3">
@@ -1421,7 +1421,7 @@ function SummaryTile({ label, value }: { label: string; value: string }): React.
 
 function HoldTimer({ secondsLeft }: { secondsLeft: number }): React.JSX.Element {
   return (
-    <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">
+    <span className="inline-flex items-center gap-1 rounded-md bg-gold-50 px-2 py-1 text-xs font-semibold text-gold-700 dark:bg-gold-500/10 dark:text-gold-100">
       <Timer className="h-3.5 w-3.5" aria-hidden="true" />
       {formatCountdown(secondsLeft)}
     </span>

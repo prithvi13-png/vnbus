@@ -406,7 +406,7 @@ function StatusMessage({ status }: { status: StatusState }): React.JSX.Element |
       className={cn(
         "flex items-start gap-2 rounded-md border px-3 py-2 text-sm",
         status.type === "success"
-          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+          ? "border-brand-200 bg-brand-50 text-brand-900"
           : "border-red-200 bg-red-50 text-red-800",
       )}
     >
@@ -427,7 +427,7 @@ function AuthLinks({
     <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-4 text-sm">
       <Link
         href={primary.href}
-        className="inline-flex items-center gap-1 font-medium text-blue-700"
+        className="inline-flex items-center gap-1 font-medium text-gold-600"
       >
         {primary.label}
         <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />

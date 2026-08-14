@@ -31,7 +31,7 @@ export function StatisticCard({
           {label}
         </CardTitle>
         {Icon ? (
-          <span className="flex h-9 w-9 items-center justify-center rounded-md bg-blue-50 text-blue-700 dark:bg-blue-400/10 dark:text-blue-200">
+          <span className="flex h-9 w-9 items-center justify-center rounded-md bg-gold-50 text-gold-600 dark:bg-gold-500/10 dark:text-gold-200">
             <Icon className="h-4 w-4" aria-hidden="true" />
           </span>
         ) : null}
@@ -44,7 +44,7 @@ export function StatisticCard({
           <p
             className={cn(
               "mt-2 flex items-center gap-1 text-xs font-medium",
-              trend === "up" && "text-emerald-700 dark:text-emerald-300",
+              trend === "up" && "text-brand-700 dark:text-brand-200",
               trend === "down" && "text-red-700 dark:text-red-300",
               trend === "neutral" && "text-gray-500 dark:text-gray-400",
             )}

@@ -39,7 +39,7 @@ export function LoadingState({
       )}
     >
       <Loader2
-        className="h-6 w-6 animate-spin text-blue-700 dark:text-blue-300"
+        className="h-6 w-6 animate-spin text-gold-600 dark:text-gold-100"
         aria-hidden="true"
       />
       <div>
@@ -75,9 +75,8 @@ function StateBlock({
         className={cn(
           "flex h-12 w-12 items-center justify-center rounded-md",
           tone === "success" &&
-            "bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200",
-          tone === "warning" &&
-            "bg-amber-50 text-amber-700 dark:bg-amber-400/10 dark:text-amber-200",
+            "bg-brand-50 text-brand-700 dark:bg-brand-600/10 dark:text-brand-100",
+          tone === "warning" && "bg-gold-50 text-gold-700 dark:bg-gold-500/10 dark:text-gold-100",
           tone === "danger" && "bg-red-50 text-red-700 dark:bg-red-400/10 dark:text-red-200",
         )}
       >

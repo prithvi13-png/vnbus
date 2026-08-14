@@ -477,7 +477,7 @@ export function CustomerDashboard(): React.JSX.Element {
                 className="flex gap-3 rounded-md border border-gray-200 p-3 text-sm dark:border-gray-800"
               >
                 <Bell
-                  className="mt-0.5 h-4 w-4 text-blue-700 dark:text-blue-300"
+                  className="mt-0.5 h-4 w-4 text-gold-600 dark:text-gold-200"
                   aria-hidden="true"
                 />
                 <span className="text-gray-700 dark:text-gray-300">{notification}</span>
@@ -786,7 +786,7 @@ function RoutesCard({
           <CardTitle>{title}</CardTitle>
           <CardDescription>Relevant route ideas based on journey history.</CardDescription>
         </div>
-        <Icon className="h-5 w-5 text-blue-700 dark:text-blue-300" aria-hidden="true" />
+        <Icon className="h-5 w-5 text-gold-600 dark:text-gold-200" aria-hidden="true" />
       </CardHeader>
       <CardContent className="grid gap-3">
         {routes.map((route) => (
@@ -820,7 +820,7 @@ function SavedTripsCard(): React.JSX.Element {
             className="flex gap-3 rounded-md bg-gray-50 p-3 dark:bg-gray-900"
           >
             <MapPin
-              className="mt-0.5 h-4 w-4 text-blue-700 dark:text-blue-300"
+              className="mt-0.5 h-4 w-4 text-gold-600 dark:text-gold-200"
               aria-hidden="true"
             />
             <div>
@@ -845,7 +845,7 @@ function ProfileSummaryCard(): React.JSX.Element {
       </CardHeader>
       <CardContent className="grid gap-4">
         <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-md bg-blue-50 text-blue-700 dark:bg-blue-400/10 dark:text-blue-200">
+          <span className="flex h-11 w-11 items-center justify-center rounded-md bg-gold-50 text-gold-600 dark:bg-gold-500/10 dark:text-gold-200">
             <UserRound className="h-5 w-5" aria-hidden="true" />
           </span>
           <div>
@@ -901,7 +901,7 @@ function CommercialCard({
           <CardTitle>{title}</CardTitle>
           <CardDescription>{description}</CardDescription>
         </div>
-        <span className="flex h-10 w-10 items-center justify-center rounded-md bg-blue-50 text-blue-700 dark:bg-blue-400/10 dark:text-blue-200">
+        <span className="flex h-10 w-10 items-center justify-center rounded-md bg-gold-50 text-gold-600 dark:bg-gold-500/10 dark:text-gold-200">
           <Icon className="h-4 w-4" aria-hidden="true" />
         </span>
       </CardHeader>

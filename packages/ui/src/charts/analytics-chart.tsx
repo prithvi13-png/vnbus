@@ -47,7 +47,7 @@ export function AnalyticsChart({
             <XAxis dataKey="label" tickLine={false} axisLine={false} />
             <YAxis tickLine={false} axisLine={false} />
             <Tooltip />
-            <Bar dataKey="value" fill="#2563eb" isAnimationActive={false} radius={[4, 4, 0, 0]} />
+            <Bar dataKey="value" fill="#B88327" isAnimationActive={false} radius={[4, 4, 0, 0]} />
           </BarChart>
         ) : type === "line" ? (
           <LineChart data={data}>
@@ -58,7 +58,7 @@ export function AnalyticsChart({
             <Line
               type="monotone"
               dataKey="value"
-              stroke="#2563eb"
+              stroke="#B88327"
               strokeWidth={2}
               dot={false}
               isAnimationActive={false}
@@ -75,9 +75,9 @@ export function AnalyticsChart({
         ) : (
           <AreaChart data={data}>
             <defs>
-              <linearGradient id="vnbus-chart-blue" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#2563eb" stopOpacity={0.32} />
-                <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
+              <linearGradient id="vnbus-chart-gold" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#B88327" stopOpacity={0.32} />
+                <stop offset="95%" stopColor="#B88327" stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -87,8 +87,8 @@ export function AnalyticsChart({
             <Area
               type="monotone"
               dataKey="value"
-              stroke="#2563eb"
-              fill="url(#vnbus-chart-blue)"
+              stroke="#B88327"
+              fill="url(#vnbus-chart-gold)"
               strokeWidth={2}
               isAnimationActive={false}
             />

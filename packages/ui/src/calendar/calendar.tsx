@@ -28,9 +28,9 @@ export function Calendar({ className, classNames, ...props }: CalendarProps): Re
         week: "mt-2 flex w-full",
         day: "h-9 w-9 p-0 text-center text-sm",
         day_button:
-          "h-9 w-9 rounded-md p-0 font-normal text-gray-700 hover:bg-blue-50 hover:text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-600 dark:text-gray-300 dark:hover:bg-blue-400/10 dark:hover:text-blue-100",
+          "h-9 w-9 rounded-md p-0 font-normal text-gray-700 hover:bg-gold-50 hover:text-brand-900 focus:outline-none focus:ring-2 focus:ring-gold-500 dark:text-gray-300 dark:hover:bg-gold-500/10 dark:hover:text-gold-100",
         selected:
-          "rounded-md bg-blue-700 text-white hover:bg-blue-700 hover:text-white dark:bg-blue-500",
+          "rounded-md bg-gold-600 text-white hover:bg-gold-600 hover:text-white dark:bg-gold-500",
         today: "rounded-md bg-gray-100 text-gray-950 dark:bg-gray-800 dark:text-gray-50",
         outside: "text-gray-400 opacity-50",
         disabled: "text-gray-400 opacity-50",

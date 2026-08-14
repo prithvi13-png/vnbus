@@ -65,7 +65,7 @@ import {
 
 import { PageHeader } from "./page-header";
 
-const chartColors = ["#2563eb", "#059669", "#f59e0b", "#dc2626", "#7c3aed"];
+const chartColors = ["#02553E", "#B88327", "#037A58", "#9F6F20", "#dc2626"];
 
 type AdminRow = Record<string, unknown> & {
   id: string;
@@ -130,8 +130,8 @@ export function AdminDashboardWorkspace(): React.JSX.Element {
               <XAxis dataKey="label" />
               <YAxis />
               <RechartsTooltip />
-              <Area dataKey="bookings" stroke="#2563eb" fill="#dbeafe" strokeWidth={2} />
-              <Area dataKey="revenue" stroke="#059669" fill="#d1fae5" strokeWidth={2} />
+              <Area dataKey="bookings" stroke="#B88327" fill="#FFF8EA" strokeWidth={2} />
+              <Area dataKey="revenue" stroke="#02553E" fill="#DCEDE5" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -485,7 +485,7 @@ export function AdminReportsWorkspace(): React.JSX.Element {
               <XAxis dataKey="label" />
               <YAxis />
               <RechartsTooltip />
-              <Bar dataKey="revenue" fill="#059669" />
+              <Bar dataKey="revenue" fill="#02553E" />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -527,7 +527,7 @@ export function AdminAnalyticsWorkspace(): React.JSX.Element {
               <XAxis dataKey="label" />
               <YAxis />
               <RechartsTooltip />
-              <Area dataKey="revenue" stroke="#059669" fill="#d1fae5" strokeWidth={2} />
+              <Area dataKey="revenue" stroke="#02553E" fill="#DCEDE5" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -538,8 +538,8 @@ export function AdminAnalyticsWorkspace(): React.JSX.Element {
               <XAxis dataKey="label" />
               <YAxis />
               <RechartsTooltip />
-              <Bar dataKey="users" fill="#2563eb" />
-              <Bar dataKey="bookings" fill="#f59e0b" />
+              <Bar dataKey="users" fill="#02553E" />
+              <Bar dataKey="bookings" fill="#B88327" />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -552,7 +552,7 @@ export function AdminAnalyticsWorkspace(): React.JSX.Element {
                 {retentionData.map((item, index) => (
                   <Cell
                     key={item.label}
-                    fill={chartColors[index % chartColors.length] ?? "#2563eb"}
+                    fill={chartColors[index % chartColors.length] ?? "#B88327"}
                   />
                 ))}
               </Pie>
@@ -1043,7 +1043,7 @@ function ActivityFeed({ rows, title }: { rows: LogRow[]; title: string }): React
             key={row.id}
             className="flex gap-3 rounded-md border border-gray-200 p-3 dark:border-gray-800"
           >
-            <span className="mt-1 h-2.5 w-2.5 rounded-full bg-blue-600" aria-hidden="true" />
+            <span className="mt-1 h-2.5 w-2.5 rounded-full bg-gold-500" aria-hidden="true" />
             <div>
               <p className="font-semibold text-gray-950 dark:text-gray-50">{row.action}</p>
               <p className="text-sm text-gray-600 dark:text-gray-400">

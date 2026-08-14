@@ -1,9 +1,10 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bus, LogIn, Menu, Search, UserPlus } from "lucide-react";
+import { LogIn, Menu, Search, UserPlus } from "lucide-react";
 import {
   Button,
   Drawer,
@@ -35,14 +36,21 @@ export function SiteHeader(): React.JSX.Element {
   }));
 
   return (
-    <header className="sticky top-0 z-30 border-b border-gray-200 bg-white/95 backdrop-blur dark:border-gray-800 dark:bg-gray-950/95">
+    <header className="sticky top-0 z-30 border-b border-gold-100 bg-white/95 backdrop-blur dark:border-brand-900 dark:bg-brand-950/95">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link
           href="/"
-          className="flex items-center gap-2 text-sm font-semibold text-gray-950 dark:text-gray-50"
+          className="flex items-center gap-3 text-sm font-semibold text-brand-900 dark:text-white"
         >
-          <span className="flex h-9 w-9 items-center justify-center rounded-md bg-blue-700 text-white">
-            <Bus className="h-5 w-5" aria-hidden="true" />
+          <span className="flex h-11 w-11 items-center justify-center rounded-md border border-gold-100 bg-white">
+            <Image
+              src="/images/vriddhi-nexus-logo.png"
+              alt="Vriddhi Nexus logo"
+              width={36}
+              height={36}
+              className="h-9 w-9 object-contain"
+              priority
+            />
           </span>
           <span>Vriddhi Nexus Pvt Ltd</span>
         </Link>
@@ -82,7 +90,7 @@ export function SiteHeader(): React.JSX.Element {
       <Drawer open={mobileOpen} onOpenChange={setMobileOpen}>
         <DrawerContent side="right">
           <DrawerHeader>
-            <DrawerTitle className="text-base font-semibold text-gray-950 dark:text-gray-50">
+            <DrawerTitle className="text-base font-semibold text-brand-900 dark:text-white">
               Vriddhi Nexus
             </DrawerTitle>
           </DrawerHeader>
@@ -92,8 +100,9 @@ export function SiteHeader(): React.JSX.Element {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "rounded-md px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-950 dark:text-gray-300 dark:hover:bg-gray-900 dark:hover:text-gray-50",
-                  item.active && "bg-blue-50 text-blue-800 dark:bg-blue-400/10 dark:text-blue-200",
+                  "rounded-md px-3 py-2 text-sm font-medium text-brand-700 hover:bg-brand-50 hover:text-brand-900 dark:text-brand-100 dark:hover:bg-brand-900 dark:hover:text-white",
+                  item.active &&
+                    "bg-gold-50 text-brand-900 ring-1 ring-gold-200 dark:bg-gold-500/10 dark:text-gold-100",
                 )}
                 onClick={() => setMobileOpen(false)}
               >

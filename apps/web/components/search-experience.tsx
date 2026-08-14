@@ -146,7 +146,7 @@ export function SearchExperience(): React.JSX.Element {
 
   return (
     <div className="grid gap-6">
-      <section className="sticky top-16 z-20 rounded-lg border border-gray-200 bg-white/95 p-3 shadow-sm backdrop-blur dark:border-gray-800 dark:bg-gray-950/95">
+      <section className="sticky top-16 z-20 rounded-lg border border-gold-100 bg-white/95 p-3 shadow-sm backdrop-blur dark:border-brand-900 dark:bg-brand-950/95">
         <SearchPanel compact initialValues={initialValues} />
       </section>
 
@@ -310,11 +310,11 @@ function SearchFilters({
   const filters = response.filters;
 
   return (
-    <aside className="h-max rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-950 xl:sticky xl:top-40">
+    <aside className="h-max rounded-lg border border-gold-100 bg-white p-4 dark:border-brand-900 dark:bg-brand-950 xl:sticky xl:top-40">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-blue-700 dark:text-blue-300" aria-hidden="true" />
-          <h2 className="text-base font-semibold text-gray-950 dark:text-gray-50">Filters</h2>
+          <Filter className="h-4 w-4 text-gold-600 dark:text-gold-100" aria-hidden="true" />
+          <h2 className="text-base font-semibold text-brand-900 dark:text-white">Filters</h2>
         </div>
         <Button
           type="button"
@@ -481,7 +481,7 @@ function SearchFilters({
                 ))}
               </SelectContent>
             </Select>
-            <label className="flex items-center gap-2 rounded-md border border-gray-200 p-2 text-sm dark:border-gray-800">
+            <label className="flex items-center gap-2 rounded-md border border-gold-100 p-2 text-sm dark:border-brand-900">
               <Checkbox
                 checked={request.liveTracking === true}
                 onCheckedChange={(checked) =>
@@ -511,8 +511,8 @@ function BusResultCard({
   return (
     <Card className="overflow-hidden">
       <CardContent className="grid gap-0 p-0 lg:grid-cols-[180px_1fr]">
-        <div className="hidden bg-gray-100 p-3 dark:bg-gray-900 lg:block">
-          <div className="relative h-full min-h-56 overflow-hidden rounded-md bg-white/70 dark:bg-gray-950/50">
+        <div className="hidden bg-brand-50 p-3 dark:bg-brand-950 lg:block">
+          <div className="relative h-full min-h-56 overflow-hidden rounded-md bg-white/80 dark:bg-brand-950/50">
             <Image
               src={bus.busImageUrl}
               alt={`${bus.busType} bus`}
@@ -534,11 +534,11 @@ function BusResultCard({
                 height={48}
                 loading="lazy"
                 unoptimized
-                className="h-12 w-12 rounded-md border border-gray-200 bg-white object-cover dark:border-gray-800"
+                className="h-12 w-12 rounded-md border border-gold-100 bg-white object-cover dark:border-brand-900"
               />
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-lg font-semibold text-gray-950 dark:text-gray-50">
+                  <h2 className="text-lg font-semibold text-brand-900 dark:text-white">
                     {bus.operatorName}
                   </h2>
                   <Badge variant="neutral">{bus.busType}</Badge>
@@ -628,8 +628,8 @@ function BusResultCard({
 
 function BusDetailsCard({ bus }: { bus: BusSearchResult }): React.JSX.Element {
   return (
-    <div className="rounded-md border border-gray-200 p-3 dark:border-gray-800">
-      <h3 className="text-sm font-semibold text-gray-950 dark:text-gray-50">Bus Details</h3>
+    <div className="rounded-md border border-gold-100 p-3 dark:border-brand-900">
+      <h3 className="text-sm font-semibold text-brand-900 dark:text-white">Bus Details</h3>
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <PointList title="Boarding" points={bus.boardingPoints.slice(0, 3)} />
         <PointList title="Dropping" points={bus.droppingPoints.slice(0, 3)} />
@@ -657,7 +657,7 @@ function PointList({
             className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-400"
           >
             <MapPin
-              className="mt-0.5 h-3.5 w-3.5 text-blue-700 dark:text-blue-300"
+              className="mt-0.5 h-3.5 w-3.5 text-gold-600 dark:text-gold-100"
               aria-hidden="true"
             />
             <span>
@@ -695,7 +695,7 @@ function FilterGroup({
 }): React.JSX.Element {
   return (
     <section>
-      <h3 className="mb-2 text-sm font-semibold text-gray-950 dark:text-gray-50">{title}</h3>
+      <h3 className="mb-2 text-sm font-semibold text-brand-900 dark:text-white">{title}</h3>
       {children}
     </section>
   );
@@ -742,7 +742,7 @@ function VirtualizedCheckboxList({
 
   return (
     <div
-      className="relative overflow-y-auto rounded-md border border-gray-200 dark:border-gray-800"
+      className="relative overflow-y-auto rounded-md border border-gold-100 dark:border-brand-900"
       style={{ height: viewportHeight }}
       onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
     >
@@ -825,7 +825,7 @@ function TripTime({
 
 function Rating({ rating, reviews }: { rating: number; reviews: number }): React.JSX.Element {
   return (
-    <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-200">
+    <span className="inline-flex items-center gap-1 rounded-md bg-brand-50 px-2 py-1 text-xs font-medium text-brand-900 dark:bg-brand-600/10 dark:text-brand-100">
       <Star className="h-3.5 w-3.5 fill-current" aria-hidden="true" />
       {rating.toFixed(1)} · {reviews} reviews
     </span>
@@ -843,7 +843,7 @@ function Fact({
 }): React.JSX.Element {
   return (
     <div className="flex items-start gap-2">
-      <Icon className="mt-0.5 h-4 w-4 text-blue-700 dark:text-blue-300" aria-hidden="true" />
+      <Icon className="mt-0.5 h-4 w-4 text-gold-600 dark:text-gold-100" aria-hidden="true" />
       <span className="grid">
         <span className="text-xs text-gray-500 dark:text-gray-400">{label}</span>
         <span className="font-medium text-gray-900 dark:text-gray-100">{value}</span>

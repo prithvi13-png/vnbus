@@ -44,7 +44,7 @@ export function CommandPalette({
                 key={item.id}
                 value={`${item.label} ${item.description ?? ""}`}
                 className={cn(
-                  "flex cursor-default select-none items-center justify-between gap-3 rounded-md px-3 py-2 text-sm outline-none aria-selected:bg-blue-50 aria-selected:text-blue-900 dark:aria-selected:bg-blue-400/10 dark:aria-selected:text-blue-100",
+                  "flex cursor-default select-none items-center justify-between gap-3 rounded-md px-3 py-2 text-sm outline-none aria-selected:bg-gold-50 aria-selected:text-brand-900 dark:aria-selected:bg-gold-500/10 dark:aria-selected:text-gold-100",
                 )}
                 onSelect={() => {
                   item.onSelect();

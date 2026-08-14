@@ -6,14 +6,14 @@ import { Loader2 } from "lucide-react";
 import { cn } from "../lib/cn";
 
 const buttonVariants = cva(
-  "inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium tracking-normal transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium tracking-normal transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
-        default: "bg-blue-700 text-white hover:bg-blue-800 dark:bg-blue-500 dark:hover:bg-blue-600",
-        secondary: "bg-gray-100 text-gray-900 hover:bg-gray-200",
-        outline: "border border-gray-300 bg-white text-gray-900 hover:bg-gray-50",
-        ghost: "text-gray-700 hover:bg-gray-100",
+        default: "bg-gold-500 text-brand-900 hover:bg-gold-600",
+        secondary: "bg-brand-700 text-white hover:bg-brand-900",
+        outline: "border border-gold-200 bg-white text-brand-900 hover:bg-gold-50",
+        ghost: "text-brand-700 hover:bg-brand-50 hover:text-brand-900",
         destructive: "bg-red-600 text-white hover:bg-red-700",
       },
       size: {

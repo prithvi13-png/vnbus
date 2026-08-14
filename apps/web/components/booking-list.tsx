@@ -44,7 +44,7 @@ const columns: DataTableColumn<BookingRow>[] = [
     sortable: true,
     cell: (booking) =>
       booking.detailsHref ? (
-        <Link className="font-medium text-blue-700 dark:text-blue-300" href={booking.detailsHref}>
+        <Link className="font-medium text-gold-600 dark:text-gold-200" href={booking.detailsHref}>
           {booking.reference}
         </Link>
       ) : (

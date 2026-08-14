@@ -36,7 +36,7 @@ export function BreadcrumbLink({
   return (
     <a
       className={cn(
-        "transition-colors hover:text-gray-950 focus:outline-none focus:ring-2 focus:ring-blue-600 dark:hover:text-gray-50",
+        "transition-colors hover:text-gray-950 focus:outline-none focus:ring-2 focus:ring-gold-500 dark:hover:text-gray-50",
         className,
       )}
       {...props}

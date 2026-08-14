@@ -215,7 +215,7 @@ export function DataTable<TData extends Record<string, unknown>>({
                     {column.sortable ? (
                       <button
                         type="button"
-                        className="inline-flex items-center gap-1 rounded-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
+                        className="inline-flex items-center gap-1 rounded-sm focus:outline-none focus:ring-2 focus:ring-gold-500"
                         onClick={() =>
                           setSort((current) =>
                             current?.key === column.id && current.direction === "asc"

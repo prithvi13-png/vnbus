@@ -22,11 +22,11 @@ export function Sidebar({ brand, className, footer, items }: SidebarProps): Reac
   return (
     <aside
       className={cn(
-        "flex h-full w-72 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950",
+        "flex h-full w-72 flex-col border-r border-gold-100 bg-white dark:border-brand-900 dark:bg-brand-950",
         className,
       )}
     >
-      <div className="flex h-16 items-center border-b border-gray-200 px-5 dark:border-gray-800">
+      <div className="flex h-16 items-center border-b border-gold-100 px-5 dark:border-brand-900">
         {brand}
       </div>
       <nav className="grid gap-1 p-3" aria-label="Sidebar navigation">
@@ -38,8 +38,9 @@ export function Sidebar({ brand, className, footer, items }: SidebarProps): Reac
               key={item.href}
               href={item.href}
               className={cn(
-                "flex h-10 items-center gap-3 rounded-md px-3 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-950 focus:outline-none focus:ring-2 focus:ring-blue-600 dark:text-gray-300 dark:hover:bg-gray-900 dark:hover:text-gray-50",
-                item.active && "bg-blue-50 text-blue-800 dark:bg-blue-400/10 dark:text-blue-200",
+                "flex h-10 items-center gap-3 rounded-md px-3 text-sm font-medium text-brand-700 transition-colors hover:bg-brand-50 hover:text-brand-900 focus:outline-none focus:ring-2 focus:ring-gold-500 dark:text-brand-100 dark:hover:bg-brand-900 dark:hover:text-white",
+                item.active &&
+                  "bg-gold-50 text-brand-900 ring-1 ring-gold-200 dark:bg-gold-500/10 dark:text-gold-100",
               )}
             >
               <Icon className="h-4 w-4" aria-hidden="true" />
@@ -54,7 +55,7 @@ export function Sidebar({ brand, className, footer, items }: SidebarProps): Reac
         })}
       </nav>
       {footer ? (
-        <div className="mt-auto border-t border-gray-200 p-4 dark:border-gray-800">{footer}</div>
+        <div className="mt-auto border-t border-gold-100 p-4 dark:border-brand-900">{footer}</div>
       ) : null}
     </aside>
   );

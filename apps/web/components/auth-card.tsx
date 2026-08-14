@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bus } from "lucide-react";
+import Image from "next/image";
 import { Button, Card, CardContent, CardHeader, CardTitle, Input } from "@vnbus/ui";
 
 export function AuthCard({ mode }: { mode: "login" | "register" | "forgot" }): React.JSX.Element {
@@ -7,11 +7,17 @@ export function AuthCard({ mode }: { mode: "login" | "register" | "forgot" }): R
     mode === "login" ? "Login" : mode === "register" ? "Create customer account" : "Reset password";
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-10">
+    <main className="flex min-h-screen items-center justify-center bg-brand-50 px-4 py-10">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-md bg-blue-700 text-white">
-            <Bus className="h-5 w-5" aria-hidden="true" />
+          <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-md border border-gold-100 bg-white">
+            <Image
+              src="/images/vriddhi-nexus-logo.png"
+              alt="Vriddhi Nexus logo"
+              width={42}
+              height={42}
+              className="h-10 w-10 object-contain"
+            />
           </div>
           <CardTitle>{title}</CardTitle>
         </CardHeader>

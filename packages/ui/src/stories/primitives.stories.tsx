@@ -126,7 +126,7 @@ export const Controls: Story = {
           <Avatar>
             <AvatarFallback>VN</AvatarFallback>
           </Avatar>
-          <CalendarDays className="h-5 w-5 text-blue-700" />
+          <CalendarDays className="h-5 w-5 text-gold-600" />
         </CardContent>
       </Card>
     </div>

@@ -10,6 +10,10 @@ export const metadata: Metadata = {
     template: "%s | Vriddhi Nexus Bus",
   },
   description: "Enterprise bus booking platform foundation for Vriddhi Nexus Pvt Ltd.",
+  icons: {
+    icon: "/images/vriddhi-nexus-logo.png",
+    apple: "/images/vriddhi-nexus-logo.png",
+  },
   alternates: {
     canonical: "/",
   },

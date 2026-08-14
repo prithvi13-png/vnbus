@@ -139,12 +139,12 @@ const seedCustomers: AgentCustomerRecord[] = [
       },
     ],
     tags: [
-      { tagId: "CUS-AGT-001-TAG-001", customerId: "CUS-AGT-001", label: "VIP", color: "blue" },
+      { tagId: "CUS-AGT-001-TAG-001", customerId: "CUS-AGT-001", label: "VIP", color: "gold" },
       {
         tagId: "CUS-AGT-001-TAG-002",
         customerId: "CUS-AGT-001",
         label: "Corporate",
-        color: "emerald",
+        color: "brand",
       },
     ],
     status: "VIP",

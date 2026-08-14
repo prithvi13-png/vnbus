@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -169,7 +170,7 @@ export function DashboardShell({
             items={sidebarItems}
             footer={
               <div className="grid gap-2 text-xs text-gray-500 dark:text-gray-400">
-                <span className="font-medium text-gray-700 dark:text-gray-200">
+                <span className="font-medium text-brand-900 dark:text-brand-100">
                   Vriddhi Nexus Portal
                 </span>
                 <span>Role-based booking, ticket, report, and customer workflows.</span>
@@ -192,7 +193,7 @@ export function DashboardShell({
               <Button
                 type="button"
                 variant="outline"
-                className="w-80 justify-start bg-gray-50 text-gray-500 dark:bg-gray-900"
+                className="w-80 justify-start border-gold-100 bg-brand-50 text-brand-700 dark:border-brand-900 dark:bg-brand-950 dark:text-brand-100"
                 onClick={() => setCommandOpen(true)}
               >
                 <Search className="h-4 w-4" aria-hidden="true" />
@@ -239,7 +240,7 @@ export function DashboardShell({
                         <span
                           className={cn(
                             "mt-1 h-2 w-2 rounded-full",
-                            notification.unread ? "bg-blue-600" : "bg-gray-300 dark:bg-gray-700",
+                            notification.unread ? "bg-gold-500" : "bg-gray-300 dark:bg-gray-700",
                           )}
                           aria-hidden="true"
                         />
@@ -275,7 +276,7 @@ export function DashboardShell({
       <Drawer open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
         <DrawerContent side="left">
           <DrawerHeader>
-            <DrawerTitle className="text-base font-semibold text-gray-950 dark:text-gray-50">
+            <DrawerTitle className="text-base font-semibold text-brand-900 dark:text-white">
               Navigation
             </DrawerTitle>
           </DrawerHeader>
@@ -288,9 +289,9 @@ export function DashboardShell({
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    "flex h-10 items-center gap-3 rounded-md px-3 text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-950 dark:text-gray-300 dark:hover:bg-gray-900 dark:hover:text-gray-50",
+                    "flex h-10 items-center gap-3 rounded-md px-3 text-sm font-medium text-brand-700 hover:bg-brand-50 hover:text-brand-900 dark:text-brand-100 dark:hover:bg-brand-900 dark:hover:text-white",
                     item.active &&
-                      "bg-blue-50 text-blue-800 dark:bg-blue-400/10 dark:text-blue-200",
+                      "bg-gold-50 text-brand-900 ring-1 ring-gold-200 dark:bg-gold-500/10 dark:text-gold-100",
                   )}
                   onClick={() => setMobileNavOpen(false)}
                 >
@@ -311,10 +312,16 @@ function Brand(): React.JSX.Element {
   return (
     <Link
       href="/"
-      className="flex items-center gap-2 text-sm font-semibold text-gray-950 dark:text-gray-50"
+      className="flex items-center gap-3 text-sm font-semibold text-brand-900 dark:text-white"
     >
-      <span className="flex h-9 w-9 items-center justify-center rounded-md bg-blue-700 text-white">
-        <Bus className="h-5 w-5" aria-hidden="true" />
+      <span className="flex h-11 w-11 items-center justify-center rounded-md border border-gold-100 bg-white">
+        <Image
+          src="/images/vriddhi-nexus-logo.png"
+          alt="Vriddhi Nexus logo"
+          width={36}
+          height={36}
+          className="h-9 w-9 object-contain"
+        />
       </span>
       <span>Vriddhi Nexus Pvt Ltd</span>
     </Link>

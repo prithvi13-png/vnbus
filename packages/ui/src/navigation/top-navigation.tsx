@@ -21,7 +21,7 @@ export function TopNavigation({
   return (
     <header
       className={cn(
-        "sticky top-0 z-30 border-b border-gray-200 bg-white/95 backdrop-blur dark:border-gray-800 dark:bg-gray-950/95",
+        "sticky top-0 z-30 border-b border-gold-100 bg-white/95 backdrop-blur dark:border-brand-900 dark:bg-brand-950/95",
         className,
       )}
     >

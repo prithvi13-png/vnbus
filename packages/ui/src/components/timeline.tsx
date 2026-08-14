@@ -12,10 +12,10 @@ export interface TimelineItem {
 
 const toneClasses = {
   neutral: "bg-gray-400",
-  success: "bg-emerald-500",
-  warning: "bg-amber-500",
+  success: "bg-brand-600",
+  warning: "bg-gold-500",
   danger: "bg-red-500",
-  info: "bg-blue-600",
+  info: "bg-gold-500",
 };
 
 export function Timeline({
