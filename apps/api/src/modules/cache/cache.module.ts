@@ -8,6 +8,6 @@ import { CacheValidator } from "./validators/cache.validator";
 @Module({
   controllers: [CacheController],
   providers: [CacheService, CacheRepository, CacheValidator],
-  exports: [CacheService],
+  exports: [CacheService, CacheRepository],
 })
 export class CacheModule {}

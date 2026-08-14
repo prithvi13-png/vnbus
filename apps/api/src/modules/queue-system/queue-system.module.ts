@@ -17,6 +17,6 @@ import { QueueSystemValidator } from "./validators/queue-system.validator";
   ],
   controllers: [QueueSystemController],
   providers: [QueueSystemService, QueueSystemRepository, QueueSystemValidator],
-  exports: [QueueSystemService],
+  exports: [QueueSystemService, QueueSystemRepository],
 })
 export class QueueSystemModule {}

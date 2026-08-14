@@ -9,6 +9,23 @@ const optionalPositiveIntSchema = z.preprocess(
   (value) => (value === "" ? undefined : value),
   z.coerce.number().int().positive().optional(),
 );
+const envBooleanSchema = z.preprocess((value) => {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  const normalized = value.trim().toLowerCase();
+
+  if (["true", "1", "yes", "on"].includes(normalized)) {
+    return true;
+  }
+
+  if (["false", "0", "no", "off", ""].includes(normalized)) {
+    return false;
+  }
+
+  return value;
+}, z.boolean());
 
 export const serverEnvSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "staging", "production"]).default("development"),
@@ -18,7 +35,7 @@ export const serverEnvSchema = z.object({
   API_PORT: z.coerce.number().int().positive().default(4000),
   WEB_PORT: z.coerce.number().int().positive().default(3000),
   REQUEST_BODY_LIMIT: z.string().default("1mb"),
-  MAINTENANCE_MODE: z.coerce.boolean().default(false),
+  MAINTENANCE_MODE: envBooleanSchema.default(false),
   DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().url().default("redis://localhost:6379"),
   JWT_ACCESS_SECRET: z.string().min(24),
@@ -28,7 +45,7 @@ export const serverEnvSchema = z.object({
   PASSWORD_RESET_TTL_MINUTES: z.coerce.number().int().positive().default(30),
   EMAIL_VERIFICATION_TTL_HOURS: z.coerce.number().int().positive().default(24),
   CORS_ORIGIN: z.string().default("http://localhost:3000"),
-  COOKIE_SECURE: z.coerce.boolean().default(false),
+  COOKIE_SECURE: envBooleanSchema.default(false),
   COOKIE_DOMAIN: z.string().optional(),
   EMAIL_PROVIDER: z.string().default("mock"),
   EMAIL_FROM: z.string().email().default("no-reply@vriddhinexus.example"),
@@ -77,10 +94,10 @@ export const serverEnvSchema = z.object({
   AI_PROVIDER: z.string().default("none"),
   AI_API_KEY: z.string().optional(),
   MONITORING_PROVIDER: z.string().default("prometheus"),
-  PROMETHEUS_ENABLED: z.coerce.boolean().default(true),
+  PROMETHEUS_ENABLED: envBooleanSchema.default(true),
   SENTRY_DSN: optionalUrlSchema,
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
-  SECURITY_HEADERS_ENABLED: z.coerce.boolean().default(true),
+  SECURITY_HEADERS_ENABLED: envBooleanSchema.default(true),
   RATE_LIMIT_PUBLIC_PER_MINUTE: z.coerce.number().int().positive().default(120),
   RATE_LIMIT_AUTHENTICATED_PER_MINUTE: z.coerce.number().int().positive().default(300),
   RATE_LIMIT_ADMIN_PER_MINUTE: z.coerce.number().int().positive().default(120),
@@ -88,7 +105,7 @@ export const serverEnvSchema = z.object({
 
 export const webEnvSchema = z.object({
   NEXT_PUBLIC_API_URL: z.string().url().default("http://localhost:4000"),
-  NEXT_PUBLIC_MAINTENANCE_MODE: z.coerce.boolean().default(false),
+  NEXT_PUBLIC_MAINTENANCE_MODE: envBooleanSchema.default(false),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;

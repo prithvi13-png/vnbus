@@ -57,8 +57,6 @@ ALTER TABLE "tickets"
   ADD COLUMN "emailed_at" TIMESTAMP(3),
   ADD COLUMN "downloaded_at" TIMESTAMP(3);
 
-ALTER TABLE "tickets" ALTER COLUMN "status" SET DEFAULT 'GENERATED';
-
 CREATE TABLE "ticket_downloads" (
   "id" UUID NOT NULL DEFAULT gen_random_uuid(),
   "ticket_id" UUID NOT NULL,

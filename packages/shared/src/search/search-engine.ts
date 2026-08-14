@@ -18,7 +18,7 @@ import {
   mockSearchDatabase,
   normalizeCity,
   POPULAR_CITIES,
-} from "./mock-search-data";
+} from "./mock-search-data.js";
 
 export const SEARCH_SORT_LABELS: Record<SearchSortOption, string> = {
   PRICE_ASC: "Price Low to High",

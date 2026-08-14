@@ -46,7 +46,7 @@ export {
   type MockOperator,
   type MockRoute,
   type MockSearchDatabase,
-} from "./search/mock-search-data";
+} from "./search/mock-search-data.js";
 export {
   buildSearchParams,
   buildSearchRequestFromParams,
@@ -57,7 +57,7 @@ export {
   TIME_WINDOW_LABELS,
   todayIsoDate,
   type SearchDatasetSummary,
-} from "./search/search-engine";
+} from "./search/search-engine.js";
 export {
   calculateFare,
   confirmMockBooking,
@@ -69,4 +69,4 @@ export {
   isHoldExpired,
   prepareMockBookingEmail,
   releaseMockSeatHold,
-} from "./booking/mock-booking-engine";
+} from "./booking/mock-booking-engine.js";

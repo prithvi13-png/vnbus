@@ -23,7 +23,7 @@ import type {
   VehicleLayoutType,
 } from "@vnbus/types";
 
-import { getMockTripById } from "../search/mock-search-data";
+import { getMockTripById } from "../search/mock-search-data.js";
 
 const HOLD_DURATION_SECONDS = 10 * 60;
 const INDIA_TAX_RATE = 0.05;
