@@ -15,6 +15,8 @@ import type {
   TicketRecord,
 } from "@vnbus/types";
 
+import { useInvoiceStore } from "./invoice-store";
+
 interface BookingState {
   layout: SeatLayoutDetails | null;
   selectedSeats: string[];
@@ -107,57 +109,80 @@ export const useBookingStore = create<BookingState>()(
           tickets: upsertById(state.tickets, ticket, (item) => item.ticketId).slice(0, 25),
         })),
       setConfirmation: (confirmation) =>
-        set((state) => ({
-          booking: confirmation.booking,
-          ticket: confirmation.ticket,
-          hold: null,
-          history: upsertById(
-            state.history,
-            confirmation.booking,
-            (booking) => booking.bookingId,
-          ).slice(0, 25),
-          tickets: upsertById(
-            state.tickets,
-            confirmation.ticket,
-            (ticket) => ticket.ticketId,
-          ).slice(0, 25),
-          timeline: mergeTimeline(state.timeline, [
-            createStoreTimelineEvent(
-              confirmation.booking.bookingId,
-              "PAYMENT_CONFIRMED",
-              "Payment confirmed",
-              "Mock payment accepted.",
-              confirmation.booking.confirmedAt ?? confirmation.ticket.issuedAt,
-              "success",
+        set((state) => {
+          const invoice = useInvoiceStore
+            .getState()
+            .ensureInvoiceForBooking(confirmation.booking, "CUSTOMER_BOOKING", "Booking flow");
+
+          return {
+            booking: confirmation.booking,
+            ticket: confirmation.ticket,
+            hold: null,
+            history: upsertById(
+              state.history,
+              confirmation.booking,
+              (booking) => booking.bookingId,
+            ).slice(0, 25),
+            tickets: upsertById(
+              state.tickets,
+              confirmation.ticket,
+              (ticket) => ticket.ticketId,
+            ).slice(0, 25),
+            timeline: mergeTimeline(state.timeline, [
+              createStoreTimelineEvent(
+                confirmation.booking.bookingId,
+                "PAYMENT_CONFIRMED",
+                "Payment confirmed",
+                "Mock payment accepted.",
+                confirmation.booking.confirmedAt ?? confirmation.ticket.issuedAt,
+                "success",
+              ),
+              createStoreTimelineEvent(
+                confirmation.booking.bookingId,
+                "TICKET_GENERATED",
+                "Ticket generated",
+                `Ticket ${confirmation.ticket.ticketNumber} is ready.`,
+                confirmation.ticket.issuedAt,
+                "success",
+              ),
+              createStoreTimelineEvent(
+                confirmation.booking.bookingId,
+                "EMAIL_SENT",
+                "Email sent",
+                "Booking confirmation email recorded by the mock queue.",
+                confirmation.ticket.issuedAt,
+                "info",
+              ),
+              createStoreTimelineEvent(
+                confirmation.booking.bookingId,
+                "EMAIL_SENT",
+                "Invoice uploaded",
+                `Invoice ${invoice.invoiceNumber} was generated and uploaded.`,
+                invoice.uploadedAt,
+                "success",
+              ),
+            ]),
+            notifications: upsertById(
+              upsertById(
+                state.notifications,
+                createStoreNotification(
+                  "BOOKING_UPDATE",
+                  "Ticket generated",
+                  `Ticket ${confirmation.ticket.ticketNumber} is ready for ${confirmation.booking.bookingReference}.`,
+                  confirmation.booking.bookingId,
+                ),
+                (notification) => notification.id,
+              ),
+              createStoreNotification(
+                "BOOKING_UPDATE",
+                "Invoice uploaded",
+                `Invoice ${invoice.invoiceNumber} is available for ${confirmation.booking.bookingReference}.`,
+                confirmation.booking.bookingId,
+              ),
+              (notification) => notification.id,
             ),
-            createStoreTimelineEvent(
-              confirmation.booking.bookingId,
-              "TICKET_GENERATED",
-              "Ticket generated",
-              `Ticket ${confirmation.ticket.ticketNumber} is ready.`,
-              confirmation.ticket.issuedAt,
-              "success",
-            ),
-            createStoreTimelineEvent(
-              confirmation.booking.bookingId,
-              "EMAIL_SENT",
-              "Email sent",
-              "Booking confirmation email recorded by the mock queue.",
-              confirmation.ticket.issuedAt,
-              "info",
-            ),
-          ]),
-          notifications: upsertById(
-            state.notifications,
-            createStoreNotification(
-              "BOOKING_UPDATE",
-              "Ticket generated",
-              `Ticket ${confirmation.ticket.ticketNumber} is ready for ${confirmation.booking.bookingReference}.`,
-              confirmation.booking.bookingId,
-            ),
-            (notification) => notification.id,
-          ),
-        })),
+          };
+        }),
       setTimeline: (events) => set({ timeline: events }),
       addTimeline: (events) =>
         set((state) => ({

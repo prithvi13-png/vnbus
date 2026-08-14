@@ -16,6 +16,7 @@ import {
   Percent,
   PlugZap,
   RefreshCw,
+  ReceiptText,
   ServerCog,
   Settings,
   ShieldCheck,
@@ -51,6 +52,8 @@ import {
   CardHeader,
   CardTitle,
   DataTable,
+  EmptyState,
+  FileUpload,
   Input,
   Progress,
   StatusChip,
@@ -63,6 +66,13 @@ import {
   type DataTableColumn,
 } from "@vnbus/ui";
 
+import {
+  downloadBulkBookingTemplate,
+  downloadInvoiceDocument,
+  type InvoiceInput,
+  type InvoiceRecord,
+  useInvoiceStore,
+} from "../lib/invoice-store";
 import { PageHeader } from "./page-header";
 
 const chartColors = ["#02553E", "#B88327", "#037A58", "#9F6F20", "#dc2626"];
@@ -87,6 +97,20 @@ type BookingRow = Record<string, unknown> & {
   journeyDate: string;
   status: string;
   amount: string;
+};
+
+type InvoiceAdminRow = Record<string, unknown> & {
+  id: string;
+  invoiceId: string;
+  invoiceNumber: string;
+  bookingReference: string;
+  customer: string;
+  route: string;
+  amount: string;
+  status: string;
+  source: string;
+  generatedAt: string;
+  action: string;
 };
 
 type RoleRow = Record<string, unknown> & {
@@ -193,13 +217,124 @@ export function AdminDashboardWorkspace(): React.JSX.Element {
 }
 
 export function AdminBookingsWorkspace(): React.JSX.Element {
+  const invoices = useInvoiceStore((state) => state.invoices);
+  const bulkBookings = useInvoiceStore((state) => state.bulkBookings);
+  const uploadBatches = useInvoiceStore((state) => state.uploadBatches);
+  const generateInvoiceFromInput = useInvoiceStore((state) => state.generateInvoiceFromInput);
+  const uploadBulkBookingFile = useInvoiceStore((state) => state.uploadBulkBookingFile);
+  const markInvoiceDownloaded = useInvoiceStore((state) => state.markInvoiceDownloaded);
+  const [invoiceStatus, setInvoiceStatus] = React.useState<string | null>(null);
+  const [uploadStatus, setUploadStatus] = React.useState<string | null>(null);
+  const invoiceRows = React.useMemo<InvoiceAdminRow[]>(
+    () => invoices.map(invoiceToAdminRow),
+    [invoices],
+  );
+  const invoiceColumns: DataTableColumn<InvoiceAdminRow>[] = [
+    { id: "invoiceNumber", header: "Invoice", sortable: true },
+    { id: "bookingReference", header: "Booking", sortable: true },
+    { id: "customer", header: "Customer", sortable: true },
+    { id: "route", header: "Route", sortable: true, hideOnMobile: true },
+    { id: "amount", header: "Amount", sortable: true, align: "right" },
+    {
+      id: "status",
+      header: "Status",
+      sortable: true,
+      cell: (row) => <StatusChip tone={statusTone(row.status)}>{row.status}</StatusChip>,
+    },
+    { id: "source", header: "Source", sortable: true, hideOnMobile: true },
+    { id: "generatedAt", header: "Generated", sortable: true, hideOnMobile: true },
+    {
+      id: "action",
+      header: "Action",
+      align: "right",
+      cell: (row) => (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => downloadInvoice(row.invoiceId)}
+        >
+          <Download className="h-4 w-4" aria-hidden="true" />
+          Download
+        </Button>
+      ),
+    },
+  ];
+  const invoiceCount = invoices.length;
+  const invoiceTotal = invoices.reduce((sum, invoice) => sum + invoice.total.amount, 0);
+  const latestBatch = uploadBatches[0];
+
+  function generateInvoice(row: BookingRow): void {
+    const invoice = generateInvoiceFromInput(
+      invoiceInputFromBookingRow(row),
+      "ADMIN_MANUAL",
+      "Admin",
+    );
+    setInvoiceStatus(`${invoice.invoiceNumber} generated and uploaded.`);
+  }
+
+  function generateInvoices(rows: BookingRow[]): void {
+    rows.forEach((row) => {
+      generateInvoiceFromInput(invoiceInputFromBookingRow(row), "ADMIN_MANUAL", "Admin");
+    });
+    setInvoiceStatus(`${rows.length} invoice${rows.length === 1 ? "" : "s"} generated.`);
+  }
+
+  function downloadInvoice(invoiceId: string): void {
+    const invoice = invoices.find((item) => item.invoiceId === invoiceId);
+
+    if (!invoice) {
+      setInvoiceStatus("Invoice is not available.");
+
+      return;
+    }
+
+    downloadInvoiceDocument(invoice);
+    markInvoiceDownloaded(invoice.invoiceId);
+    setInvoiceStatus(`${invoice.invoiceNumber} downloaded.`);
+  }
+
+  async function handleBulkUpload(event: React.ChangeEvent<HTMLInputElement>): Promise<void> {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    try {
+      setUploadStatus("Uploading booking sheet...");
+      const result = await uploadBulkBookingFile(file, "Admin bulk upload");
+      setUploadStatus(
+        `Uploaded ${result.bookings.length} booking${result.bookings.length === 1 ? "" : "s"} and generated ${result.invoices.length} invoice${result.invoices.length === 1 ? "" : "s"}.`,
+      );
+    } catch (error) {
+      setUploadStatus(error instanceof Error ? error.message : "Bulk upload failed.");
+    } finally {
+      input.value = "";
+    }
+  }
+
   return (
     <div className="grid gap-5">
       <PageHeader
         eyebrow="Admin"
         title="Bookings"
-        description="Search, filter, inspect ticket state, resend email, cancel, reschedule, and view timeline."
+        description="Search, filter, inspect ticket state, generate invoices, upload bulk bookings, and view timeline."
       />
+      <section className="grid gap-3 md:grid-cols-3">
+        <MetricCard label="Uploaded Invoices" value={invoiceCount} helper="Invoice repository" />
+        <MetricCard
+          label="Invoice Value"
+          value={`INR ${invoiceTotal.toLocaleString("en-IN")}`}
+          helper="INR generated from bookings"
+        />
+        <MetricCard
+          label="Bulk Uploads"
+          value={uploadBatches.length}
+          helper={latestBatch ? latestBatch.fileName : "No sheet uploaded"}
+        />
+      </section>
       <Card>
         <CardHeader>
           <CardTitle>Advanced Search</CardTitle>
@@ -219,9 +354,40 @@ export function AdminBookingsWorkspace(): React.JSX.Element {
       </Card>
       <Card>
         <CardHeader>
+          <CardTitle>Bulk Booking Upload</CardTitle>
+          <CardDescription>
+            Upload XLS, XLSX, or CSV booking rows to create invoices in one batch.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4 lg:grid-cols-[1fr_240px]">
+          <FileUpload
+            label="Upload booking sheet"
+            helperText="Required columns: customerName, route, total"
+            accept=".xlsx,.xls,.csv"
+            onChange={(event) => void handleBulkUpload(event)}
+          />
+          <div className="grid content-start gap-3">
+            <Button type="button" variant="outline" onClick={downloadBulkBookingTemplate}>
+              <Download className="h-4 w-4" aria-hidden="true" />
+              Template CSV
+            </Button>
+            <Button type="button" variant="outline" onClick={() => generateInvoices(bookingRows)}>
+              <ReceiptText className="h-4 w-4" aria-hidden="true" />
+              Generate All Invoices
+            </Button>
+            {uploadStatus ? (
+              <p className="rounded-md border border-gold-100 bg-gold-50 px-3 py-2 text-sm text-brand-900 dark:border-brand-900 dark:bg-gold-500/10 dark:text-gold-100">
+                {uploadStatus}
+              </p>
+            ) : null}
+          </div>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
           <CardTitle>Bookings List</CardTitle>
           <CardDescription>
-            Enterprise table with bulk actions, export, and ticket controls.
+            Enterprise table with bulk actions, export, ticket controls, and invoice generation.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -232,11 +398,85 @@ export function AdminBookingsWorkspace(): React.JSX.Element {
             exportable
             exportFileName="admin-bookings"
             bulkActions={(selected) => (
-              <BulkActions count={selected.length} actions={["Cancel", "Resend Email"]} />
+              <>
+                <BulkActions count={selected.length} actions={["Cancel", "Resend Email"]} />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => generateInvoices(selected)}
+                >
+                  <ReceiptText className="h-4 w-4" aria-hidden="true" />
+                  Generate Invoices
+                </Button>
+              </>
             )}
           />
         </CardContent>
       </Card>
+      {invoiceStatus ? (
+        <p className="rounded-md border border-gold-100 bg-gold-50 px-3 py-2 text-sm text-brand-900 dark:border-brand-900 dark:bg-gold-500/10 dark:text-gold-100">
+          {invoiceStatus}
+        </p>
+      ) : null}
+      <Card>
+        <CardHeader>
+          <CardTitle>Invoice Repository</CardTitle>
+          <CardDescription>
+            Uploaded invoices from customer bookings, admin generation, and bulk sheets.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {invoiceRows.length ? (
+            <DataTable
+              columns={invoiceColumns}
+              data={invoiceRows}
+              pageSize={6}
+              exportable
+              exportFileName="admin-invoices"
+              selectable={false}
+            />
+          ) : (
+            <EmptyState
+              title="No invoices generated"
+              description="Generate invoices from bookings or upload a bulk booking sheet."
+            />
+          )}
+        </CardContent>
+      </Card>
+      {bulkBookings.length ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Latest Bulk Bookings</CardTitle>
+            <CardDescription>Uploaded booking rows with linked invoice records.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {bulkBookings.slice(0, 6).map((booking) => {
+              const invoice = invoices.find((item) => item.invoiceId === booking.invoiceId);
+
+              return (
+                <div
+                  key={booking.bookingId}
+                  className="rounded-md border border-gray-200 p-3 dark:border-gray-800"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-semibold text-gray-950 dark:text-gray-50">
+                      {booking.bookingReference}
+                    </p>
+                    <StatusChip tone="success">{booking.status}</StatusChip>
+                  </div>
+                  <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                    {booking.customerName} · {booking.route}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Invoice {invoice?.invoiceNumber ?? "pending"}
+                  </p>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      ) : null}
       <section className="grid gap-3 md:grid-cols-3">
         {bookingRows.slice(0, 3).map((booking) => (
           <Card key={booking.id}>
@@ -260,6 +500,15 @@ export function AdminBookingsWorkspace(): React.JSX.Element {
               <Button type="button" variant="outline" size="sm">
                 <Mail className="h-4 w-4" aria-hidden="true" />
                 Resend
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => generateInvoice(booking)}
+              >
+                <ReceiptText className="h-4 w-4" aria-hidden="true" />
+                Generate Invoice
               </Button>
               <Button type="button" variant="outline" size="sm">
                 <RefreshCw className="h-4 w-4" aria-hidden="true" />
@@ -1177,6 +1426,26 @@ function UsageCard({ label, value }: { label: string; value: number }): React.JS
   );
 }
 
+function MetricCard({
+  helper,
+  label,
+  value,
+}: {
+  helper: string;
+  label: string;
+  value: number | string;
+}): React.JSX.Element {
+  return (
+    <Card>
+      <CardHeader className="space-y-1">
+        <CardDescription>{label}</CardDescription>
+        <CardTitle>{typeof value === "number" ? value.toLocaleString("en-IN") : value}</CardTitle>
+        <p className="text-xs text-gray-500 dark:text-gray-400">{helper}</p>
+      </CardHeader>
+    </Card>
+  );
+}
+
 function BulkActions({ actions, count }: { actions: string[]; count: number }): React.JSX.Element {
   return (
     <>
@@ -1188,6 +1457,63 @@ function BulkActions({ actions, count }: { actions: string[]; count: number }): 
       ))}
     </>
   );
+}
+
+function invoiceInputFromBookingRow(row: BookingRow): InvoiceInput {
+  const total = parseMoneyAmount(row.amount);
+  const taxes = Math.round(total * 0.05);
+  const baseFare = Math.max(total - taxes, 0);
+
+  return {
+    bookingId: row.id,
+    bookingReference: row.reference,
+    customerName: row.customer,
+    customerEmail: "",
+    customerPhone: "",
+    route: row.route,
+    operatorName: row.operator,
+    journeyDate: row.journeyDate,
+    seats: ["AUTO"],
+    passengerCount: 1,
+    fare: {
+      baseFare: { amount: baseFare, currency: "INR" },
+      taxes: { amount: taxes, currency: "INR" },
+      discount: { amount: 0, currency: "INR" },
+      convenienceFee: { amount: 0, currency: "INR" },
+      grandTotal: { amount: total, currency: "INR" },
+    },
+  };
+}
+
+function invoiceToAdminRow(invoice: InvoiceRecord): InvoiceAdminRow {
+  return {
+    id: invoice.invoiceId,
+    invoiceId: invoice.invoiceId,
+    invoiceNumber: invoice.invoiceNumber,
+    bookingReference: invoice.bookingReference,
+    customer: invoice.customerName,
+    route: invoice.route,
+    amount: `${invoice.total.currency} ${invoice.total.amount.toLocaleString("en-IN")}`,
+    status: invoice.status,
+    source: invoice.source.replaceAll("_", " "),
+    generatedAt: formatAdminDate(invoice.generatedAt),
+    action: "Download",
+  };
+}
+
+function parseMoneyAmount(value: string): number {
+  const amount = Number(value.replace(/[^0-9.-]/gu, ""));
+
+  return Number.isFinite(amount) ? amount : 0;
+}
+
+function formatAdminDate(value: string): string {
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(value));
 }
 
 const adminColumns: DataTableColumn<AdminRow>[] = [

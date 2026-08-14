@@ -64,6 +64,7 @@ import {
   searchBuses,
 } from "../lib/api-client";
 import { useBookingStore } from "../lib/booking-store";
+import { InvoiceDownloadButton } from "./invoice-download-button";
 
 const passengerSchema = z.object({
   passengers: z.array(
@@ -591,6 +592,7 @@ export function BookingSuccessFlow(): React.JSX.Element {
                 View ticket
               </Link>
             </Button>
+            <InvoiceDownloadButton booking={booking} />
             <Button asChild variant="outline">
               <Link href={`/booking-history/${booking.bookingId}`}>Booking details</Link>
             </Button>
@@ -739,6 +741,7 @@ export function TicketViewFlow(): React.JSX.Element {
             <Download className="h-4 w-4" aria-hidden="true" />
             Download Ticket
           </Button>
+          <InvoiceDownloadButton booking={booking} size="default" />
         </div>
         <div className="grid gap-3 lg:justify-items-center">
           <div className="flex aspect-square w-full max-w-[260px] self-start items-center justify-center rounded-lg border border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900">
@@ -1112,6 +1115,7 @@ function BookingDetails({ booking }: { booking: BookingRecord }): React.JSX.Elem
               <Download className="h-4 w-4" aria-hidden="true" />
               Download PDF
             </Button>
+            <InvoiceDownloadButton booking={booking} size="default" />
             <Button
               type="button"
               variant="outline"

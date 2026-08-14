@@ -24,6 +24,7 @@ import {
   Settings,
   ShieldCheck,
   SquareActivity,
+  ReceiptText,
   Ticket,
   UserCog,
   Users,
@@ -98,6 +99,7 @@ const adminNavigation: NavItem[] = [
 const customerNavigation: NavItem[] = [
   { href: "/customer/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/customer/bookings", label: "Bookings", icon: ClipboardList },
+  { href: "/customer/invoices", label: "Invoices", icon: ReceiptText },
   { href: "/customer/profile", label: "Profile", icon: UserCog },
   { href: "/customer/notifications", label: "Notifications", icon: Bell },
   { href: "/customer/tickets", label: "Tickets", icon: Ticket },

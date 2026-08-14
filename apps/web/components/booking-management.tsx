@@ -18,6 +18,8 @@ import {
 
 import { markNotificationRead } from "../lib/api-client";
 import { useBookingStore } from "../lib/booking-store";
+import { useInvoiceStore } from "../lib/invoice-store";
+import { InvoiceDownloadButton } from "./invoice-download-button";
 
 type HistoryFilter = "all" | "upcoming" | "past" | "cancelled";
 
@@ -132,6 +134,47 @@ export function TicketListCenter(): React.JSX.Element {
   );
 }
 
+export function InvoiceListCenter(): React.JSX.Element {
+  const invoices = useInvoiceStore((state) => state.invoices);
+
+  if (!invoices.length) {
+    return (
+      <EmptyState
+        title="No invoices yet"
+        description="Confirmed bookings generate uploaded invoices automatically."
+        actionLabel="Search buses"
+        onAction={() => {
+          window.location.href = "/search";
+        }}
+      />
+    );
+  }
+
+  return (
+    <section className="grid gap-3">
+      {invoices.map((invoice) => (
+        <Card key={invoice.invoiceId}>
+          <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <CardTitle className="text-base">{invoice.invoiceNumber}</CardTitle>
+                <StatusChip tone={invoice.status === "DOWNLOADED" ? "info" : "success"}>
+                  {invoice.status}
+                </StatusChip>
+              </div>
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                {invoice.route} · {invoice.bookingReference}
+              </p>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{invoice.storagePath}</p>
+            </div>
+            <InvoiceDownloadButton invoice={invoice} />
+          </CardContent>
+        </Card>
+      ))}
+    </section>
+  );
+}
+
 export function NotificationCenter(): React.JSX.Element {
   const notifications = useBookingStore((state) => state.notifications);
   const markRead = useBookingStore((state) => state.markNotificationRead);
@@ -229,12 +272,15 @@ function BookingHistoryCard({ booking }: { booking: BookingRecord }): React.JSX.
             value={`INR ${booking.fare.grandTotal.amount.toLocaleString("en-IN")}`}
           />
           <div className="flex items-end">
-            <Button asChild size="sm" className="w-full">
-              <Link href={`/booking-history/${booking.bookingId}`}>
-                <Search className="h-4 w-4" aria-hidden="true" />
-                Details
-              </Link>
-            </Button>
+            <div className="grid w-full gap-2">
+              <Button asChild size="sm" className="w-full">
+                <Link href={`/booking-history/${booking.bookingId}`}>
+                  <Search className="h-4 w-4" aria-hidden="true" />
+                  Details
+                </Link>
+              </Button>
+              <InvoiceDownloadButton booking={booking} />
+            </div>
           </div>
         </div>
       </CardContent>

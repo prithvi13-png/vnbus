@@ -53,6 +53,7 @@ test("mock booking flow reaches ticket view", async ({ page }) => {
   ]);
 
   await expect(page.getByText("Booking Confirmed")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Download Invoice/i })).toBeVisible();
   await Promise.all([
     page.waitForURL(/ticket/, { timeout: 15_000 }),
     page.getByRole("link", { name: /View ticket/i }).click(),
@@ -85,6 +86,30 @@ test("admin integration configuration renders milestone ten controls", async ({ 
   await expect(page.getByRole("tab", { name: "Payments" })).toBeVisible();
   await page.getByRole("tab", { name: "Payments" }).click();
   await expect(page.getByText("Razorpay")).toBeVisible();
+});
+
+test("admin bookings generate invoices and upload bulk booking sheet", async ({ page }) => {
+  await signInAs(page, "ADMIN");
+  await page.goto("/admin/bookings");
+
+  await page.getByRole("button", { name: "Generate Invoice" }).first().click();
+  await expect(page.getByText(/VNI-ADM-001 generated and uploaded/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Invoice Repository" })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "VNI-ADM-001" })).toBeVisible();
+
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "bulk-bookings.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(
+      [
+        "bookingReference,customerName,customerEmail,customerPhone,route,operatorName,journeyDate,seats,baseFare,taxes,discount,convenienceFee,total",
+        "VNB-BULK-101,Kavya Nair,kavya@example.com,+919876543219,Bangalore to Hyderabad,Eastern Travels,2026-08-28,A1 A2,2000,100,0,50,2150",
+      ].join("\n"),
+    ),
+  });
+
+  await expect(page.getByText(/Uploaded 1 booking and generated 1 invoice/)).toBeVisible();
+  await expect(page.getByRole("cell", { name: "VNB-BULK-101" })).toBeVisible();
 });
 
 test("customer cannot access the admin dashboard", async ({ page }) => {
