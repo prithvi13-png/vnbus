@@ -10,6 +10,7 @@ module.exports = {
     "^@vnbus/shared$": "<rootDir>/../../packages/shared/src",
     "^@vnbus/supplier-sdk$": "<rootDir>/../../packages/supplier-sdk/src",
     "^@vnbus/types$": "<rootDir>/../../packages/types/src",
+    "^(\\.{1,2}/.*)\\.js$": "$1",
   },
   collectCoverageFrom: ["src/**/*.(t|j)s", "!src/main.ts"],
   testEnvironment: "node",
