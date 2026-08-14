@@ -95,7 +95,31 @@ test("customer cannot access the admin dashboard", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Access denied" })).toBeVisible();
 });
 
+test("dashboard shortcut sends guests to login", async ({ page }) => {
+  await page.goto("/dashboard");
+
+  await expect(page).toHaveURL(/\/login\?redirect=%2Fdashboard/);
+  await expect(page.getByRole("heading", { name: "Sign in" }).first()).toBeVisible();
+});
+
+test("dashboard shortcut sends customers to customer dashboard", async ({ page }) => {
+  await signInAs(page, "CUSTOMER");
+  await page.goto("/dashboard");
+
+  await expect(page).toHaveURL(/\/customer\/dashboard/);
+  await expect(page.getByRole("heading", { name: "Customer Dashboard" })).toBeVisible();
+});
+
+test("dashboard shortcut sends admins to admin dashboard", async ({ page }) => {
+  await signInAs(page, "ADMIN");
+  await page.goto("/dashboard");
+
+  await expect(page).toHaveURL(/\/admin\/dashboard/);
+  await expect(page.getByRole("heading", { name: "Admin Dashboard" })).toBeVisible();
+});
+
 test("agent portal routes render milestone seven workspaces", async ({ page }) => {
+  await signInAs(page, "TRAVEL_AGENT");
   await page.goto("/agent/dashboard");
   await expect(page.getByRole("heading", { name: "Agent Dashboard" })).toBeVisible({
     timeout: 20_000,
@@ -130,13 +154,26 @@ function futureIsoDate(): string {
   return date.toISOString().slice(0, 10);
 }
 
-async function signInAs(page: Page, role: "ADMIN" | "CUSTOMER"): Promise<void> {
+type TestRole = "ADMIN" | "CUSTOMER" | "TRAVEL_AGENT";
+
+async function signInAs(page: Page, role: TestRole): Promise<void> {
   await page.addInitScript((selectedRole) => {
     const user = {
-      id: selectedRole === "ADMIN" ? "test-admin" : "test-customer",
-      firstName: selectedRole === "ADMIN" ? "Admin" : "Customer",
+      id:
+        selectedRole === "ADMIN"
+          ? "test-admin"
+          : selectedRole === "TRAVEL_AGENT"
+            ? "test-agent"
+            : "test-customer",
+      firstName:
+        selectedRole === "ADMIN" ? "Admin" : selectedRole === "TRAVEL_AGENT" ? "Agent" : "Customer",
       lastName: "User",
-      email: selectedRole === "ADMIN" ? "admin@vriddhinexus.com" : "user@vriddhinexus.com",
+      email:
+        selectedRole === "ADMIN"
+          ? "admin@vriddhinexus.com"
+          : selectedRole === "TRAVEL_AGENT"
+            ? "agent@vriddhinexus.com"
+            : "user@vriddhinexus.com",
       phone: "+919999999999",
       avatar: null,
       role: selectedRole,
@@ -144,7 +181,9 @@ async function signInAs(page: Page, role: "ADMIN" | "CUSTOMER"): Promise<void> {
       permissions:
         selectedRole === "ADMIN"
           ? ["admin.dashboard", "settings.manage", "users.view"]
-          : ["profile.view", "profile.update", "bookings.view"],
+          : selectedRole === "TRAVEL_AGENT"
+            ? ["agent.dashboard", "bookings.create", "customers.view"]
+            : ["profile.view", "profile.update", "bookings.view"],
       status: "ACTIVE",
       emailVerified: true,
       forcePasswordChange: false,

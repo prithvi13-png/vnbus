@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { AdminRouteGuard } from "../../components/admin-route-guard";
+import { AdminRouteGuard } from "../../components/role-route-guard";
 
 export const metadata: Metadata = {
   robots: {

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 
-import { DashboardShell } from "../../components/dashboard-shell";
-import { OperationsDashboard } from "../../components/dashboard-panels";
+import { DashboardRedirect } from "../../components/dashboard-redirect";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -12,9 +11,5 @@ export const metadata: Metadata = {
 };
 
 export default function DashboardPage(): React.JSX.Element {
-  return (
-    <DashboardShell>
-      <OperationsDashboard />
-    </DashboardShell>
-  );
+  return <DashboardRedirect />;
 }

@@ -52,6 +52,8 @@ import {
   type SidebarItem,
 } from "@vnbus/ui";
 
+import { useAuthStore } from "../lib/auth-store";
+import { getDashboardPathForUser } from "../lib/role-routes";
 import { useUiStore } from "../lib/ui-store";
 import { ProfileMenu } from "./profile-menu";
 import { ThemeToggle } from "./theme-toggle";
@@ -129,7 +131,26 @@ export function DashboardShell({
 }): React.JSX.Element {
   const pathname = usePathname();
   const router = useRouter();
-  const navigation = navigationByArea[area];
+  const hasHydrated = useAuthStore((state) => state.hasHydrated);
+  const user = useAuthStore((state) => state.user);
+  const navigation = React.useMemo<NavItem[]>(() => {
+    const areaNavigation = navigationByArea[area];
+
+    if (area !== "main") {
+      return areaNavigation;
+    }
+
+    const publicWorkspaceNavigation = areaNavigation.filter((item) => item.href !== "/dashboard");
+
+    if (!hasHydrated || !user) {
+      return publicWorkspaceNavigation;
+    }
+
+    return [
+      { href: getDashboardPathForUser(user), label: "Dashboard", icon: LayoutDashboard },
+      ...publicWorkspaceNavigation,
+    ];
+  }, [area, hasHydrated, user]);
   const mobileNavOpen = useUiStore((state) => state.mobileNavOpen);
   const commandOpen = useUiStore((state) => state.commandOpen);
   const notifications = useUiStore((state) => state.notifications);
@@ -140,8 +161,10 @@ export function DashboardShell({
   const unreadCount = notifications.filter((notification) => notification.unread).length;
   const sidebarItems: SidebarItem[] = navigation.map((item) => ({
     ...item,
-    active: pathname === item.href,
+    active: pathname === item.href || (item.label === "Dashboard" && pathname === "/dashboard"),
   }));
+  const workspaceHomeHref =
+    area === "main" ? (user ? getDashboardPathForUser(user) : "/") : (navigation[0]?.href ?? "/");
   const commands = React.useMemo<CommandItem[]>(
     () => [
       ...sidebarItems.map((item) => ({
@@ -182,7 +205,7 @@ export function DashboardShell({
           <TopNavigation
             brand={
               <Link
-                href="/dashboard"
+                href={workspaceHomeHref}
                 className="hidden items-center gap-2 text-sm font-semibold text-gray-950 dark:text-gray-50 lg:flex"
               >
                 <span>Workspace</span>

@@ -16,7 +16,6 @@ import {
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { Button, Input, cn } from "@vnbus/ui";
-import { ADMIN_ROLE, TRAVEL_AGENT_ROLE } from "@vnbus/shared";
 
 import {
   changePassword,
@@ -40,7 +39,8 @@ import {
   type ResetPasswordFormValues,
   type VerifyEmailFormValues,
 } from "../lib/auth-schemas";
-import { useAuthStore, type AuthUser } from "../lib/auth-store";
+import { useAuthStore } from "../lib/auth-store";
+import { getPostLoginPathForUser } from "../lib/role-routes";
 
 type StatusState = {
   type: "success" | "error";
@@ -73,7 +73,7 @@ export function LoginForm(): React.JSX.Element {
       router.push(
         response.user.forcePasswordChange
           ? "/change-password"
-          : getPostLoginPath(response.user, searchParams?.get("redirect")),
+          : getPostLoginPathForUser(response.user, searchParams?.get("redirect")),
       );
     } catch (error) {
       setStatus({ type: "error", message: getErrorMessage(error) });
@@ -445,33 +445,6 @@ function AuthLinks({
       ) : null}
     </div>
   );
-}
-
-function getPostLoginPath(user: AuthUser, redirect: string | null | undefined): string {
-  const isAdmin = user.role === ADMIN_ROLE || user.roles.includes(ADMIN_ROLE);
-  const isAgent = user.role === TRAVEL_AGENT_ROLE || user.roles.includes(TRAVEL_AGENT_ROLE);
-
-  if (redirect?.startsWith("/") && !redirect.startsWith("//")) {
-    if (redirect.startsWith("/admin")) {
-      return isAdmin ? redirect : "/unauthorized";
-    }
-
-    if (redirect.startsWith("/agent")) {
-      return isAgent || isAdmin ? redirect : "/unauthorized";
-    }
-
-    return redirect;
-  }
-
-  if (isAdmin) {
-    return "/admin/dashboard";
-  }
-
-  if (isAgent) {
-    return "/agent/dashboard";
-  }
-
-  return "/dashboard";
 }
 
 function getErrorMessage(error: unknown): string {

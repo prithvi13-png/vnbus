@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+import { AgentRouteGuard } from "../../components/role-route-guard";
+
 export const metadata: Metadata = {
   robots: {
     index: false,
@@ -12,5 +14,5 @@ export default function AgentLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>): React.JSX.Element {
-  return <>{children}</>;
+  return <AgentRouteGuard>{children}</AgentRouteGuard>;
 }

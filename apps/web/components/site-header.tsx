@@ -17,23 +17,29 @@ import {
 } from "@vnbus/ui";
 
 import { useAuthStore } from "../lib/auth-store";
+import { getDashboardPathForUser } from "../lib/role-routes";
 import { ProfileMenu } from "./profile-menu";
 import { ThemeToggle } from "./theme-toggle";
 
-const navigation: NavigationMenuItem[] = [
+const publicNavigation: NavigationMenuItem[] = [
   { href: "/search", label: "Search", icon: Search },
   { href: "/booking-history", label: "Bookings" },
-  { href: "/dashboard", label: "Dashboard" },
 ];
 
 export function SiteHeader(): React.JSX.Element {
   const pathname = usePathname();
+  const hasHydrated = useAuthStore((state) => state.hasHydrated);
   const user = useAuthStore((state) => state.user);
   const [mobileOpen, setMobileOpen] = React.useState(false);
-  const items = navigation.map((item) => ({
-    ...item,
-    active: pathname === item.href,
-  }));
+  const items = React.useMemo(() => {
+    const signedInNavigation: NavigationMenuItem[] =
+      hasHydrated && user ? [{ href: getDashboardPathForUser(user), label: "Dashboard" }] : [];
+
+    return [...publicNavigation, ...signedInNavigation].map((item) => ({
+      ...item,
+      active: pathname === item.href || (item.label === "Dashboard" && pathname === "/dashboard"),
+    }));
+  }, [hasHydrated, pathname, user]);
 
   return (
     <header className="sticky top-0 z-30 border-b border-gold-100 bg-white/95 backdrop-blur dark:border-brand-900 dark:bg-brand-950/95">
