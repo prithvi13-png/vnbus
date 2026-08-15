@@ -12,9 +12,13 @@ COPY packages packages
 RUN pnpm install --frozen-lockfile
 
 FROM deps AS builder
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_MAINTENANCE_MODE=false
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_MAINTENANCE_MODE=$NEXT_PUBLIC_MAINTENANCE_MODE
 COPY apps/web apps/web
 COPY tsconfig.base.json ./
-RUN pnpm --filter @vnbus/web build
+RUN pnpm exec turbo build --filter=@vnbus/web
 
 FROM base AS runner
 ENV NODE_ENV=production
