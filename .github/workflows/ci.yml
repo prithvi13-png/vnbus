@@ -59,7 +59,7 @@ jobs:
       - run: pnpm prisma:validate
       - run: pnpm lint
       - run: pnpm typecheck
-      - run: pnpm test
+      - run: pnpm exec turbo test --concurrency=1
       - run: pnpm test:e2e
       - run: pnpm build
       - run: pnpm security:audit
