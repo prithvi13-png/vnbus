@@ -117,7 +117,13 @@ async function main(): Promise<void> {
   const adminRole = await prisma.role.findUniqueOrThrow({
     where: { code: "ADMIN" },
   });
+  const customerRole = await prisma.role.findUniqueOrThrow({
+    where: { code: "CUSTOMER" },
+  });
   const adminPassword = await argon2.hash("ChangeMe@123", {
+    type: argon2.argon2id,
+  });
+  const customerPassword = await argon2.hash("ChangeMe@123", {
     type: argon2.argon2id,
   });
   const admin = await prisma.user.upsert({
@@ -142,6 +148,28 @@ async function main(): Promise<void> {
       forcePasswordChange: true,
     },
   });
+  const customer = await prisma.user.upsert({
+    where: { email: "user@vriddhinexus.com" },
+    update: {
+      roleId: customerRole.id,
+      status: "ACTIVE",
+      emailVerified: true,
+      emailVerifiedAt: new Date(),
+      forcePasswordChange: false,
+    },
+    create: {
+      firstName: "Customer",
+      lastName: "User",
+      email: "user@vriddhinexus.com",
+      phone: "+910000000002",
+      passwordHash: customerPassword,
+      roleId: customerRole.id,
+      status: "ACTIVE",
+      emailVerified: true,
+      emailVerifiedAt: new Date(),
+      forcePasswordChange: false,
+    },
+  });
 
   await prisma.userRoleAssignment.upsert({
     where: {
@@ -154,6 +182,35 @@ async function main(): Promise<void> {
     create: {
       userId: admin.id,
       roleId: adminRole.id,
+    },
+  });
+  await prisma.userRoleAssignment.upsert({
+    where: {
+      userId_roleId: {
+        userId: customer.id,
+        roleId: customerRole.id,
+      },
+    },
+    update: {},
+    create: {
+      userId: customer.id,
+      roleId: customerRole.id,
+    },
+  });
+  await prisma.customer.upsert({
+    where: { userId: customer.id },
+    update: {
+      fullName: "Customer User",
+      email: customer.email,
+      phone: customer.phone,
+      status: "ACTIVE",
+    },
+    create: {
+      userId: customer.id,
+      fullName: "Customer User",
+      email: customer.email,
+      phone: customer.phone,
+      status: "ACTIVE",
     },
   });
 
