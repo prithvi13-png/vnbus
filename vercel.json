@@ -4,6 +4,7 @@
   "buildCommand": "pnpm exec turbo build --filter=@vnbus/web",
   "outputDirectory": "apps/web/.next",
   "env": {
+    "NEXT_PUBLIC_API_URL": "https://vnbus-api.onrender.com",
     "NEXT_PUBLIC_MAINTENANCE_MODE": "false"
   }
 }

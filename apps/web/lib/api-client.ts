@@ -49,7 +49,7 @@ import {
 } from "@vnbus/shared";
 
 const configuredApiBaseUrl = process.env.NEXT_PUBLIC_API_URL;
-const apiBaseUrl = configuredApiBaseUrl ?? "http://localhost:4000";
+const apiBaseUrl = configuredApiBaseUrl ?? getLocalApiBaseUrl();
 const localHolds = new Map<string, SeatHoldResponse>();
 const localBookings = new Map<string, BookingRecord>();
 const localTickets = new Map<string, TicketRecord>();
@@ -60,6 +60,10 @@ const localAgentCustomers = new Map<string, AgentCustomerRecord>(
 );
 
 export async function apiClient<T>(path: string, init?: RequestInit): Promise<T> {
+  if (!apiBaseUrl) {
+    throw new Error("NEXT_PUBLIC_API_URL is not configured for this deployment.");
+  }
+
   const response = await fetch(`${apiBaseUrl}/api/v1${path}`, {
     credentials: "include",
     ...init,
@@ -91,6 +95,14 @@ export async function apiClient<T>(path: string, init?: RequestInit): Promise<T>
   }
 
   return response.json() as Promise<T>;
+}
+
+function getLocalApiBaseUrl(): string | undefined {
+  if (process.env.NODE_ENV === "production") {
+    return undefined;
+  }
+
+  return "http://localhost:4000";
 }
 
 export async function searchBuses(request: BusSearchRequest): Promise<BusSearchResponse> {
