@@ -130,6 +130,7 @@ async function main(): Promise<void> {
     where: { email: "admin@vriddhinexus.com" },
     update: {
       roleId: adminRole.id,
+      passwordHash: adminPassword,
       status: "ACTIVE",
       emailVerified: true,
       emailVerifiedAt: new Date(),
@@ -152,6 +153,7 @@ async function main(): Promise<void> {
     where: { email: "user@vriddhinexus.com" },
     update: {
       roleId: customerRole.id,
+      passwordHash: customerPassword,
       status: "ACTIVE",
       emailVerified: true,
       emailVerifiedAt: new Date(),

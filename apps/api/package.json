@@ -5,7 +5,7 @@
   "type": "commonjs",
   "main": "dist/main.js",
   "scripts": {
-    "dev": "tsx watch src/main.ts",
+    "dev": "node scripts/dev.cjs",
     "build": "pnpm --filter @vnbus/api^... build && tsc -p tsconfig.build.json",
     "start": "node dist/main.js",
     "start:worker": "node dist/worker.js",
