@@ -19,6 +19,7 @@
     "@vnbus/types": "workspace:*",
     "@vnbus/ui": "workspace:*",
     "date-fns": "^4.1.0",
+    "exceljs": "^4.4.0",
     "lucide-react": "^0.539.0",
     "next": "15.5.23",
     "react": "19.2.8",
@@ -26,7 +27,6 @@
     "react-hook-form": "^7.62.0",
     "recharts": "^3.10.1",
     "tailwindcss-animate": "^1.0.7",
-    "xlsx": "^0.18.5",
     "zod": "^4.0.17",
     "zustand": "^5.0.7"
   },

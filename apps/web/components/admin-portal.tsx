@@ -356,14 +356,14 @@ export function AdminBookingsWorkspace(): React.JSX.Element {
         <CardHeader>
           <CardTitle>Bulk Booking Upload</CardTitle>
           <CardDescription>
-            Upload XLS, XLSX, or CSV booking rows to create invoices in one batch.
+            Upload XLSX or CSV booking rows to create invoices in one batch.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 lg:grid-cols-[1fr_240px]">
           <FileUpload
             label="Upload booking sheet"
             helperText="Required columns: customerName, route, total"
-            accept=".xlsx,.xls,.csv"
+            accept=".xlsx,.csv"
             onChange={(event) => void handleBulkUpload(event)}
           />
           <div className="grid content-start gap-3">

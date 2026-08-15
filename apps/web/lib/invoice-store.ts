@@ -320,30 +320,135 @@ export function downloadBulkBookingTemplate(): void {
 }
 
 async function parseBulkBookingFile(file: File): Promise<ParsedBulkBookingInput[]> {
-  const xlsx = await import("xlsx");
-  const buffer = await file.arrayBuffer();
-  const workbook = xlsx.read(buffer, { cellDates: true, type: "array" });
-  const sheetName = workbook.SheetNames[0];
-
-  if (!sheetName) {
-    throw new Error("The uploaded sheet does not contain any worksheets.");
-  }
-
-  const worksheet = workbook.Sheets[sheetName];
-  if (!worksheet) {
-    throw new Error("The uploaded sheet does not contain a readable worksheet.");
-  }
-
-  const rows = xlsx.utils.sheet_to_json<Record<string, unknown>>(worksheet, {
-    defval: "",
-    raw: false,
-  });
+  const rows = await readBulkBookingRows(file);
 
   if (!rows.length) {
     throw new Error("The uploaded sheet does not contain booking rows.");
   }
 
   return rows.map((row, index) => parseBulkBookingRow(row, index + 2));
+}
+
+async function readBulkBookingRows(file: File): Promise<Record<string, unknown>[]> {
+  if (isCsvFile(file)) {
+    return parseCsvRows(await file.text());
+  }
+
+  if (!isXlsxFile(file)) {
+    throw new Error("Upload a .xlsx or .csv booking file.");
+  }
+
+  const ExcelJS = await import("exceljs");
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(await file.arrayBuffer());
+  const worksheet = workbook.worksheets[0];
+
+  if (!worksheet) {
+    throw new Error("The uploaded sheet does not contain any worksheets.");
+  }
+
+  const headers = rowValuesToStrings(worksheet.getRow(1).values).map(normalizeKey);
+  const rows: Record<string, unknown>[] = [];
+
+  worksheet.eachRow((row, rowNumber) => {
+    if (rowNumber === 1) {
+      return;
+    }
+
+    const values = rowValuesToStrings(row.values);
+    const record = headers.reduce<Record<string, unknown>>((current, header, index) => {
+      if (header) {
+        current[header] = values[index] ?? "";
+      }
+
+      return current;
+    }, {});
+
+    if (Object.values(record).some((value) => String(value).trim())) {
+      rows.push(record);
+    }
+  });
+
+  return rows;
+}
+
+function isCsvFile(file: File): boolean {
+  return file.type === "text/csv" || file.name.toLowerCase().endsWith(".csv");
+}
+
+function isXlsxFile(file: File): boolean {
+  return file.name.toLowerCase().endsWith(".xlsx");
+}
+
+function rowValuesToStrings(values: unknown[] | { [key: string]: unknown }): string[] {
+  return Array.from(values as unknown[])
+    .slice(1)
+    .map(stringifyCellValue);
+}
+
+function parseCsvRows(text: string): Record<string, unknown>[] {
+  const table = parseCsvTable(text);
+  const [headerRow, ...dataRows] = table;
+  const headers = (headerRow ?? []).map(normalizeKey);
+
+  return dataRows
+    .filter((row) => row.some((value) => value.trim()))
+    .map((row) =>
+      headers.reduce<Record<string, unknown>>((current, header, index) => {
+        if (header) {
+          current[header] = row[index] ?? "";
+        }
+
+        return current;
+      }, {}),
+    );
+}
+
+function parseCsvTable(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let quoted = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    const next = text[index + 1];
+
+    if (character === '"' && quoted && next === '"') {
+      cell += '"';
+      index += 1;
+      continue;
+    }
+
+    if (character === '"') {
+      quoted = !quoted;
+      continue;
+    }
+
+    if (character === "," && !quoted) {
+      row.push(cell.trim());
+      cell = "";
+      continue;
+    }
+
+    if ((character === "\n" || character === "\r") && !quoted) {
+      if (character === "\r" && next === "\n") {
+        index += 1;
+      }
+      row.push(cell.trim());
+      rows.push(row);
+      row = [];
+      cell = "";
+      continue;
+    }
+
+    cell += character;
+  }
+
+  row.push(cell.trim());
+  rows.push(row);
+
+  return rows.filter((cells) => cells.some(Boolean));
 }
 
 function parseBulkBookingRow(
