@@ -53,9 +53,13 @@ function stopChildren() {
 async function main() {
   await buildWorkspaceDependencies();
 
-  tscProcess = run(pnpm, ["exec", "tsc", "-p", "tsconfig.build.json", "--watch", "--preserveWatchOutput"], {
-    stdio: "pipe",
-  });
+  tscProcess = run(
+    pnpm,
+    ["exec", "tsc", "-p", "tsconfig.build.json", "--watch", "--preserveWatchOutput"],
+    {
+      stdio: "pipe",
+    },
+  );
 
   tscProcess.stdout.on("data", (chunk) => {
     const text = chunk.toString();
