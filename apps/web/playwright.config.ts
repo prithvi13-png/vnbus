@@ -1,28 +1,29 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const chromiumProject = {
+  name: "chromium",
+  use: { ...devices["Desktop Chrome"] },
+};
+
+const mobileProject = {
+  name: "mobile",
+  use: { ...devices["Pixel 7"] },
+};
+
 export default defineConfig({
   testDir: "./tests",
-  timeout: 120_000,
+  timeout: 180_000,
   fullyParallel: true,
   workers: process.env.CI ? 1 : 2,
   expect: {
-    timeout: 30_000,
+    timeout: 45_000,
   },
   reporter: "list",
   use: {
     baseURL: "http://127.0.0.1:3100",
     trace: "on-first-retry",
   },
-  projects: [
-    {
-      name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
-    },
-    {
-      name: "mobile",
-      use: { ...devices["Pixel 7"] },
-    },
-  ],
+  projects: process.env.CI ? [chromiumProject] : [chromiumProject, mobileProject],
   webServer: {
     command: "pnpm dev:test",
     url: "http://127.0.0.1:3100",

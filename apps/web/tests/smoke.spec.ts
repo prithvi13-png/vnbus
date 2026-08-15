@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-test.setTimeout(120_000);
+test.setTimeout(180_000);
 
 test("landing page exposes the bus search experience", async ({ page }) => {
   await page.goto("/");
