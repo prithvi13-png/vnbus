@@ -60,7 +60,11 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm exec turbo test --concurrency=1
+        env:
+          NEXT_PUBLIC_API_URL: ""
       - run: pnpm test:e2e
+        env:
+          NEXT_PUBLIC_API_URL: ""
       - run: pnpm build
       - run: pnpm security:audit
 
