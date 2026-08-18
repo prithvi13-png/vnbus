@@ -23,13 +23,17 @@ FROM deps AS builder
 COPY apps/api apps/api
 COPY tsconfig.base.json ./
 RUN pnpm --filter @vnbus/api prisma:generate
+RUN mkdir -p /app/prisma-generated && client_nm="$(node -e "const path = require('path'); const resolved = require.resolve('@prisma/client', { paths: ['/app/apps/api'] }); console.log(path.resolve(path.dirname(resolved), '..', '..'));")" && cp -R "$client_nm/.prisma" /app/prisma-generated/.prisma
 RUN pnpm --filter @vnbus/api build
 
 FROM base AS runner
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --chown=node:node --from=prod-deps /app/node_modules node_modules
-COPY --chown=node:node --from=prod-deps /app/packages packages
+COPY --chown=node:node --from=prod-deps /app/apps/api/node_modules apps/api/node_modules
+COPY --chown=node:node --from=builder /app/prisma-generated/.prisma /tmp/prisma-generated/.prisma
+RUN client_nm="$(node -e "const path = require('path'); const resolved = require.resolve('@prisma/client', { paths: ['/app/apps/api'] }); console.log(path.resolve(path.dirname(resolved), '..', '..'));")" && rm -rf "$client_nm/.prisma" && cp -R /tmp/prisma-generated/.prisma "$client_nm/.prisma" && chown -R node:node "$client_nm/.prisma" && rm -rf /tmp/prisma-generated
+COPY --chown=node:node --from=builder /app/packages packages
 COPY --chown=node:node --from=builder /app/apps/api/dist apps/api/dist
 COPY --chown=node:node --from=builder /app/apps/api/prisma apps/api/prisma
 WORKDIR /app/apps/api
