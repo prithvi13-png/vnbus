@@ -16,6 +16,7 @@ const columns = [
     title: "Product",
     links: [
       { label: "Search", href: "/search" },
+      { label: "Track Bus", href: "/track-bus" },
       { label: "Bookings", href: "/booking-history" },
       { label: "Dashboard", href: "/dashboard" },
     ],
@@ -23,9 +24,9 @@ const columns = [
   {
     title: "Legal",
     links: [
+      { label: "Support", href: "/support" },
       { label: "Terms", href: "/terms" },
       { label: "Privacy", href: "/privacy" },
-      { label: "Security", href: "/settings" },
     ],
   },
 ];

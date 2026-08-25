@@ -594,6 +594,19 @@ export function BookingReviewFlow(): React.JSX.Element {
               ))}
             </CardContent>
           </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Policies and delivery</CardTitle>
+              <CardDescription>
+                Mock cancellation, refund, and notification details shown before confirmation.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3 sm:grid-cols-3">
+              <SummaryTile label="Cancellation" value="Policy visible before booking" />
+              <SummaryTile label="Refund" value="Original mode, wallet, or UPI placeholder" />
+              <SummaryTile label="Delivery" value="Email, SMS, WhatsApp, and in-app ready" />
+            </CardContent>
+          </Card>
         </section>
 
         <aside className="h-max rounded-lg border border-gold-100 bg-white p-5 shadow-sm dark:border-brand-900 dark:bg-brand-950 lg:sticky lg:top-24">
@@ -1497,7 +1510,9 @@ function BookingDetails({ booking }: { booking: BookingRecord }): React.JSX.Elem
       <Card>
         <CardHeader>
           <CardTitle>Cancel Booking</CardTitle>
-          <CardDescription>Refund handoff remains a placeholder in this milestone.</CardDescription>
+          <CardDescription>
+            Mock refund handoff moves the booking into the refund queue without real money movement.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Button

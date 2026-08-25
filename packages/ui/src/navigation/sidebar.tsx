@@ -22,12 +22,12 @@ export function Sidebar({ brand, className, footer, items }: SidebarProps): Reac
   return (
     <aside
       className={cn(
-        "flex h-full w-72 flex-col border-r border-brand-900/40 bg-brand-950 text-white shadow-premium",
+        "flex h-full min-h-0 w-72 flex-col border-r border-brand-900/40 bg-brand-950 text-white shadow-premium",
         className,
       )}
     >
       <div className="flex h-16 items-center border-b border-white/10 px-5">{brand}</div>
-      <nav className="grid gap-1 p-3" aria-label="Sidebar navigation">
+      <nav className="grid flex-1 gap-1 overflow-y-auto p-3" aria-label="Sidebar navigation">
         {items.map((item) => {
           const Icon = item.icon;
 

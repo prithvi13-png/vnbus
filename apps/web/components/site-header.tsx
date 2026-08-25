@@ -4,7 +4,7 @@ import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogIn, Menu, Search, UserPlus } from "lucide-react";
+import { Headphones, LogIn, MapPinned, Menu, Search, UserPlus } from "lucide-react";
 import {
   Button,
   Drawer,
@@ -23,7 +23,9 @@ import { ThemeToggle } from "./theme-toggle";
 
 const publicNavigation: NavigationMenuItem[] = [
   { href: "/search", label: "Search", icon: Search },
+  { href: "/track-bus", label: "Track Bus", icon: MapPinned },
   { href: "/booking-history", label: "Bookings" },
+  { href: "/support", label: "Support", icon: Headphones },
 ];
 
 export function SiteHeader(): React.JSX.Element {

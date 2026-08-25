@@ -1,11 +1,22 @@
 "use client";
 
 import * as React from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { Armchair, Filter, Heart, IndianRupee, RefreshCw, Route, Star, Wifi } from "lucide-react";
+import {
+  Armchair,
+  Bus,
+  Filter,
+  Heart,
+  IndianRupee,
+  RefreshCw,
+  RotateCcw,
+  Route,
+  ShieldCheck,
+  Star,
+  Wifi,
+} from "lucide-react";
 import type {
   BusSearchRequest,
   BusSearchResponse,
@@ -445,15 +456,9 @@ function BusResultCard({
       <CardContent className="grid gap-4 p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 gap-3">
-            <Image
-              src={bus.operatorLogoUrl}
-              alt=""
-              width={48}
-              height={48}
-              loading="lazy"
-              unoptimized
-              className="h-12 w-12 shrink-0 rounded-lg border border-gold-100 bg-white object-cover shadow-sm dark:border-brand-800"
-            />
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-gold-100 bg-gold-50 text-gold-700 shadow-sm dark:border-brand-800 dark:bg-gold-500/10 dark:text-gold-100">
+              <Bus className="h-5 w-5" aria-hidden="true" />
+            </span>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-lg font-semibold text-brand-950 dark:text-white">
@@ -461,12 +466,15 @@ function BusResultCard({
                 </h2>
                 <Badge variant="neutral">{bus.busType}</Badge>
                 {bus.liveTracking ? <StatusChip tone="success">Live Tracking</StatusChip> : null}
+                {bus.rating >= 4.5 ? <StatusChip tone="info">Premium Rated</StatusChip> : null}
                 {bus.discountLabel ? <Badge variant="warning">{bus.discountLabel}</Badge> : null}
               </div>
               <div className="mt-2 flex flex-wrap gap-2">
                 <Rating rating={bus.rating} reviews={bus.reviewCount} />
                 <Tag>{bus.seatLayout.layoutType}</Tag>
                 <Tag>{bus.availableSeats} seats left</Tag>
+                <Tag>Cancellation policy</Tag>
+                <Tag>Verified reviews</Tag>
               </div>
             </div>
           </div>
@@ -512,7 +520,7 @@ function BusResultCard({
           </div>
         </div>
 
-        <div className="grid gap-3 rounded-lg border border-gold-100 bg-pearl-50 p-3 dark:border-brand-800 dark:bg-white/5 sm:grid-cols-3">
+        <div className="grid gap-3 rounded-lg border border-gold-100 bg-pearl-50 p-3 dark:border-brand-800 dark:bg-white/5 sm:grid-cols-4">
           <Fact icon={Armchair} label="Seats" value={`${bus.availableSeats} available`} />
           <Fact
             icon={Route}
@@ -523,6 +531,11 @@ function BusResultCard({
             icon={Wifi}
             label="Amenities"
             value={bus.amenities.slice(0, 2).join(", ") || "Standard"}
+          />
+          <Fact
+            icon={bus.liveTracking ? ShieldCheck : RotateCcw}
+            label={bus.liveTracking ? "Tracking" : "Refund"}
+            value={bus.liveTracking ? "Mock ready" : "Policy shown"}
           />
         </div>
       </CardContent>

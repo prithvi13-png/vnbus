@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   Bell,
   Bookmark,
@@ -8,15 +9,21 @@ import {
   ClipboardList,
   CreditCard,
   FileBarChart,
+  Headphones,
   LifeBuoy,
   MapPin,
+  MapPinned,
   MessageSquareText,
   Percent,
+  ReceiptText,
+  RotateCcw,
   ShieldCheck,
   Sparkles,
+  Star,
   Ticket,
   UserRound,
   Users,
+  WalletCards,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -158,6 +165,66 @@ const recommendedRoutes = [
   { route: "Bengaluru to Hyderabad", fare: "from INR 1,090", seats: "18 seats" },
   { route: "Chennai to Coimbatore", fare: "from INR 780", seats: "26 seats" },
   { route: "Pune to Goa", fare: "from INR 1,120", seats: "9 seats" },
+];
+
+const customerFeatureLinks = [
+  {
+    title: "Track Bus",
+    description: "Scheduled-route tracking preview with ETA and message channels.",
+    href: "/customer/tracking",
+    icon: MapPinned,
+  },
+  {
+    title: "Wallet & Rewards",
+    description: "Mock wallet credits, rewards progress, and referral benefits.",
+    href: "/customer/rewards",
+    icon: WalletCards,
+  },
+  {
+    title: "Saved Travellers",
+    description: "Passenger profiles and quick rebooking preferences.",
+    href: "/customer/travellers",
+    icon: UserRound,
+  },
+  {
+    title: "Support",
+    description: "Ticket, refund, invoice, and boarding-point help desk.",
+    href: "/customer/support",
+    icon: Headphones,
+  },
+  {
+    title: "Tickets & Invoices",
+    description: "Issued tickets and generated invoices from completed bookings.",
+    href: "/customer/tickets",
+    icon: ReceiptText,
+  },
+  {
+    title: "Refund Status",
+    description: "Cancellation and refund visibility without real money movement.",
+    href: "/cancelled-trips",
+    icon: RotateCcw,
+  },
+];
+
+const adminFeatureLinks = [
+  {
+    title: "Refund Desk",
+    description: "Review cancellation queues, mock refund modes, and policy readiness.",
+    href: "/admin/refunds",
+    icon: RotateCcw,
+  },
+  {
+    title: "Support Desk",
+    description: "Monitor customer issues across email, SMS, WhatsApp, and in-app channels.",
+    href: "/admin/support",
+    icon: Headphones,
+  },
+  {
+    title: "Trust Signals",
+    description: "Manage ratings, premium tags, punctuality, and women-friendly labels.",
+    href: "/admin/trust-signals",
+    icon: Star,
+  },
 ];
 
 const agentCustomerRows = [
@@ -413,6 +480,9 @@ export function CustomerDashboard(): React.JSX.Element {
           },
         ]}
       />
+      <section className="mt-6">
+        <FeatureShortcutGrid links={customerFeatureLinks} />
+      </section>
       <section className="mt-6 grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
         <div className="grid gap-3">
           <SectionHeading
@@ -620,6 +690,9 @@ export function AdminDashboard(): React.JSX.Element {
           },
         ]}
       />
+      <section className="mt-6">
+        <FeatureShortcutGrid links={adminFeatureLinks} />
+      </section>
       <Tabs defaultValue="overview" className="mt-6">
         <TabsList className="w-full justify-start overflow-x-auto sm:w-auto">
           <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -722,6 +795,43 @@ function MetricGrid({ metrics }: { metrics: StatisticCardProps[] }): React.JSX.E
           <StatisticCard {...metric} />
         </SlideUp>
       ))}
+    </section>
+  );
+}
+
+function FeatureShortcutGrid({
+  links,
+}: {
+  links: Array<{
+    title: string;
+    description: string;
+    href: string;
+    icon: LucideIcon;
+  }>;
+}): React.JSX.Element {
+  return (
+    <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      {links.map((link) => {
+        const Icon = link.icon;
+
+        return (
+          <Link
+            key={link.href}
+            href={link.href}
+            className="group rounded-lg border border-gold-100 bg-white/95 p-4 shadow-panel transition-all hover:-translate-y-0.5 hover:border-gold-300 hover:shadow-premium dark:border-brand-800 dark:bg-brand-950/80"
+          >
+            <span className="flex h-10 w-10 items-center justify-center rounded-lg border border-gold-100 bg-gold-50 text-gold-700 transition-colors group-hover:bg-gold-500 group-hover:text-brand-950 dark:border-brand-800 dark:bg-gold-500/10 dark:text-gold-100">
+              <Icon className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <h2 className="mt-4 text-base font-semibold text-brand-950 dark:text-white">
+              {link.title}
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-gray-600 dark:text-gray-300">
+              {link.description}
+            </p>
+          </Link>
+        );
+      })}
     </section>
   );
 }

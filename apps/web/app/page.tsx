@@ -13,6 +13,7 @@ import {
   Route,
   Smartphone,
   TicketCheck,
+  WalletCards,
 } from "lucide-react";
 import {
   Accordion,
@@ -51,6 +52,21 @@ const features = [
     description: "Confirmed bookings generate ticket and invoice actions for customers.",
     icon: TicketCheck,
   },
+  {
+    title: "Track bus preview",
+    description: "Customers can check scheduled-route tracking and journey reminders.",
+    icon: MapPinned,
+  },
+  {
+    title: "Support desk",
+    description: "Ticket, invoice, refund, and boarding-point help stays easy to find.",
+    icon: Headphones,
+  },
+  {
+    title: "Wallet rewards",
+    description: "Mock wallet credits, referrals, and loyalty benefits are ready in customer UI.",
+    icon: WalletCards,
+  },
 ];
 
 const reasons = [
@@ -58,6 +74,8 @@ const reasons = [
   ["Fewer clicks", "Default stops help customers continue after selecting seats."],
   ["Easy review", "Trip, passengers, and fare are separated into simple sections."],
   ["Ready records", "Tickets and invoices are available from completed bookings."],
+  ["Tracking preview", "Trip status, ETA, and message channels are visible in mock mode."],
+  ["Support ready", "Customers can raise ticket, invoice, refund, and boarding questions."],
 ];
 
 const steps = [
@@ -116,6 +134,16 @@ const faqs = [
   {
     question: "Do bookings create invoices?",
     answer: "Yes. Confirmed customer bookings include invoice download actions.",
+  },
+  {
+    question: "Are live supplier APIs and real payments connected?",
+    answer:
+      "No. The platform is currently using mock bus inventory, mock tracking, and mock payment status so the product can be tested safely.",
+  },
+  {
+    question: "Can customers track, get support, and view rewards?",
+    answer:
+      "Yes. Tracking preview, support requests, saved travellers, wallet rewards, tickets, and invoices are available as clean mock-ready flows.",
   },
 ];
 

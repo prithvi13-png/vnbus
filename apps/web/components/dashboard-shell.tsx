@@ -14,9 +14,11 @@ import {
   Flag,
   FileBarChart,
   History,
+  Headphones,
   HelpCircle,
   LayoutDashboard,
   Mail,
+  MapPinned,
   MonitorCog,
   Percent,
   PlugZap,
@@ -25,9 +27,13 @@ import {
   ShieldCheck,
   SquareActivity,
   ReceiptText,
+  RotateCcw,
+  Star,
   Ticket,
   UserCog,
+  UserRound,
   Users,
+  WalletCards,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -68,7 +74,9 @@ type NavItem = {
 const primaryNavigation: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/search", label: "Search", icon: Bus },
+  { href: "/track-bus", label: "Track Bus", icon: MapPinned },
   { href: "/booking-history", label: "Booking History", icon: History },
+  { href: "/support", label: "Support", icon: Headphones },
   { href: "/profile", label: "Profile", icon: UserCog },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
@@ -76,9 +84,12 @@ const primaryNavigation: NavItem[] = [
 const adminNavigation: NavItem[] = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/bookings", label: "Bookings", icon: ClipboardList },
+  { href: "/admin/refunds", label: "Refunds", icon: RotateCcw },
+  { href: "/admin/support", label: "Support Desk", icon: Headphones },
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/agents", label: "Travel Agents", icon: ShieldCheck },
   { href: "/admin/customers", label: "Customers", icon: Users },
+  { href: "/admin/trust-signals", label: "Trust Signals", icon: Star },
   { href: "/admin/roles", label: "Roles", icon: UserCog },
   { href: "/admin/coupons", label: "Coupons", icon: Percent },
   { href: "/admin/offers", label: "Offers", icon: CircleDollarSign },
@@ -99,9 +110,13 @@ const adminNavigation: NavItem[] = [
 const customerNavigation: NavItem[] = [
   { href: "/customer/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/customer/bookings", label: "Bookings", icon: ClipboardList },
+  { href: "/customer/tracking", label: "Track Bus", icon: MapPinned },
   { href: "/customer/invoices", label: "Invoices", icon: ReceiptText },
+  { href: "/customer/rewards", label: "Wallet & Rewards", icon: WalletCards },
+  { href: "/customer/travellers", label: "Saved Travellers", icon: UserRound },
   { href: "/customer/profile", label: "Profile", icon: UserCog },
   { href: "/customer/notifications", label: "Notifications", icon: Bell },
+  { href: "/customer/support", label: "Support", icon: Headphones },
   { href: "/customer/tickets", label: "Tickets", icon: Ticket },
 ];
 
