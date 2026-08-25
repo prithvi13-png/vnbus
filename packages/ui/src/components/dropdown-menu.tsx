@@ -22,7 +22,7 @@ export const DropdownMenuContent = React.forwardRef<
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        "z-50 min-w-44 overflow-hidden rounded-md border border-gold-100 bg-white p-1 text-gray-950 shadow-md dark:border-brand-900 dark:bg-brand-950 dark:text-gray-50",
+        "z-50 min-w-44 overflow-hidden rounded-lg border border-gold-100 bg-white/95 p-1.5 text-gray-950 shadow-premium backdrop-blur dark:border-brand-800 dark:bg-brand-950 dark:text-gray-50",
         className,
       )}
       {...props}
@@ -39,7 +39,7 @@ export const DropdownMenuItem = React.forwardRef<
   <DropdownMenuPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-gold-50 focus:text-brand-900 data-[disabled]:pointer-events-none data-[disabled]:opacity-50 dark:focus:bg-gold-500/10 dark:focus:text-gold-100",
+      "relative flex cursor-default select-none items-center gap-2 rounded-md px-2.5 py-2 text-sm outline-none transition-colors focus:bg-gold-50 focus:text-brand-900 data-[disabled]:pointer-events-none data-[disabled]:opacity-50 dark:focus:bg-gold-500/10 dark:focus:text-gold-100",
       inset && "pl-8",
       className,
     )}
@@ -56,7 +56,7 @@ export const DropdownMenuCheckboxItem = React.forwardRef<
   <DropdownMenuPrimitive.CheckboxItem
     ref={ref}
     className={cn(
-      "relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-gold-50 focus:text-brand-900 data-[disabled]:pointer-events-none data-[disabled]:opacity-50 dark:focus:bg-gold-500/10 dark:focus:text-gold-100",
+      "relative flex cursor-default select-none items-center rounded-md py-2 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-gold-50 focus:text-brand-900 data-[disabled]:pointer-events-none data-[disabled]:opacity-50 dark:focus:bg-gold-500/10 dark:focus:text-gold-100",
       className,
     )}
     {...(checked === undefined ? {} : { checked })}
@@ -80,7 +80,7 @@ export const DropdownMenuRadioItem = React.forwardRef<
   <DropdownMenuPrimitive.RadioItem
     ref={ref}
     className={cn(
-      "relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-gold-50 focus:text-brand-900 data-[disabled]:pointer-events-none data-[disabled]:opacity-50 dark:focus:bg-gold-500/10 dark:focus:text-gold-100",
+      "relative flex cursor-default select-none items-center rounded-md py-2 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-gold-50 focus:text-brand-900 data-[disabled]:pointer-events-none data-[disabled]:opacity-50 dark:focus:bg-gold-500/10 dark:focus:text-gold-100",
       className,
     )}
     {...props}
@@ -102,7 +102,7 @@ export const DropdownMenuLabel = React.forwardRef<
 >(({ className, inset, ...props }, ref) => (
   <DropdownMenuPrimitive.Label
     ref={ref}
-    className={cn("px-2 py-1.5 text-xs font-semibold text-gray-500", inset && "pl-8", className)}
+    className={cn("px-2.5 py-2 text-xs font-semibold text-gray-500", inset && "pl-8", className)}
     {...props}
   />
 ));
@@ -115,7 +115,7 @@ export const DropdownMenuSeparator = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DropdownMenuPrimitive.Separator
     ref={ref}
-    className={cn("-mx-1 my-1 h-px bg-gray-200 dark:bg-gray-800", className)}
+    className={cn("-mx-1.5 my-1 h-px bg-gold-100 dark:bg-brand-800", className)}
     {...props}
   />
 ));
@@ -129,7 +129,7 @@ export const DropdownMenuSubTrigger = React.forwardRef<
   <DropdownMenuPrimitive.SubTrigger
     ref={ref}
     className={cn(
-      "flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-gold-50 focus:text-brand-900 data-[state=open]:bg-gold-50 dark:focus:bg-gold-500/10 dark:focus:text-gold-100",
+      "flex cursor-default select-none items-center rounded-md px-2.5 py-2 text-sm outline-none focus:bg-gold-50 focus:text-brand-900 data-[state=open]:bg-gold-50 dark:focus:bg-gold-500/10 dark:focus:text-gold-100",
       inset && "pl-8",
       className,
     )}

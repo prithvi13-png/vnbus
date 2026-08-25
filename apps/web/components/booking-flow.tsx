@@ -202,7 +202,7 @@ export function SeatSelectionFlow(): React.JSX.Element {
         title="Choose seats and points"
       />
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <section className="grid gap-5">
           {error ? (
             <Alert variant="danger">
@@ -212,7 +212,7 @@ export function SeatSelectionFlow(): React.JSX.Element {
           ) : null}
 
           <Card className="overflow-hidden">
-            <CardHeader className="gap-3 border-b border-gold-100 dark:border-brand-900">
+            <CardHeader className="gap-3 border-b border-gold-100 dark:border-brand-800">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <CardTitle>Select seats</CardTitle>
@@ -258,12 +258,12 @@ export function SeatSelectionFlow(): React.JSX.Element {
           </Card>
         </section>
 
-        <aside className="hidden h-max rounded-lg border border-gold-100 bg-white p-5 shadow-sm dark:border-brand-900 dark:bg-brand-950 lg:sticky lg:top-24 lg:block">
+        <aside className="hidden h-max rounded-lg border border-gold-100 bg-white/95 p-5 shadow-premium dark:border-brand-800 dark:bg-brand-950/90 lg:sticky lg:top-24 lg:block">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold text-brand-900 dark:text-white">Your ticket</h2>
+            <h2 className="text-lg font-semibold text-brand-950 dark:text-white">Your ticket</h2>
             {hold ? <HoldTimer secondsLeft={secondsLeft} /> : null}
           </div>
-          <div className="mt-4 rounded-md bg-brand-50 p-3 text-sm text-brand-900 dark:bg-brand-900 dark:text-brand-50">
+          <div className="mt-4 rounded-lg border border-gold-100 bg-pearl-50 p-3 text-sm text-brand-950 dark:border-brand-800 dark:bg-white/5 dark:text-brand-50">
             <p className="font-semibold">
               {activeLayout.sourceCity} to {activeLayout.destinationCity}
             </p>
@@ -303,7 +303,7 @@ export function SeatSelectionFlow(): React.JSX.Element {
         </aside>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-gold-100 bg-white/95 p-3 shadow-lg backdrop-blur dark:border-brand-900 dark:bg-brand-950/95 lg:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-gold-100 bg-white/95 p-3 shadow-premium backdrop-blur-xl dark:border-brand-800 dark:bg-brand-950/95 lg:hidden">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
           <div className="min-w-0 text-sm">
             <p className="truncate font-semibold text-brand-900 dark:text-white">
@@ -978,10 +978,10 @@ function SeatDeckPanel({
     : `repeat(${deck.columns}, 4rem)`;
 
   return (
-    <section className="overflow-hidden rounded-lg border border-gray-300 bg-gray-50 dark:border-brand-900 dark:bg-brand-950/40">
+    <section className="overflow-hidden rounded-lg border border-gold-100 bg-white/90 shadow-sm dark:border-brand-800 dark:bg-brand-950/50">
       <div className="grid min-h-[220px] grid-cols-[64px_minmax(0,1fr)] sm:grid-cols-[82px_minmax(0,1fr)]">
-        <div className="flex items-center justify-center border-r border-gray-200 bg-white dark:border-brand-900 dark:bg-brand-950">
-          <p className="-rotate-90 text-xl font-semibold tracking-normal text-gray-950 dark:text-white">
+        <div className="flex items-center justify-center border-r border-gold-100 bg-pearl-50 dark:border-brand-800 dark:bg-brand-900/70">
+          <p className="-rotate-90 text-xl font-semibold tracking-normal text-brand-950 dark:text-white">
             {deck.deck === "UPPER" ? "Upper" : "Lower"}
           </p>
         </div>
@@ -995,7 +995,7 @@ function SeatDeckPanel({
           >
             {deck.deck === "LOWER" ? (
               <div
-                className="flex items-center justify-center rounded-full border-4 border-gray-400 text-gray-500"
+                className="flex items-center justify-center rounded-full border-4 border-gray-400 bg-white text-gray-500 shadow-sm dark:bg-brand-950"
                 style={{
                   gridColumn: "1",
                   gridRow: "1 / span 2",
@@ -1125,12 +1125,12 @@ function seatGridRow(seat: SeatMapSeat): string {
 function seatToneClassName(tone: SeatVisualTone): string {
   return {
     available:
-      "border-gray-300 bg-white text-gray-950 hover:border-gold-500 hover:bg-gold-50 dark:bg-brand-950 dark:text-white",
+      "border-gray-300 bg-white text-brand-950 shadow-sm hover:border-gold-500 hover:bg-gold-50 hover:shadow-panel dark:bg-brand-950 dark:text-white",
     selected:
-      "border-brand-700 bg-brand-100 text-brand-950 shadow-sm hover:bg-brand-100 dark:bg-brand-900 dark:text-white",
+      "border-brand-700 bg-brand-100 text-brand-950 shadow-[0_10px_24px_rgba(2,85,62,0.18)] hover:bg-brand-100 dark:bg-brand-900 dark:text-white",
     female:
-      "border-pink-500 bg-white text-gray-950 hover:bg-pink-50 dark:bg-brand-950 dark:text-white",
-    male: "border-blue-500 bg-white text-gray-950 hover:bg-blue-50 dark:bg-brand-950 dark:text-white",
+      "border-pink-500 bg-white text-brand-950 shadow-sm hover:bg-pink-50 hover:shadow-panel dark:bg-brand-950 dark:text-white",
+    male: "border-blue-500 bg-white text-brand-950 shadow-sm hover:bg-blue-50 hover:shadow-panel dark:bg-brand-950 dark:text-white",
     femaleBooked: "cursor-not-allowed border-gray-300 bg-gray-200 text-gray-400",
     booked: "cursor-not-allowed border-gray-300 bg-gray-200 text-gray-400",
     blocked: "cursor-not-allowed border-gray-300 bg-gray-100 text-gray-400",
@@ -1170,7 +1170,7 @@ function PointPicker({
 
   return (
     <section className="grid gap-3">
-      <h3 className="text-sm font-semibold text-brand-900 dark:text-white">{title}</h3>
+      <h3 className="text-sm font-semibold text-brand-950 dark:text-white">{title}</h3>
       <div className="grid gap-2">
         {points.map((point) => (
           <button
@@ -1178,14 +1178,14 @@ function PointPicker({
             type="button"
             onClick={() => onSelect(point)}
             className={cn(
-              "rounded-md border p-3 text-left text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500",
+              "rounded-md border p-3 text-left text-sm shadow-sm transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500",
               selectedId === point.id
                 ? "border-gold-500 bg-gold-50 dark:bg-gold-500/10"
-                : "border-gray-200 bg-white hover:border-gold-200 dark:border-brand-900 dark:bg-brand-950",
+                : "border-gray-200 bg-white hover:-translate-y-0.5 hover:border-gold-200 hover:bg-pearl-50 dark:border-brand-800 dark:bg-brand-950",
             )}
           >
             <span className="flex justify-between gap-3">
-              <span className="font-semibold text-gray-950 dark:text-gray-50">{point.name}</span>
+              <span className="font-semibold text-brand-950 dark:text-gray-50">{point.name}</span>
               <span className="text-gray-600 dark:text-gray-400">{point.time}</span>
             </span>
             <span className="mt-1 block text-xs text-gray-600 dark:text-gray-400">
@@ -1197,7 +1197,7 @@ function PointPicker({
       {showMap && selected ? (
         <iframe
           title={`${selected.name} map preview`}
-          className="h-44 w-full rounded-md border border-gold-100 dark:border-brand-900"
+          className="h-44 w-full rounded-lg border border-gold-100 shadow-sm dark:border-brand-800"
           loading="lazy"
           src={`https://www.openstreetmap.org/export/embed.html?marker=${selected.latitude},${selected.longitude}&layer=mapnik`}
         />
@@ -1217,7 +1217,7 @@ function Field({
 }): React.JSX.Element {
   return (
     <label className="grid gap-1.5">
-      <span className="text-xs font-semibold uppercase tracking-normal text-gray-600 dark:text-gray-400">
+      <span className="text-xs font-semibold uppercase tracking-normal text-brand-800 dark:text-brand-100">
         {label}
       </span>
       {children}

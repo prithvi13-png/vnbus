@@ -17,11 +17,11 @@ export const DrawerContent = React.forwardRef<
   }
 >(({ className, children, side = "right", ...props }, ref) => (
   <DialogPrimitive.Portal>
-    <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-gray-950/50" />
+    <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-brand-950/60 backdrop-blur-sm" />
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed z-50 flex flex-col border-gray-200 bg-white shadow-lg outline-none dark:border-gray-800 dark:bg-gray-950",
+        "fixed z-50 flex flex-col border-gold-100 bg-white shadow-premium outline-none dark:border-brand-800 dark:bg-brand-950",
         side === "right" && "inset-y-0 right-0 w-[min(24rem,100vw)] border-l",
         side === "left" && "inset-y-0 left-0 w-[min(24rem,100vw)] border-r",
         side === "bottom" && "inset-x-0 bottom-0 max-h-[85vh] rounded-t-lg border-t",
@@ -45,7 +45,7 @@ export const DrawerHeader = ({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>): React.JSX.Element => (
   <div
-    className={cn("grid gap-1.5 border-b border-gray-200 p-5 dark:border-gray-800", className)}
+    className={cn("grid gap-1.5 border-b border-gold-100 p-5 dark:border-brand-800", className)}
     {...props}
   />
 );
@@ -58,7 +58,7 @@ export const DrawerFooter = ({
 }: React.HTMLAttributes<HTMLDivElement>): React.JSX.Element => (
   <div
     className={cn(
-      "mt-auto flex flex-col gap-2 border-t border-gray-200 p-5 dark:border-gray-800",
+      "mt-auto flex flex-col gap-2 border-t border-gold-100 p-5 dark:border-brand-800",
       className,
     )}
     {...props}

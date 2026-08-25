@@ -12,7 +12,7 @@ export function PublicLayout({
   return (
     <div
       className={cn(
-        "min-h-screen bg-gray-50 text-gray-950 dark:bg-gray-950 dark:text-gray-50",
+        "min-h-screen bg-[linear-gradient(180deg,#f7faf6_0%,#eef6f1_48%,#fbfaf4_100%)] text-gray-950 dark:bg-[linear-gradient(180deg,#061a16_0%,#09251f_52%,#061a16_100%)] dark:text-gray-50",
         className,
       )}
     >
@@ -29,7 +29,12 @@ export function AuthenticationLayout({
   className?: string;
 }): React.JSX.Element {
   return (
-    <main className={cn("min-h-screen bg-gray-950 px-4 py-8 text-white", className)}>
+    <main
+      className={cn(
+        "min-h-screen bg-[linear-gradient(135deg,#013c2d_0%,#02553e_46%,#061a16_100%)] px-4 py-8 text-white",
+        className,
+      )}
+    >
       {children}
     </main>
   );
@@ -45,7 +50,7 @@ export function DashboardLayout({
   topbar?: React.ReactNode;
 }): React.JSX.Element {
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-950 dark:bg-gray-950 dark:text-gray-50">
+    <div className="min-h-screen bg-[linear-gradient(180deg,#f6faf6_0%,#eef6f1_45%,#fbfaf4_100%)] text-gray-950 dark:bg-[linear-gradient(180deg,#061a16_0%,#09251f_55%,#061a16_100%)] dark:text-gray-50">
       {sidebar ? <div className="fixed inset-y-0 left-0 hidden lg:block">{sidebar}</div> : null}
       <div className={cn(sidebar && "lg:pl-72")}>
         {topbar}

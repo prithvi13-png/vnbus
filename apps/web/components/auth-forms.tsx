@@ -392,7 +392,9 @@ function Field({
 }): React.JSX.Element {
   return (
     <label className="grid gap-1.5">
-      <span className="text-xs font-semibold uppercase tracking-normal text-gray-600">{label}</span>
+      <span className="text-xs font-semibold uppercase tracking-normal text-brand-800 dark:text-brand-100">
+        {label}
+      </span>
       {children}
       <span className="min-h-4 text-xs text-red-600">{error}</span>
     </label>
@@ -430,16 +432,19 @@ function AuthLinks({
   secondary?: { href: string; label: string };
 }): React.JSX.Element {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-4 text-sm">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gold-100 pt-4 text-sm dark:border-brand-800">
       <Link
         href={primary.href}
-        className="inline-flex items-center gap-1 font-medium text-gold-600"
+        className="inline-flex items-center gap-1 font-semibold text-gold-700 dark:text-gold-100"
       >
         {primary.label}
         <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
       </Link>
       {secondary ? (
-        <Link href={secondary.href} className="font-medium text-gray-600 hover:text-gray-950">
+        <Link
+          href={secondary.href}
+          className="font-semibold text-gray-600 hover:text-gray-950 dark:text-gray-300 dark:hover:text-white"
+        >
           {secondary.label}
         </Link>
       ) : null}

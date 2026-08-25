@@ -22,13 +22,11 @@ export function Sidebar({ brand, className, footer, items }: SidebarProps): Reac
   return (
     <aside
       className={cn(
-        "flex h-full w-72 flex-col border-r border-gold-100 bg-white dark:border-brand-900 dark:bg-brand-950",
+        "flex h-full w-72 flex-col border-r border-brand-900/40 bg-brand-950 text-white shadow-premium",
         className,
       )}
     >
-      <div className="flex h-16 items-center border-b border-gold-100 px-5 dark:border-brand-900">
-        {brand}
-      </div>
+      <div className="flex h-16 items-center border-b border-white/10 px-5">{brand}</div>
       <nav className="grid gap-1 p-3" aria-label="Sidebar navigation">
         {items.map((item) => {
           const Icon = item.icon;
@@ -38,15 +36,15 @@ export function Sidebar({ brand, className, footer, items }: SidebarProps): Reac
               key={item.href}
               href={item.href}
               className={cn(
-                "flex h-10 items-center gap-3 rounded-md px-3 text-sm font-medium text-brand-700 transition-colors hover:bg-brand-50 hover:text-brand-900 focus:outline-none focus:ring-2 focus:ring-gold-500 dark:text-brand-100 dark:hover:bg-brand-900 dark:hover:text-white",
+                "flex h-10 items-center gap-3 rounded-md px-3 text-sm font-medium text-brand-50/80 transition-all hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-gold-500",
                 item.active &&
-                  "bg-gold-50 text-brand-900 ring-1 ring-gold-200 dark:bg-gold-500/10 dark:text-gold-100",
+                  "bg-gold-500 text-brand-950 shadow-[0_10px_24px_rgba(184,131,39,0.22)] ring-1 ring-gold-300",
               )}
             >
               <Icon className="h-4 w-4" aria-hidden="true" />
               <span className="min-w-0 flex-1 truncate">{item.label}</span>
               {item.badge ? (
-                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-white">
                   {item.badge}
                 </span>
               ) : null}
@@ -54,9 +52,7 @@ export function Sidebar({ brand, className, footer, items }: SidebarProps): Reac
           );
         })}
       </nav>
-      {footer ? (
-        <div className="mt-auto border-t border-gold-100 p-4 dark:border-brand-900">{footer}</div>
-      ) : null}
+      {footer ? <div className="mt-auto border-t border-white/10 p-4">{footer}</div> : null}
     </aside>
   );
 }

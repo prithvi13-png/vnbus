@@ -23,11 +23,11 @@ export function Footer({
   return (
     <footer
       className={cn(
-        "border-t border-brand-900 bg-brand-900 text-white dark:border-brand-950 dark:bg-brand-950",
+        "border-t border-gold-500/20 bg-brand-950 text-white shadow-[0_-18px_50px_rgba(1,60,45,0.16)] dark:border-gold-500/20 dark:bg-brand-950",
         className,
       )}
     >
-      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-[1.3fr_2fr] lg:px-8">
+      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 md:grid-cols-[1.3fr_2fr] lg:px-8">
         <div className="grid gap-4">
           {brand}
           {social ? <div className="flex items-center gap-3">{social}</div> : null}
@@ -36,11 +36,16 @@ export function Footer({
         <div className="grid gap-6 sm:grid-cols-3">
           {columns.map((column) => (
             <div key={column.title}>
-              <h3 className="text-sm font-semibold tracking-normal text-white">{column.title}</h3>
+              <h3 className="text-sm font-semibold tracking-normal text-gold-100">
+                {column.title}
+              </h3>
               <ul className="mt-3 grid gap-2">
                 {column.links.map((link) => (
                   <li key={link.href}>
-                    <a className="text-sm text-white/70 hover:text-gold-100" href={link.href}>
+                    <a
+                      className="text-sm text-white/70 transition-colors hover:text-gold-100"
+                      href={link.href}
+                    >
                       {link.label}
                     </a>
                   </li>

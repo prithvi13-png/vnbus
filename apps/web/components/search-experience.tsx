@@ -87,7 +87,7 @@ export function SearchExperience(): React.JSX.Element {
       <div className="grid gap-6">
         <SearchPanel initialValues={initialValues} />
         {favoriteRoutes.length ? (
-          <section className="rounded-lg border border-gold-100 bg-white p-4 shadow-sm dark:border-brand-900 dark:bg-brand-950">
+          <section className="rounded-lg border border-gold-100 bg-white/95 p-4 shadow-panel dark:border-brand-800 dark:bg-brand-950/80">
             <h2 className="text-sm font-semibold text-brand-900 dark:text-white">Saved routes</h2>
             <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
               {favoriteRoutes.map((route) => (
@@ -118,7 +118,7 @@ export function SearchExperience(): React.JSX.Element {
 
   return (
     <div className="grid gap-6">
-      <section className="sticky top-16 z-20 rounded-lg border border-gold-100 bg-white/95 p-3 shadow-sm backdrop-blur dark:border-brand-900 dark:bg-brand-950/95">
+      <section className="sticky top-[72px] z-20 rounded-lg border border-gold-100 bg-white/90 p-3 shadow-premium backdrop-blur-xl dark:border-brand-800 dark:bg-brand-950/90">
         <SearchPanel compact initialValues={initialValues} />
       </section>
 
@@ -232,7 +232,7 @@ function ResultsToolbar({
   totalResults: number;
 }): React.JSX.Element {
   return (
-    <section className="flex flex-col gap-3 rounded-lg border border-gold-100 bg-white p-4 shadow-sm dark:border-brand-900 dark:bg-brand-950 md:flex-row md:items-center md:justify-between">
+    <section className="flex flex-col gap-3 rounded-lg border border-gold-100 bg-white/95 p-4 shadow-panel dark:border-brand-800 dark:bg-brand-950/80 md:flex-row md:items-center md:justify-between">
       <div>
         <p className="text-sm font-semibold text-gray-950 dark:text-gray-50">
           {totalResults.toLocaleString("en-IN")} buses found
@@ -277,7 +277,7 @@ function SearchFilters({
   const filters = response.filters;
 
   return (
-    <aside className="order-2 h-max rounded-lg border border-gold-100 bg-white p-4 shadow-sm dark:border-brand-900 dark:bg-brand-950 xl:sticky xl:top-40 xl:order-1">
+    <aside className="order-2 h-max rounded-lg border border-gold-100 bg-white/95 p-4 shadow-panel dark:border-brand-800 dark:bg-brand-950/80 xl:sticky xl:top-40 xl:order-1">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Filter className="h-4 w-4 text-gold-600 dark:text-gold-100" aria-hidden="true" />
@@ -413,7 +413,7 @@ function SearchFilters({
                 ))}
               </SelectContent>
             </Select>
-            <label className="flex items-center gap-2 rounded-md border border-gold-100 p-2 text-sm dark:border-brand-900">
+            <label className="flex items-center gap-2 rounded-md border border-gold-100 bg-gold-50/40 p-2.5 text-sm font-medium dark:border-brand-800 dark:bg-white/5">
               <Checkbox
                 checked={request.liveTracking === true}
                 onCheckedChange={(checked) =>
@@ -441,7 +441,7 @@ function BusResultCard({
   onFavorite: () => void;
 }): React.JSX.Element {
   return (
-    <Card>
+    <Card className="overflow-hidden transition-transform hover:-translate-y-0.5">
       <CardContent className="grid gap-4 p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 gap-3">
@@ -452,11 +452,11 @@ function BusResultCard({
               height={48}
               loading="lazy"
               unoptimized
-              className="h-12 w-12 shrink-0 rounded-md border border-gold-100 bg-white object-cover dark:border-brand-900"
+              className="h-12 w-12 shrink-0 rounded-lg border border-gold-100 bg-white object-cover shadow-sm dark:border-brand-800"
             />
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-lg font-semibold text-brand-900 dark:text-white">
+                <h2 className="text-lg font-semibold text-brand-950 dark:text-white">
                   {bus.operatorName}
                 </h2>
                 <Badge variant="neutral">{bus.busType}</Badge>
@@ -490,7 +490,7 @@ function BusResultCard({
             <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
               {formatDuration(bus.durationMinutes)}
             </p>
-            <div className="mt-2 h-px bg-gray-200 dark:bg-gray-800" />
+            <div className="mt-2 h-px bg-gold-100 dark:bg-brand-800" />
           </div>
           <TripTime label="Arrive" city={bus.destinationCity} time={formatTime(bus.arrivalTime)} />
           <div className="flex items-center justify-between gap-4 md:block md:text-right">
@@ -498,7 +498,7 @@ function BusResultCard({
               <p className="text-xs uppercase tracking-normal text-gray-500 dark:text-gray-400">
                 Fare
               </p>
-              <p className="flex items-center text-2xl font-semibold text-gray-950 dark:text-gray-50 md:justify-end">
+              <p className="flex items-center text-2xl font-semibold text-brand-950 dark:text-gray-50 md:justify-end">
                 <IndianRupee className="h-5 w-5" aria-hidden="true" />
                 {bus.fare.amount.toLocaleString("en-IN")}
               </p>
@@ -512,7 +512,7 @@ function BusResultCard({
           </div>
         </div>
 
-        <div className="grid gap-3 rounded-md border border-gold-100 bg-brand-50/60 p-3 dark:border-brand-900 dark:bg-brand-950 sm:grid-cols-3">
+        <div className="grid gap-3 rounded-lg border border-gold-100 bg-pearl-50 p-3 dark:border-brand-800 dark:bg-white/5 sm:grid-cols-3">
           <Fact icon={Armchair} label="Seats" value={`${bus.availableSeats} available`} />
           <Fact
             icon={Route}
@@ -553,7 +553,7 @@ function FilterGroup({
 }): React.JSX.Element {
   return (
     <section>
-      <h3 className="mb-2 text-sm font-semibold text-brand-900 dark:text-white">{title}</h3>
+      <h3 className="mb-2 text-sm font-semibold text-brand-950 dark:text-white">{title}</h3>
       {children}
     </section>
   );
@@ -592,7 +592,7 @@ function FilterCheckbox({
   selected: string[];
 }): React.JSX.Element {
   return (
-    <label className="flex min-h-8 items-center justify-between gap-3 rounded-sm px-2 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-900">
+    <label className="flex min-h-9 items-center justify-between gap-3 rounded-md px-2 text-sm text-gray-700 transition-colors hover:bg-gold-50/70 dark:text-gray-300 dark:hover:bg-white/5">
       <span className="flex items-center gap-2">
         <Checkbox
           checked={selected.includes(option.value)}
@@ -634,7 +634,7 @@ function TripTime({
   return (
     <div>
       <p className="text-xs uppercase tracking-normal text-gray-500 dark:text-gray-400">{label}</p>
-      <p className="text-2xl font-semibold text-gray-950 dark:text-gray-50">{time}</p>
+      <p className="text-2xl font-semibold text-brand-950 dark:text-gray-50">{time}</p>
       <p className="text-sm text-gray-600 dark:text-gray-400">{city}</p>
     </div>
   );
@@ -663,7 +663,7 @@ function Fact({
       <Icon className="mt-0.5 h-4 w-4 text-gold-600 dark:text-gold-100" aria-hidden="true" />
       <span className="grid">
         <span className="text-xs text-gray-500 dark:text-gray-400">{label}</span>
-        <span className="font-medium text-gray-900 dark:text-gray-100">{value}</span>
+        <span className="font-semibold text-gray-900 dark:text-gray-100">{value}</span>
       </span>
     </div>
   );

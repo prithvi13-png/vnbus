@@ -175,10 +175,10 @@ export function DataTable<TData extends Record<string, unknown>>({
           </DropdownMenu>
         </div>
       </div>
-      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950">
+      <div className="overflow-hidden rounded-lg border border-gold-100 bg-white/95 shadow-sm dark:border-brand-800 dark:bg-brand-950/80">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[680px] text-left">
-            <thead className="bg-gray-50 text-xs uppercase text-gray-500 dark:bg-gray-900 dark:text-gray-400">
+            <thead className="bg-pearl-50 text-xs uppercase text-gray-500 dark:bg-brand-900/70 dark:text-gray-300">
               <tr>
                 {selectable ? (
                   <th className="w-12 px-4 py-3">
@@ -234,7 +234,7 @@ export function DataTable<TData extends Record<string, unknown>>({
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
+            <tbody className="divide-y divide-gold-100/70 dark:divide-brand-800">
               {loading
                 ? Array.from({ length: pageSize }, (_, index) => (
                     <tr key={index}>
@@ -255,7 +255,10 @@ export function DataTable<TData extends Record<string, unknown>>({
                       const id = rowId(row, rowIndex);
 
                       return (
-                        <tr key={id} className="hover:bg-gray-50 dark:hover:bg-gray-900/60">
+                        <tr
+                          key={id}
+                          className="transition-colors hover:bg-gold-50/60 dark:hover:bg-white/5"
+                        >
                           {selectable ? (
                             <td className="px-4 py-3">
                               <Checkbox

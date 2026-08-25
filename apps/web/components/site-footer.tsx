@@ -43,7 +43,7 @@ export function SiteFooter(): React.JSX.Element {
       className="mt-0"
       brand={
         <Link href="/" className="flex items-center gap-3 text-sm font-semibold text-white">
-          <span className="flex h-12 w-12 items-center justify-center rounded-md border border-gold-500/30 bg-white">
+          <span className="flex h-12 w-12 items-center justify-center rounded-lg border border-gold-500/30 bg-white shadow-[0_10px_28px_rgba(0,0,0,0.18)]">
             <Image
               src="/images/vriddhi-nexus-logo.png"
               alt="Vriddhi Nexus logo"

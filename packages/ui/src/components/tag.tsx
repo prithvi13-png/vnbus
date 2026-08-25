@@ -11,7 +11,7 @@ export function Tag({ children, className, onRemove, ...props }: TagProps): Reac
   return (
     <span
       className={cn(
-        "inline-flex h-7 items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2 text-xs font-medium text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200",
+        "inline-flex h-7 items-center gap-1 rounded-md border border-gold-100 bg-white/90 px-2.5 text-xs font-semibold text-brand-800 shadow-sm dark:border-brand-800 dark:bg-brand-950/80 dark:text-brand-100",
         className,
       )}
       {...props}

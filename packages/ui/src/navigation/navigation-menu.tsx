@@ -27,9 +27,9 @@ export function NavigationMenu({
             key={item.href}
             href={item.href}
             className={cn(
-              "inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-medium text-brand-700 transition-colors hover:bg-brand-50 hover:text-brand-900 focus:outline-none focus:ring-2 focus:ring-gold-500 dark:text-brand-100 dark:hover:bg-brand-900 dark:hover:text-white",
+              "inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-semibold text-brand-800 transition-all hover:bg-brand-50 hover:text-brand-950 focus:outline-none focus:ring-2 focus:ring-gold-500 dark:text-brand-100 dark:hover:bg-white/10 dark:hover:text-white",
               item.active &&
-                "bg-gold-50 text-brand-900 ring-1 ring-gold-200 dark:bg-gold-500/10 dark:text-gold-100",
+                "bg-gold-50 text-brand-950 ring-1 ring-gold-200 dark:bg-gold-500/10 dark:text-gold-100",
             )}
           >
             {Icon ? <Icon className="h-4 w-4" aria-hidden="true" /> : null}

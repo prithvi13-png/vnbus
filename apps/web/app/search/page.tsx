@@ -59,13 +59,13 @@ export default async function SearchPage({
   return (
     <PublicLayout>
       <SiteHeader />
-      <main className="bg-brand-50/50 dark:bg-brand-950">
-        <section className="border-b border-gold-100 bg-white dark:border-brand-900 dark:bg-brand-950">
+      <main className="bg-transparent">
+        <section className="border-b border-gold-100/80 bg-white/80 shadow-sm backdrop-blur dark:border-brand-800 dark:bg-brand-950/80">
           <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-            <p className="text-sm font-semibold uppercase tracking-normal text-gold-600 dark:text-gold-100">
+            <p className="text-sm font-semibold uppercase tracking-normal text-gold-700 dark:text-gold-100">
               Book ticket
             </p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-normal text-brand-900 dark:text-white">
+            <h1 className="mt-2 text-3xl font-semibold tracking-normal text-brand-950 dark:text-white">
               {hasRoute
                 ? `${request.sourceCity} to ${request.destinationCity}`
                 : "Search buses across Indian routes"}

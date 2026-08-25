@@ -81,7 +81,7 @@ export function SearchPanel({
         onSubmit={(event) => {
           void handleSubmit(submitSearch)(event);
         }}
-        className="grid gap-3 rounded-lg border border-gold-100 bg-white p-4 shadow-sm dark:border-brand-900 dark:bg-brand-950 lg:grid-cols-[minmax(0,1fr)_44px_minmax(0,1fr)_180px_auto]"
+        className="grid gap-3 rounded-lg border border-gold-100 bg-white/95 p-4 shadow-premium backdrop-blur dark:border-brand-800 dark:bg-brand-950/90 lg:grid-cols-[minmax(0,1fr)_44px_minmax(0,1fr)_180px_auto]"
       >
         <Field
           label="From city"
@@ -219,7 +219,7 @@ function QuickRoutes({
             <button
               key={route.id}
               type="button"
-              className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-left text-xs font-medium text-brand-800 hover:border-gold-200 hover:bg-gold-50 dark:border-brand-900 dark:bg-brand-950 dark:text-brand-100 dark:hover:border-gold-500"
+              className="inline-flex items-center gap-2 rounded-md border border-gold-100 bg-white px-3 py-2 text-left text-xs font-semibold text-brand-800 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gold-300 hover:bg-gold-50 dark:border-brand-800 dark:bg-brand-950 dark:text-brand-100 dark:hover:border-gold-500"
               onClick={() => onSelect(route.sourceCity, route.destinationCity)}
             >
               <MapPinned

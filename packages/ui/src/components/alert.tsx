@@ -3,13 +3,13 @@ import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "../lib/cn";
 
-const alertVariants = cva("rounded-md border p-4 text-sm", {
+const alertVariants = cva("rounded-lg border p-4 text-sm shadow-sm", {
   variants: {
     variant: {
       default:
-        "border-gold-200 bg-gold-50 text-brand-900 dark:border-gold-500/30 dark:bg-gold-500/10 dark:text-gold-100",
+        "border-gold-200 bg-gold-50 text-brand-950 dark:border-gold-500/30 dark:bg-gold-500/10 dark:text-gold-100",
       neutral:
-        "border-gray-200 bg-white text-gray-700 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300",
+        "border-gray-200 bg-white/95 text-gray-700 dark:border-gray-800 dark:bg-gray-950/90 dark:text-gray-300",
       success:
         "border-brand-200 bg-brand-50 text-brand-900 dark:border-brand-600/30 dark:bg-brand-600/10 dark:text-brand-100",
       warning:

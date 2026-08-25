@@ -124,57 +124,66 @@ export default function LandingPage(): React.JSX.Element {
     <PublicLayout>
       <SiteHeader />
       <main>
-        <section className="relative overflow-hidden bg-brand-700">
+        <section className="relative overflow-hidden bg-brand-950">
           <Image
             src="/images/bus-terminal-hero.png"
             alt="Modern intercity bus terminal"
             fill
             priority
             sizes="100vw"
-            className="object-cover opacity-30 mix-blend-multiply"
+            className="object-cover opacity-45 mix-blend-multiply"
           />
-          <div className="absolute inset-0 bg-brand-700/85" />
-          <div className="relative mx-auto grid min-h-[calc(100svh-9rem)] max-w-7xl content-center px-4 py-16 sm:px-6 lg:px-8">
-            <div className="max-w-3xl">
-              <Badge variant="default">Bus tickets by Vriddhi Nexus</Badge>
-              <h1 className="mt-5 max-w-3xl text-4xl font-semibold tracking-normal text-white sm:text-5xl lg:text-6xl">
-                Vriddhi Nexus Pvt Ltd
-              </h1>
-              <p className="mt-5 max-w-2xl text-base leading-7 text-brand-50 sm:text-lg">
-                Search routes, choose seats, add passenger details, and receive ticket and invoice
-                actions from one clean booking flow.
-              </p>
-              <div className="mt-7 flex flex-wrap gap-3">
-                <Button asChild size="lg">
-                  <Link href="/search">
-                    Book a ticket
-                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                  </Link>
-                </Button>
-                <Button
-                  asChild
-                  variant="outline"
-                  size="lg"
-                  className="border-white/70 bg-transparent text-white hover:bg-white hover:text-brand-900"
-                >
-                  <Link href="/login">
-                    Customer login
-                    <Bus className="h-4 w-4" aria-hidden="true" />
-                  </Link>
-                </Button>
+          <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(1,60,45,0.96)_0%,rgba(2,85,62,0.88)_52%,rgba(6,26,22,0.98)_100%)]" />
+          <div className="relative mx-auto grid min-h-[calc(100svh-5rem)] max-w-7xl content-center gap-8 px-4 py-12 sm:px-6 lg:px-8">
+            <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+              <div className="max-w-3xl">
+                <Badge variant="default">Bus tickets by Vriddhi Nexus</Badge>
+                <h1 className="mt-5 max-w-3xl text-4xl font-semibold tracking-normal text-white sm:text-5xl lg:text-6xl">
+                  Vriddhi Nexus Pvt Ltd
+                </h1>
+                <p className="mt-5 max-w-2xl text-base leading-7 text-brand-50 sm:text-lg">
+                  Search routes, choose seats, add passenger details, and receive ticket and invoice
+                  actions from one clean booking flow.
+                </p>
+                <div className="mt-7 flex flex-wrap gap-3">
+                  <Button asChild size="lg">
+                    <Link href="/search">
+                      Book a ticket
+                      <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                    </Link>
+                  </Button>
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="lg"
+                    className="border-white/50 bg-white/10 text-white backdrop-blur hover:bg-white hover:text-brand-900"
+                  >
+                    <Link href="/login">
+                      Customer login
+                      <Bus className="h-4 w-4" aria-hidden="true" />
+                    </Link>
+                  </Button>
+                </div>
+                <div className="mt-8 grid max-w-2xl gap-3 sm:grid-cols-3">
+                  {[
+                    ["36", "seat map"],
+                    ["2+1", "sleeper layout"],
+                    ["INR", "invoice ready"],
+                  ].map(([value, label]) => (
+                    <div
+                      key={label}
+                      className="rounded-lg border border-white/20 bg-white/10 p-4 backdrop-blur"
+                    >
+                      <p className="text-2xl font-semibold text-gold-100">{value}</p>
+                      <p className="mt-1 text-sm text-brand-50/80">{label}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-lg border border-gold-200/50 bg-white/95 p-4 shadow-premium backdrop-blur dark:border-brand-700 dark:bg-brand-950/80">
+                <SearchPanel compact={false} />
               </div>
             </div>
-          </div>
-        </section>
-
-        <section className="border-b border-gold-100 bg-white py-6 dark:border-brand-900 dark:bg-brand-950">
-          <div className="mx-auto grid max-w-7xl gap-3 px-4 sm:px-6 lg:px-8">
-            <SectionHeading
-              eyebrow="Book now"
-              title="Book your bus ticket"
-              description="Start with route and date. The next screens keep seats, details, and review simple."
-            />
-            <SearchPanel />
           </div>
         </section>
 
@@ -184,9 +193,9 @@ export default function LandingPage(): React.JSX.Element {
 
             return (
               <SlideUp key={feature.title} transition={{ delay: index * 0.04, duration: 0.24 }}>
-                <Card className="h-full">
+                <Card className="h-full transition-transform hover:-translate-y-1">
                   <CardHeader>
-                    <span className="flex h-11 w-11 items-center justify-center rounded-md bg-gold-50 text-gold-700 dark:bg-gold-500/10 dark:text-gold-100">
+                    <span className="flex h-11 w-11 items-center justify-center rounded-md border border-gold-100 bg-gold-50 text-gold-700 shadow-sm dark:border-gold-500/20 dark:bg-gold-500/10 dark:text-gold-100">
                       <Icon className="h-5 w-5" aria-hidden="true" />
                     </span>
                     <CardTitle>{feature.title}</CardTitle>
@@ -200,7 +209,7 @@ export default function LandingPage(): React.JSX.Element {
 
         <section
           id="why-choose-us"
-          className="border-y border-gold-100 bg-brand-50 py-12 dark:border-brand-900 dark:bg-brand-950"
+          className="border-y border-gold-100 bg-white/70 py-12 shadow-inner dark:border-brand-800 dark:bg-brand-950/70"
         >
           <div className="mx-auto grid max-w-7xl gap-8 px-4 sm:px-6 lg:grid-cols-[0.8fr_1.2fr] lg:px-8">
             <SectionHeading
@@ -212,7 +221,7 @@ export default function LandingPage(): React.JSX.Element {
               {reasons.map(([title, description]) => (
                 <div
                   key={title}
-                  className="rounded-md border border-gold-100 bg-white p-4 shadow-sm dark:border-brand-900 dark:bg-brand-950"
+                  className="rounded-lg border border-gold-100 bg-white/95 p-5 shadow-panel dark:border-brand-800 dark:bg-brand-950/80"
                 >
                   <CheckCircle2
                     className="h-5 w-5 text-gold-600 dark:text-gold-100"
@@ -243,7 +252,7 @@ export default function LandingPage(): React.JSX.Element {
               return (
                 <Card key={step.title}>
                   <CardHeader>
-                    <span className="flex h-10 w-10 items-center justify-center rounded-md bg-gold-50 text-gold-700 dark:bg-gold-500/10 dark:text-gold-100">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-md border border-gold-100 bg-gold-50 text-gold-700 shadow-sm dark:border-gold-500/20 dark:bg-gold-500/10 dark:text-gold-100">
                       <Icon className="h-5 w-5" aria-hidden="true" />
                     </span>
                     <CardTitle>{step.title}</CardTitle>
@@ -255,7 +264,7 @@ export default function LandingPage(): React.JSX.Element {
           </div>
         </section>
 
-        <section className="border-y border-gold-100 bg-white py-12 dark:border-brand-900 dark:bg-brand-950">
+        <section className="border-y border-gold-100 bg-white/80 py-12 shadow-inner dark:border-brand-800 dark:bg-brand-950/80">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <SectionHeading
               eyebrow="Popular routes"
@@ -332,8 +341,8 @@ export default function LandingPage(): React.JSX.Element {
         </section>
 
         <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-          <div className="grid gap-6 rounded-lg border border-gold-100 bg-white p-6 dark:border-brand-900 dark:bg-brand-950 md:grid-cols-[auto_1fr_auto] md:items-center">
-            <span className="flex h-12 w-12 items-center justify-center rounded-md bg-gold-50 text-gold-700 dark:bg-gold-500/10 dark:text-gold-100">
+          <div className="grid gap-6 rounded-lg border border-gold-100 bg-white/95 p-6 shadow-premium dark:border-brand-800 dark:bg-brand-950/80 md:grid-cols-[auto_1fr_auto] md:items-center">
+            <span className="flex h-12 w-12 items-center justify-center rounded-md border border-gold-100 bg-gold-50 text-gold-700 shadow-sm dark:border-gold-500/20 dark:bg-gold-500/10 dark:text-gold-100">
               <Smartphone className="h-6 w-6" aria-hidden="true" />
             </span>
             <div>

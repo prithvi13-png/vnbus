@@ -27,17 +27,17 @@ export function StatisticCard({
   return (
     <Card className={cn("overflow-hidden", className)}>
       <CardHeader className="flex-row items-center justify-between gap-4 pb-2">
-        <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">
+        <CardTitle className="text-sm font-semibold text-gray-600 dark:text-gray-300">
           {label}
         </CardTitle>
         {Icon ? (
-          <span className="flex h-9 w-9 items-center justify-center rounded-md bg-gold-50 text-gold-600 dark:bg-gold-500/10 dark:text-gold-200">
+          <span className="flex h-10 w-10 items-center justify-center rounded-md border border-gold-100 bg-gold-50 text-gold-700 shadow-sm dark:border-gold-500/20 dark:bg-gold-500/10 dark:text-gold-200">
             <Icon className="h-4 w-4" aria-hidden="true" />
           </span>
         ) : null}
       </CardHeader>
       <CardContent>
-        <p className="text-2xl font-semibold tracking-normal text-gray-950 dark:text-gray-50">
+        <p className="text-3xl font-semibold tracking-normal text-brand-950 dark:text-gray-50">
           {value}
         </p>
         {change ? (

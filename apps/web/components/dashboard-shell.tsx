@@ -194,10 +194,8 @@ export function DashboardShell({
             brand={<Brand />}
             items={sidebarItems}
             footer={
-              <div className="grid gap-2 text-xs text-gray-500 dark:text-gray-400">
-                <span className="font-medium text-brand-900 dark:text-brand-100">
-                  Vriddhi Nexus Portal
-                </span>
+              <div className="grid gap-2 text-xs text-brand-50/70">
+                <span className="font-semibold text-gold-100">Vriddhi Nexus Portal</span>
                 <span>Role-based booking, ticket, report, and customer workflows.</span>
               </div>
             }
@@ -218,7 +216,7 @@ export function DashboardShell({
               <Button
                 type="button"
                 variant="outline"
-                className="w-80 justify-start border-gold-100 bg-brand-50 text-brand-700 dark:border-brand-900 dark:bg-brand-950 dark:text-brand-100"
+                className="w-80 justify-start border-gold-100 bg-white/95 text-brand-700 shadow-sm dark:border-brand-800 dark:bg-brand-950 dark:text-brand-100"
                 onClick={() => setCommandOpen(true)}
               >
                 <Search className="h-4 w-4" aria-hidden="true" />
@@ -314,7 +312,7 @@ export function DashboardShell({
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    "flex h-10 items-center gap-3 rounded-md px-3 text-sm font-medium text-brand-700 hover:bg-brand-50 hover:text-brand-900 dark:text-brand-100 dark:hover:bg-brand-900 dark:hover:text-white",
+                    "flex h-10 items-center gap-3 rounded-md px-3 text-sm font-semibold text-brand-700 hover:bg-brand-50 hover:text-brand-900 dark:text-brand-100 dark:hover:bg-white/10 dark:hover:text-white",
                     item.active &&
                       "bg-gold-50 text-brand-900 ring-1 ring-gold-200 dark:bg-gold-500/10 dark:text-gold-100",
                   )}
@@ -335,11 +333,8 @@ export function DashboardShell({
 
 function Brand(): React.JSX.Element {
   return (
-    <Link
-      href="/"
-      className="flex items-center gap-3 text-sm font-semibold text-brand-900 dark:text-white"
-    >
-      <span className="flex h-11 w-11 items-center justify-center rounded-md border border-gold-100 bg-white">
+    <Link href="/" className="flex items-center gap-3 text-sm font-semibold text-white">
+      <span className="flex h-11 w-11 items-center justify-center rounded-lg border border-gold-500/30 bg-white shadow-[0_10px_26px_rgba(0,0,0,0.22)]">
         <Image
           src="/images/vriddhi-nexus-logo.png"
           alt="Vriddhi Nexus logo"
