@@ -22,6 +22,7 @@ import type {
   RescheduleBookingResponse,
   SeatHoldRequest,
   SeatHoldResponse,
+  SeatLayoutAdminConfig,
   SeatLayoutDetails,
   SeatReleaseRequest,
   SeatReleaseResponse,
@@ -35,6 +36,7 @@ import type {
   CreateAgentBookingRequest,
   CreateAgentBookingResponse,
   UpdateAgentCustomerRequest,
+  UpdateSeatLayoutAdminConfigRequest,
 } from "@vnbus/types";
 import {
   calculateFare,
@@ -105,6 +107,12 @@ function getLocalApiBaseUrl(): string | undefined {
   return "http://localhost:4000";
 }
 
+function buildAuthHeaders(accessToken: string): HeadersInit {
+  return {
+    Authorization: `Bearer ${accessToken}`,
+  };
+}
+
 export async function searchBuses(request: BusSearchRequest): Promise<BusSearchResponse> {
   if (!configuredApiBaseUrl) {
     await new Promise((resolve) => setTimeout(resolve, 450));
@@ -129,6 +137,23 @@ export async function getSeatLayout(
   }
 
   return apiClient<SeatLayoutDetails>(`/seats/${tripId}?date=${journeyDate}`);
+}
+
+export function getSeatLayoutAdminConfig(accessToken: string): Promise<SeatLayoutAdminConfig> {
+  return apiClient<SeatLayoutAdminConfig>("/seat-layout/config", {
+    headers: buildAuthHeaders(accessToken),
+  });
+}
+
+export function updateSeatLayoutAdminConfig(
+  request: UpdateSeatLayoutAdminConfigRequest,
+  accessToken: string,
+): Promise<SeatLayoutAdminConfig> {
+  return apiClient<SeatLayoutAdminConfig>("/seat-layout/config", {
+    method: "PATCH",
+    headers: buildAuthHeaders(accessToken),
+    body: JSON.stringify(request),
+  });
 }
 
 export async function holdSeats(request: SeatHoldRequest): Promise<SeatHoldResponse> {

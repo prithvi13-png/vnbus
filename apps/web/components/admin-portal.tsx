@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   Activity,
   AlertTriangle,
+  Armchair,
   ClipboardList,
   CreditCard,
   Download,
@@ -43,6 +44,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import type { SeatLayoutAdminConfig, UpdateSeatLayoutAdminConfigRequest } from "@vnbus/types";
 import {
   Badge,
   Button,
@@ -63,6 +65,7 @@ import {
   TabsList,
   TabsTrigger,
   Textarea,
+  cn,
   type DataTableColumn,
 } from "@vnbus/ui";
 
@@ -73,6 +76,8 @@ import {
   type InvoiceRecord,
   useInvoiceStore,
 } from "../lib/invoice-store";
+import { getSeatLayoutAdminConfig, updateSeatLayoutAdminConfig } from "../lib/api-client";
+import { useAuthStore } from "../lib/auth-store";
 import { PageHeader } from "./page-header";
 
 const chartColors = ["#02553E", "#B88327", "#037A58", "#9F6F20", "#dc2626"];
@@ -871,8 +876,413 @@ export function AdminPlatformSettingsWorkspace(): React.JSX.Element {
           exportFileName="admin-platform-settings"
         />
       </section>
+      <AdminSeatLayoutSettings />
     </div>
   );
+}
+
+type SeatLayoutFormState = {
+  layoutName: string;
+  baseFareAmount: string;
+  windowPremiumAmount: string;
+  extraLegroomPremiumAmount: string;
+  sleeperPremiumAmount: string;
+  upperDeckPremiumAmount: string;
+  maxSelectableSeats: string;
+  lowerDeckEnabled: boolean;
+  upperDeckEnabled: boolean;
+  maleSeatNumbers: string;
+  femaleSeatNumbers: string;
+  femaleBookedSeatNumbers: string;
+  bookedSeatNumbers: string;
+  blockedSeatNumbers: string;
+  updatedBy: string;
+};
+
+function AdminSeatLayoutSettings(): React.JSX.Element {
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const user = useAuthStore((state) => state.user);
+  const [config, setConfig] = React.useState<SeatLayoutAdminConfig | null>(null);
+  const [form, setForm] = React.useState<SeatLayoutFormState>(() =>
+    seatLayoutFormFromConfig(defaultSeatLayoutConfigForForm()),
+  );
+  const [status, setStatus] = React.useState<string>("Loading seat layout settings");
+  const [saving, setSaving] = React.useState(false);
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    async function loadConfig(): Promise<void> {
+      if (!accessToken) {
+        setStatus("Admin sign in required");
+
+        return;
+      }
+
+      try {
+        const loaded = await getSeatLayoutAdminConfig(accessToken);
+        if (cancelled) {
+          return;
+        }
+        setConfig(loaded);
+        setForm(seatLayoutFormFromConfig(loaded));
+        setStatus(`Loaded ${loaded.layoutName}`);
+      } catch (error) {
+        if (!cancelled) {
+          setStatus(error instanceof Error ? error.message : "Seat layout settings unavailable");
+        }
+      }
+    }
+
+    void loadConfig();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken]);
+
+  async function saveConfig(): Promise<void> {
+    if (!accessToken) {
+      setStatus("Admin sign in required");
+
+      return;
+    }
+
+    setSaving(true);
+    setStatus("Saving seat layout settings");
+
+    try {
+      const updated = await updateSeatLayoutAdminConfig(
+        seatLayoutRequestFromForm(form),
+        accessToken,
+      );
+      setConfig(updated);
+      setForm(seatLayoutFormFromConfig(updated));
+      setStatus(`${updated.layoutName} saved`);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Seat layout settings were not saved");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const selectedSummary = [
+    `${parseSeatNumbers(form.maleSeatNumbers).length} male`,
+    `${parseSeatNumbers(form.femaleSeatNumbers).length} female`,
+    `${parseSeatNumbers(form.bookedSeatNumbers).length} booked`,
+    `${parseSeatNumbers(form.blockedSeatNumbers).length} blocked`,
+  ].join(" · ");
+
+  return (
+    <Card>
+      <CardHeader className="gap-3">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <CardTitle>Seat Layout Pricing</CardTitle>
+            <CardDescription>
+              {config
+                ? `Updated ${formatAdminDate(config.updatedAt)} by ${config.updatedBy}`
+                : "Admin-controlled mock layout"}
+            </CardDescription>
+          </div>
+          <Badge variant="neutral">{selectedSummary}</Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="grid gap-5">
+        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <SeatLayoutTextField
+            label="Layout Name"
+            value={form.layoutName}
+            onChange={(value) => setForm((current) => ({ ...current, layoutName: value }))}
+          />
+          <SeatLayoutTextField
+            label="Base Fare"
+            type="number"
+            value={form.baseFareAmount}
+            onChange={(value) => setForm((current) => ({ ...current, baseFareAmount: value }))}
+          />
+          <SeatLayoutTextField
+            label="Window Premium"
+            type="number"
+            value={form.windowPremiumAmount}
+            onChange={(value) => setForm((current) => ({ ...current, windowPremiumAmount: value }))}
+          />
+          <SeatLayoutTextField
+            label="Legroom Premium"
+            type="number"
+            value={form.extraLegroomPremiumAmount}
+            onChange={(value) =>
+              setForm((current) => ({ ...current, extraLegroomPremiumAmount: value }))
+            }
+          />
+          <SeatLayoutTextField
+            label="Sleeper Premium"
+            type="number"
+            value={form.sleeperPremiumAmount}
+            onChange={(value) =>
+              setForm((current) => ({ ...current, sleeperPremiumAmount: value }))
+            }
+          />
+          <SeatLayoutTextField
+            label="Upper Deck Premium"
+            type="number"
+            value={form.upperDeckPremiumAmount}
+            onChange={(value) =>
+              setForm((current) => ({ ...current, upperDeckPremiumAmount: value }))
+            }
+          />
+          <SeatLayoutTextField
+            label="Max Seats"
+            type="number"
+            value={form.maxSelectableSeats}
+            onChange={(value) => setForm((current) => ({ ...current, maxSelectableSeats: value }))}
+          />
+          <SeatLayoutTextField
+            label="Updated By"
+            value={form.updatedBy}
+            onChange={(value) => setForm((current) => ({ ...current, updatedBy: value }))}
+          />
+        </section>
+
+        <section className="grid gap-3 sm:grid-cols-2">
+          <SeatLayoutDeckToggle
+            checked={form.lowerDeckEnabled}
+            label="Lower Deck"
+            onCheckedChange={(checked) =>
+              setForm((current) => ({ ...current, lowerDeckEnabled: checked }))
+            }
+          />
+          <SeatLayoutDeckToggle
+            checked={form.upperDeckEnabled}
+            label="Upper Deck"
+            onCheckedChange={(checked) =>
+              setForm((current) => ({ ...current, upperDeckEnabled: checked }))
+            }
+          />
+        </section>
+
+        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          <SeatListField
+            label="For Male"
+            value={form.maleSeatNumbers}
+            onChange={(value) => setForm((current) => ({ ...current, maleSeatNumbers: value }))}
+          />
+          <SeatListField
+            label="For Female"
+            value={form.femaleSeatNumbers}
+            onChange={(value) => setForm((current) => ({ ...current, femaleSeatNumbers: value }))}
+          />
+          <SeatListField
+            label="Female Booked"
+            value={form.femaleBookedSeatNumbers}
+            onChange={(value) =>
+              setForm((current) => ({ ...current, femaleBookedSeatNumbers: value }))
+            }
+          />
+          <SeatListField
+            label="Booked"
+            value={form.bookedSeatNumbers}
+            onChange={(value) => setForm((current) => ({ ...current, bookedSeatNumbers: value }))}
+          />
+          <SeatListField
+            label="Blocked"
+            value={form.blockedSeatNumbers}
+            onChange={(value) => setForm((current) => ({ ...current, blockedSeatNumbers: value }))}
+          />
+        </section>
+
+        <div className="flex flex-col gap-3 border-t border-gray-200 pt-4 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap gap-2">
+            <SeatStatusPill label="Available" tone="available" />
+            <SeatStatusPill label="For Female" tone="female" />
+            <SeatStatusPill label="For Male" tone="male" />
+            <SeatStatusPill label="Booked" tone="booked" />
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-sm text-gray-600 dark:text-gray-400">{user?.email ?? status}</p>
+            <Button type="button" onClick={() => void saveConfig()} disabled={saving}>
+              <Settings className="h-4 w-4" aria-hidden="true" />
+              {saving ? "Saving" : "Save Seat Layout"}
+            </Button>
+          </div>
+        </div>
+        <p className="rounded-md border border-gold-100 bg-gold-50 px-3 py-2 text-sm text-brand-900 dark:border-brand-900 dark:bg-gold-500/10 dark:text-gold-100">
+          {status}
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SeatLayoutTextField({
+  label,
+  onChange,
+  type = "text",
+  value,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  type?: "number" | "text";
+  value: string;
+}): React.JSX.Element {
+  return (
+    <label className="grid gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+      {label}
+      <Input
+        min={type === "number" ? 0 : undefined}
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.currentTarget.value)}
+      />
+    </label>
+  );
+}
+
+function SeatLayoutDeckToggle({
+  checked,
+  label,
+  onCheckedChange,
+}: {
+  checked: boolean;
+  label: string;
+  onCheckedChange: (checked: boolean) => void;
+}): React.JSX.Element {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-md border border-gray-200 p-3 dark:border-gray-800">
+      <div className="flex items-center gap-3">
+        <Armchair className="h-5 w-5 text-gold-600" aria-hidden="true" />
+        <span className="text-sm font-semibold text-gray-950 dark:text-gray-50">{label}</span>
+      </div>
+      <Switch checked={checked} onCheckedChange={onCheckedChange} aria-label={label} />
+    </div>
+  );
+}
+
+function SeatListField({
+  label,
+  onChange,
+  value,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  value: string;
+}): React.JSX.Element {
+  return (
+    <label className="grid gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+      {label}
+      <Textarea
+        className="min-h-28"
+        value={value}
+        onChange={(event) => onChange(event.currentTarget.value)}
+      />
+    </label>
+  );
+}
+
+function SeatStatusPill({
+  label,
+  tone,
+}: {
+  label: string;
+  tone: "available" | "booked" | "female" | "male";
+}): React.JSX.Element {
+  const toneClass = {
+    available: "border-gray-300 bg-white text-gray-700",
+    booked: "border-gray-300 bg-gray-200 text-gray-500",
+    female: "border-pink-400 bg-white text-pink-700",
+    male: "border-blue-400 bg-white text-blue-700",
+  }[tone];
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-semibold",
+        toneClass,
+      )}
+    >
+      <span className="h-4 w-4 rounded border border-current" />
+      {label}
+    </span>
+  );
+}
+
+function defaultSeatLayoutConfigForForm(): SeatLayoutAdminConfig {
+  return {
+    layoutName: "",
+    currency: "INR",
+    baseFareAmount: 1429,
+    windowPremiumAmount: 250,
+    extraLegroomPremiumAmount: 130,
+    sleeperPremiumAmount: 0,
+    upperDeckPremiumAmount: 0,
+    lowerDeckEnabled: true,
+    upperDeckEnabled: true,
+    maxSelectableSeats: 6,
+    maleSeatNumbers: [],
+    femaleSeatNumbers: [],
+    femaleBookedSeatNumbers: [],
+    bookedSeatNumbers: [],
+    blockedSeatNumbers: [],
+    updatedAt: "",
+    updatedBy: "Admin",
+  };
+}
+
+function seatLayoutFormFromConfig(config: SeatLayoutAdminConfig): SeatLayoutFormState {
+  return {
+    layoutName: config.layoutName,
+    baseFareAmount: String(config.baseFareAmount),
+    windowPremiumAmount: String(config.windowPremiumAmount),
+    extraLegroomPremiumAmount: String(config.extraLegroomPremiumAmount),
+    sleeperPremiumAmount: String(config.sleeperPremiumAmount),
+    upperDeckPremiumAmount: String(config.upperDeckPremiumAmount),
+    maxSelectableSeats: String(config.maxSelectableSeats),
+    lowerDeckEnabled: config.lowerDeckEnabled,
+    upperDeckEnabled: config.upperDeckEnabled,
+    maleSeatNumbers: config.maleSeatNumbers.join(", "),
+    femaleSeatNumbers: config.femaleSeatNumbers.join(", "),
+    femaleBookedSeatNumbers: config.femaleBookedSeatNumbers.join(", "),
+    bookedSeatNumbers: config.bookedSeatNumbers.join(", "),
+    blockedSeatNumbers: config.blockedSeatNumbers.join(", "),
+    updatedBy: config.updatedBy,
+  };
+}
+
+function seatLayoutRequestFromForm(form: SeatLayoutFormState): UpdateSeatLayoutAdminConfigRequest {
+  return {
+    layoutName: form.layoutName.trim() || "2+1 Sleeper Price Layout",
+    baseFareAmount: readAmount(form.baseFareAmount, 1429),
+    windowPremiumAmount: readAmount(form.windowPremiumAmount, 0),
+    extraLegroomPremiumAmount: readAmount(form.extraLegroomPremiumAmount, 0),
+    sleeperPremiumAmount: readAmount(form.sleeperPremiumAmount, 0),
+    upperDeckPremiumAmount: readAmount(form.upperDeckPremiumAmount, 0),
+    maxSelectableSeats: readAmount(form.maxSelectableSeats, 6),
+    lowerDeckEnabled: form.lowerDeckEnabled,
+    upperDeckEnabled: form.upperDeckEnabled,
+    maleSeatNumbers: parseSeatNumbers(form.maleSeatNumbers),
+    femaleSeatNumbers: parseSeatNumbers(form.femaleSeatNumbers),
+    femaleBookedSeatNumbers: parseSeatNumbers(form.femaleBookedSeatNumbers),
+    bookedSeatNumbers: parseSeatNumbers(form.bookedSeatNumbers),
+    blockedSeatNumbers: parseSeatNumbers(form.blockedSeatNumbers),
+    updatedBy: form.updatedBy.trim() || "Admin",
+  };
+}
+
+function readAmount(value: string, fallback: number): number {
+  const parsed = Number.parseInt(value, 10);
+
+  return Number.isFinite(parsed) ? Math.max(0, parsed) : fallback;
+}
+
+function parseSeatNumbers(value: string): string[] {
+  return [
+    ...new Set(
+      value
+        .split(/[,\s]+/u)
+        .map((seat) => seat.trim().toUpperCase())
+        .filter(Boolean),
+    ),
+  ];
 }
 
 export function AdminFeatureFlagsWorkspace(): React.JSX.Element {

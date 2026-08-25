@@ -1,10 +1,16 @@
-import { Body, Controller, Get, Param, Post, Query } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Query } from "@nestjs/common";
 import { ApiBearerAuth, ApiOkResponse, ApiTags } from "@nestjs/swagger";
-import type { SeatHoldResponse, SeatLayoutDetails, SeatReleaseResponse } from "@vnbus/types";
+import type {
+  SeatHoldResponse,
+  SeatLayoutAdminConfig,
+  SeatLayoutDetails,
+  SeatReleaseResponse,
+} from "@vnbus/types";
 import { todayIsoDate } from "@vnbus/shared";
 
 import { Public } from "../../../shared/security/decorators/public.decorator";
 import { Roles } from "../../../shared/security/decorators/roles.decorator";
+import { UpdateSeatLayoutConfigDto } from "../dto/seat-layout-config.dto";
 import { SeatSummaryDto } from "../dto/seat-summary.dto";
 import { HoldSeatsDto, ReleaseSeatsDto } from "../dto/seat-workflow.dto";
 import { SeatService } from "../services/seat.service";
@@ -35,6 +41,20 @@ export class SeatController {
     @Query("date") journeyDate = todayIsoDate(),
   ): Promise<SeatLayoutDetails> {
     return this.service.getSeatLayout(tripId, journeyDate);
+  }
+
+  @Roles("ADMIN")
+  @Get("seat-layout/config")
+  @ApiOkResponse({ description: "Admin-controlled mock seat layout and fare settings" })
+  getSeatLayoutConfiguration(): SeatLayoutAdminConfig {
+    return this.service.getLayoutConfiguration();
+  }
+
+  @Roles("ADMIN")
+  @Patch("seat-layout/config")
+  @ApiOkResponse({ description: "Update mock seat layout and fare settings" })
+  updateSeatLayoutConfiguration(@Body() dto: UpdateSeatLayoutConfigDto): SeatLayoutAdminConfig {
+    return this.service.updateLayoutConfiguration(dto);
   }
 
   @Public()

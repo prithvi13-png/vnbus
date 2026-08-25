@@ -251,6 +251,8 @@ export type SeatStatus = "AVAILABLE" | "BOOKED" | "LADIES" | "RESERVED" | "BLOCK
 
 export type SeatKind = "SEATER" | "SLEEPER" | "SEMI_SLEEPER";
 
+export type SeatGenderRestriction = "LADIES" | "MALE";
+
 export type VehicleLayoutType =
   | "2+2 Seater"
   | "2+1 Sleeper"
@@ -271,7 +273,7 @@ export interface SeatMapSeat {
   isWindow: boolean;
   isEmergencyExit: boolean;
   hasExtraLegroom: boolean;
-  genderRestriction: "LADIES" | null;
+  genderRestriction: SeatGenderRestriction | null;
 }
 
 export interface SeatDeckLayout {
@@ -306,6 +308,44 @@ export interface SeatLayoutDetails {
   boardingPoints: BoardingDroppingPoint[];
   droppingPoints: BoardingDroppingPoint[];
   decks: SeatDeckLayout[];
+}
+
+export interface SeatLayoutAdminConfig {
+  layoutName: string;
+  currency: Money["currency"];
+  baseFareAmount: number;
+  windowPremiumAmount: number;
+  extraLegroomPremiumAmount: number;
+  sleeperPremiumAmount: number;
+  upperDeckPremiumAmount: number;
+  lowerDeckEnabled: boolean;
+  upperDeckEnabled: boolean;
+  maxSelectableSeats: number;
+  maleSeatNumbers: string[];
+  femaleSeatNumbers: string[];
+  femaleBookedSeatNumbers: string[];
+  bookedSeatNumbers: string[];
+  blockedSeatNumbers: string[];
+  updatedAt: string;
+  updatedBy: string;
+}
+
+export interface UpdateSeatLayoutAdminConfigRequest {
+  layoutName?: string;
+  baseFareAmount?: number;
+  windowPremiumAmount?: number;
+  extraLegroomPremiumAmount?: number;
+  sleeperPremiumAmount?: number;
+  upperDeckPremiumAmount?: number;
+  lowerDeckEnabled?: boolean;
+  upperDeckEnabled?: boolean;
+  maxSelectableSeats?: number;
+  maleSeatNumbers?: string[];
+  femaleSeatNumbers?: string[];
+  femaleBookedSeatNumbers?: string[];
+  bookedSeatNumbers?: string[];
+  blockedSeatNumbers?: string[];
+  updatedBy?: string;
 }
 
 export interface SeatHoldRequest {

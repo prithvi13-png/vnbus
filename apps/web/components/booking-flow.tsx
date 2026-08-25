@@ -24,9 +24,9 @@ import type {
   BookingRecord,
   BookingTimelineEvent,
   BusSearchResult,
+  SeatDeckLayout,
   SeatLayoutDetails,
   SeatMapSeat,
-  SeatStatus,
   TicketRecord,
 } from "@vnbus/types";
 import {
@@ -88,15 +88,6 @@ const passengerSchema = z.object({
 });
 
 type PassengerFormValues = z.infer<typeof passengerSchema>;
-
-const statusStyles: Record<SeatStatus | "SELECTED", string> = {
-  AVAILABLE: "border-gray-300 bg-white text-gray-800 hover:border-gold-500 hover:bg-gold-50",
-  BOOKED: "cursor-not-allowed border-gray-200 bg-gray-200 text-gray-400",
-  LADIES: "border-pink-300 bg-pink-50 text-pink-700 hover:border-pink-500",
-  RESERVED: "cursor-not-allowed border-gold-200 bg-gold-50 text-gold-700",
-  BLOCKED: "cursor-not-allowed border-gray-300 bg-gray-100 text-gray-400",
-  SELECTED: "border-brand-700 bg-brand-700 text-white shadow-sm",
-};
 
 type BookingStepId = "search" | "seats" | "details" | "review" | "ticket";
 
@@ -233,56 +224,14 @@ export function SeatSelectionFlow(): React.JSX.Element {
               </div>
             </CardHeader>
             <CardContent className="grid gap-6 p-4 sm:p-5">
-              {activeLayout.decks.map((deck) => (
-                <section key={deck.deck} className="grid gap-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <h2 className="text-sm font-semibold text-brand-900 dark:text-white">
-                      {deck.label}
-                    </h2>
-                    <Badge variant="neutral">Driver</Badge>
-                  </div>
-                  <div
-                    className="mx-auto grid w-full max-w-2xl gap-2"
-                    style={{
-                      gridTemplateColumns: `repeat(${deck.columns}, minmax(44px, 1fr))`,
-                    }}
-                  >
-                    {Array.from({ length: deck.rows * deck.columns }, (_, index) => {
-                      const row = Math.floor(index / deck.columns) + 1;
-                      const column = (index % deck.columns) + 1;
-                      const seat = deck.seats.find(
-                        (item) => item.row === row && item.column === column,
-                      );
-                      if (!seat) {
-                        return <div key={`${deck.deck}-${row}-${column}`} aria-hidden="true" />;
-                      }
-
-                      const selected = selectedSeats.includes(seat.seatNumber);
-                      const selectable = isSeatSelectable(seat);
-
-                      return (
-                        <button
-                          key={seat.seatNumber}
-                          type="button"
-                          disabled={!selectable}
-                          title={seatTooltip(seat)}
-                          aria-label={seatTooltip(seat)}
-                          aria-pressed={selected}
-                          onClick={() =>
-                            toggleSeat(seat.seatNumber, activeLayout.maxSelectableSeats)
-                          }
-                          className={cn(
-                            "flex min-h-12 flex-col items-center justify-center rounded-md border text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 sm:min-h-14",
-                            selected ? statusStyles.SELECTED : statusStyles[seat.status],
-                          )}
-                        >
-                          <Armchair className="mb-1 h-4 w-4" aria-hidden="true" />
-                          {seat.seatNumber}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </section>
+              {[...activeLayout.decks].sort(compareSeatDecks).map((deck) => (
+                <SeatDeckPanel
+                  key={deck.deck}
+                  deck={deck}
+                  maxSelectableSeats={activeLayout.maxSelectableSeats}
+                  selectedSeats={selectedSeats}
+                  onToggle={toggleSeat}
+                />
               ))}
             </CardContent>
           </Card>
@@ -975,27 +924,233 @@ function BookingStepHeader({
 }
 
 function SeatLegend(): React.JSX.Element {
-  const items: Array<[string, SeatStatus | "SELECTED"]> = [
-    ["Available", "AVAILABLE"],
-    ["Booked", "BOOKED"],
-    ["Ladies", "LADIES"],
-    ["Selected", "SELECTED"],
-    ["Blocked", "BLOCKED"],
+  const items: Array<{
+    label: string;
+    tone: SeatVisualTone;
+  }> = [
+    { label: "Available", tone: "available" },
+    { label: "For Female", tone: "female" },
+    { label: "For Male", tone: "male" },
+    { label: "Female Booked", tone: "femaleBooked" },
+    { label: "Booked", tone: "booked" },
   ];
 
   return (
     <div className="flex flex-wrap gap-2">
-      {items.map(([label, status]) => (
+      {items.map((item) => (
         <span
-          key={status}
-          className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-medium dark:border-gray-800 dark:bg-gray-950"
+          key={item.tone}
+          className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300"
         >
-          <span className={cn("h-4 w-4 rounded border", statusStyles[status])} />
-          {label}
+          <SeatLegendIcon tone={item.tone} />
+          {item.label}
         </span>
       ))}
     </div>
   );
+}
+
+type SeatVisualTone =
+  "available" | "selected" | "female" | "male" | "femaleBooked" | "booked" | "blocked";
+
+function compareSeatDecks(left: SeatDeckLayout, right: SeatDeckLayout): number {
+  const order: Record<SeatDeckLayout["deck"], number> = {
+    UPPER: 0,
+    LOWER: 1,
+  };
+
+  return order[left.deck] - order[right.deck];
+}
+
+function SeatDeckPanel({
+  deck,
+  maxSelectableSeats,
+  onToggle,
+  selectedSeats,
+}: {
+  deck: SeatDeckLayout;
+  maxSelectableSeats: number;
+  onToggle: (seatNumber: string, maxSeats: number) => void;
+  selectedSeats: string[];
+}): React.JSX.Element {
+  const gridRows = deck.seats.some((seat) => seat.kind === "SLEEPER")
+    ? "4.5rem 4.5rem 2.75rem 4.5rem"
+    : `repeat(${deck.columns}, 4rem)`;
+
+  return (
+    <section className="overflow-hidden rounded-lg border border-gray-300 bg-gray-50 dark:border-brand-900 dark:bg-brand-950/40">
+      <div className="grid min-h-[220px] grid-cols-[64px_minmax(0,1fr)] sm:grid-cols-[82px_minmax(0,1fr)]">
+        <div className="flex items-center justify-center border-r border-gray-200 bg-white dark:border-brand-900 dark:bg-brand-950">
+          <p className="-rotate-90 text-xl font-semibold tracking-normal text-gray-950 dark:text-white">
+            {deck.deck === "UPPER" ? "Upper" : "Lower"}
+          </p>
+        </div>
+        <div className="overflow-x-auto p-4 sm:p-5">
+          <div
+            className="grid min-w-[640px] gap-3"
+            style={{
+              gridTemplateColumns: `repeat(${deck.rows}, minmax(92px, 1fr))`,
+              gridTemplateRows: gridRows,
+            }}
+          >
+            {deck.deck === "LOWER" ? (
+              <div
+                className="flex items-center justify-center rounded-full border-4 border-gray-400 text-gray-500"
+                style={{
+                  gridColumn: "1",
+                  gridRow: "1 / span 2",
+                }}
+                aria-hidden="true"
+              >
+                <Armchair className="h-7 w-7" />
+              </div>
+            ) : null}
+            {deck.seats.map((seat) => (
+              <SeatBerthButton
+                key={seat.seatNumber}
+                maxSelectableSeats={maxSelectableSeats}
+                onToggle={onToggle}
+                seat={seat}
+                selected={selectedSeats.includes(seat.seatNumber)}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SeatBerthButton({
+  maxSelectableSeats,
+  onToggle,
+  seat,
+  selected,
+}: {
+  maxSelectableSeats: number;
+  onToggle: (seatNumber: string, maxSeats: number) => void;
+  seat: SeatMapSeat;
+  selected: boolean;
+}): React.JSX.Element {
+  const selectable = isSeatSelectable(seat);
+  const tone = selected ? "selected" : getSeatVisualTone(seat);
+  const showPrice = selectable || selected;
+
+  return (
+    <button
+      type="button"
+      disabled={!selectable}
+      title={seatTooltip(seat)}
+      aria-label={seatTooltip(seat)}
+      aria-pressed={selected}
+      onClick={() => onToggle(seat.seatNumber, maxSelectableSeats)}
+      className={cn(
+        "relative flex h-full min-h-16 items-center justify-center rounded-md border-2 px-3 text-sm font-semibold tracking-normal transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500",
+        seatToneClassName(tone),
+      )}
+      style={{
+        gridColumn: seat.row,
+        gridRow: seatGridRow(seat),
+      }}
+    >
+      {showPrice ? <span>{formatMoney(seat.fare.amount)}</span> : null}
+      <span
+        className={cn(
+          "absolute right-0 top-2 h-[calc(100%-1rem)] w-1.5 rounded-l-full",
+          seatStripClassName(tone),
+        )}
+        aria-hidden="true"
+      />
+    </button>
+  );
+}
+
+function SeatLegendIcon({ tone }: { tone: SeatVisualTone }): React.JSX.Element {
+  return (
+    <span
+      className={cn(
+        "relative h-7 w-7 rounded-md border-2 bg-white",
+        seatToneClassName(tone),
+        tone === "booked" || tone === "femaleBooked" ? "bg-gray-200" : "",
+      )}
+      aria-hidden="true"
+    >
+      <span
+        className={cn("absolute right-0 top-1 h-5 w-1 rounded-l-full", seatStripClassName(tone))}
+      />
+    </span>
+  );
+}
+
+function getSeatVisualTone(seat: SeatMapSeat): SeatVisualTone {
+  if (seat.status === "BOOKED" && seat.genderRestriction === "LADIES") {
+    return "femaleBooked";
+  }
+
+  if (seat.status === "BOOKED") {
+    return "booked";
+  }
+
+  if (seat.status === "BLOCKED" || seat.status === "RESERVED") {
+    return "blocked";
+  }
+
+  if (seat.genderRestriction === "MALE") {
+    return "male";
+  }
+
+  if (seat.status === "LADIES" || seat.genderRestriction === "LADIES") {
+    return "female";
+  }
+
+  return "available";
+}
+
+function seatGridRow(seat: SeatMapSeat): string {
+  if (seat.kind !== "SLEEPER") {
+    return String(seat.column);
+  }
+
+  if (seat.column === 1) {
+    return "1";
+  }
+
+  if (seat.column === 2) {
+    return "2";
+  }
+
+  return "4";
+}
+
+function seatToneClassName(tone: SeatVisualTone): string {
+  return {
+    available:
+      "border-gray-300 bg-white text-gray-950 hover:border-gold-500 hover:bg-gold-50 dark:bg-brand-950 dark:text-white",
+    selected:
+      "border-brand-700 bg-brand-100 text-brand-950 shadow-sm hover:bg-brand-100 dark:bg-brand-900 dark:text-white",
+    female:
+      "border-pink-500 bg-white text-gray-950 hover:bg-pink-50 dark:bg-brand-950 dark:text-white",
+    male: "border-blue-500 bg-white text-gray-950 hover:bg-blue-50 dark:bg-brand-950 dark:text-white",
+    femaleBooked: "cursor-not-allowed border-gray-300 bg-gray-200 text-gray-400",
+    booked: "cursor-not-allowed border-gray-300 bg-gray-200 text-gray-400",
+    blocked: "cursor-not-allowed border-gray-300 bg-gray-100 text-gray-400",
+  }[tone];
+}
+
+function seatStripClassName(tone: SeatVisualTone): string {
+  return {
+    available: "bg-gray-400",
+    selected: "bg-brand-700",
+    female: "bg-pink-500",
+    male: "bg-blue-500",
+    femaleBooked: "bg-pink-500",
+    booked: "bg-gray-500",
+    blocked: "bg-gray-400",
+  }[tone];
+}
+
+function formatMoney(amount: number): string {
+  return `₹${amount.toLocaleString("en-IN")}`;
 }
 
 function PointPicker({

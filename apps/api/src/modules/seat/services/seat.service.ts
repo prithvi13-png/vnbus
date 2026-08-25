@@ -1,5 +1,12 @@
-import { Injectable } from "@nestjs/common";
-import type { SeatHoldResponse, SeatLayoutDetails, SeatReleaseResponse } from "@vnbus/types";
+import { BadRequestException, Injectable } from "@nestjs/common";
+import { calculateFare } from "@vnbus/shared";
+import type {
+  SeatHoldResponse,
+  SeatLayoutAdminConfig,
+  SeatLayoutDetails,
+  SeatReleaseResponse,
+  UpdateSeatLayoutAdminConfigRequest,
+} from "@vnbus/types";
 
 import { DistributedLockService } from "../../integration/services/distributed-lock.service";
 import { IdempotencyService } from "../../integration/services/idempotency.service";
@@ -27,16 +34,42 @@ export class SeatService implements SeatModulePort {
     return new SeatSummaryDto(summary);
   }
 
-  getSeatLayout(tripId: string, journeyDate: string): Promise<SeatLayoutDetails> {
-    return this.supplierManager.getSeatLayout({
+  async getSeatLayout(tripId: string, journeyDate: string): Promise<SeatLayoutDetails> {
+    const layout = await this.supplierManager.getSeatLayout({
       supplierCode: "MOCK",
       tripId,
       journeyDate,
     });
+
+    return this.repository.applyLayoutConfiguration(layout);
+  }
+
+  getLayoutConfiguration(): SeatLayoutAdminConfig {
+    return this.repository.getLayoutConfiguration();
+  }
+
+  updateLayoutConfiguration(input: UpdateSeatLayoutAdminConfigRequest): SeatLayoutAdminConfig {
+    return this.repository.updateLayoutConfiguration(input);
   }
 
   async holdSeats(dto: HoldSeatsDto): Promise<SeatHoldResponse> {
     this.validator.ensureHoldRequest(dto);
+    const layout = await this.getSeatLayout(dto.tripId, dto.journeyDate);
+    const selectedSeats = layout.decks
+      .flatMap((deck) => deck.seats)
+      .filter((seat) => dto.seatNumbers.includes(seat.seatNumber));
+    const unavailableSeat = selectedSeats.find(
+      (seat) => seat.status !== "AVAILABLE" && seat.status !== "LADIES",
+    );
+
+    if (selectedSeats.length !== dto.seatNumbers.length) {
+      throw new BadRequestException("One or more seats are not part of this layout");
+    }
+
+    if (unavailableSeat) {
+      throw new BadRequestException(`Seat ${unavailableSeat.seatNumber} is not available`);
+    }
+
     const lockKey = `seat-hold:${dto.supplierCode}:${dto.tripId}:${dto.journeyDate}:${dto.seatNumbers
       .slice()
       .sort()
@@ -48,7 +81,10 @@ export class SeatService implements SeatModulePort {
       ),
     );
 
-    return this.repository.saveHold(hold);
+    return this.repository.saveHold({
+      ...hold,
+      fare: calculateFare(selectedSeats),
+    });
   }
 
   async releaseSeats(dto: ReleaseSeatsDto): Promise<SeatReleaseResponse> {
