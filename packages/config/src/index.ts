@@ -45,7 +45,7 @@ export const serverEnvSchema = z.object({
   JWT_REFRESH_TTL: durationSchema.default("7d"),
   PASSWORD_RESET_TTL_MINUTES: z.coerce.number().int().positive().default(30),
   EMAIL_VERIFICATION_TTL_HOURS: z.coerce.number().int().positive().default(24),
-  CORS_ORIGIN: z.string().default("http://localhost:3000"),
+  CORS_ORIGIN: z.string().min(1),
   COOKIE_SECURE: envBooleanSchema.default(false),
   COOKIE_DOMAIN: z.string().optional(),
   EMAIL_PROVIDER: z.string().default("mock"),
