@@ -1,0 +1,57 @@
+name: Keep API awake
+
+# The API runs on Render's free plan, which spins the service down after
+# ~15 minutes of inactivity. A cold start takes roughly a minute, which is
+# far longer than the browser waits — the first visitor after an idle period
+# sees an empty search page and cannot book. Pinging the health endpoint on a
+# schedule keeps the instance warm.
+#
+# Caveats worth knowing:
+#   * GitHub's scheduled runners are best-effort and can fire late under load,
+#     so treat 10 minutes as "about 10 minutes".
+#   * GitHub disables schedules on repos with no activity for 60 days.
+#   * Upgrading the Render service off the free plan removes the need for this
+#     workflow entirely; that is the real fix.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: keep-api-awake
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping health endpoint
+        env:
+          # Override in repo settings (Variables) if the API moves.
+          HEALTH_URL: ${{ vars.API_HEALTH_URL || 'https://vnbus-api.onrender.com/api/v1/health/live' }}
+        run: |
+          echo "Pinging $HEALTH_URL"
+
+          # --max-time 180 covers a full cold start; a sleeping instance is
+          # exactly the case this job exists to handle, so a slow reply is a
+          # success, not a failure.
+          status=$(curl --silent --show-error --location \
+            --max-time 180 \
+            --retry 2 --retry-delay 15 --retry-connrefused \
+            --write-out '%{http_code}' \
+            --output /tmp/health-body.txt \
+            "$HEALTH_URL" || echo "000")
+
+          echo "HTTP $status"
+          echo "--- body ---"
+          cat /tmp/health-body.txt || true
+          echo
+
+          if [ "$status" != "200" ]; then
+            echo "::error::Health check returned $status (expected 200)"
+            exit 1
+          fi
+
+          echo "API is awake."

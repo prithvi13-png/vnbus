@@ -51,7 +51,6 @@ import {
 import { todayIsoDate } from "@vnbus/shared";
 
 import {
-  confirmBooking,
   cancelBooking,
   createBooking,
   downloadTicketPdf,
@@ -89,13 +88,14 @@ const passengerSchema = z.object({
 
 type PassengerFormValues = z.infer<typeof passengerSchema>;
 
-type BookingStepId = "search" | "seats" | "details" | "review" | "ticket";
+type BookingStepId = "search" | "seats" | "details" | "review" | "payment" | "ticket";
 
 const bookingSteps: Array<{ id: BookingStepId; label: string }> = [
   { id: "search", label: "Search" },
   { id: "seats", label: "Seats" },
   { id: "details", label: "Details" },
   { id: "review", label: "Review" },
+  { id: "payment", label: "Payment" },
   { id: "ticket", label: "Ticket" },
 ];
 
@@ -480,7 +480,6 @@ export function BookingReviewFlow(): React.JSX.Element {
   const droppingPoint = useBookingStore((state) => state.droppingPoint);
   const passengers = useBookingStore((state) => state.passengers);
   const setBooking = useBookingStore((state) => state.setBooking);
-  const setConfirmation = useBookingStore((state) => state.setConfirmation);
   const secondsLeft = useSeatHoldTimer();
   const [error, setError] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
@@ -509,12 +508,10 @@ export function BookingReviewFlow(): React.JSX.Element {
           passengers,
         }));
       setBooking(bookingRecord);
-      const confirmation = await confirmBooking({
-        bookingId: bookingRecord.bookingId,
-        paymentReference: "MOCK-PAYMENT-SUCCESS",
-      });
-      setConfirmation(confirmation);
-      router.push(`/booking-confirmation?bookingId=${confirmation.booking.bookingId}`);
+      // The booking is reserved here but deliberately left unconfirmed —
+      // /payment owns the confirm call so the fare, GST and payment method are
+      // shown before anything is treated as paid.
+      router.push("/payment");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Booking failed");
       router.push("/booking-failed");
@@ -626,7 +623,7 @@ export function BookingReviewFlow(): React.JSX.Element {
             ) : (
               <Ticket className="h-4 w-4" aria-hidden="true" />
             )}
-            Confirm Booking
+            Continue to Payment
           </Button>
         </aside>
       </div>
