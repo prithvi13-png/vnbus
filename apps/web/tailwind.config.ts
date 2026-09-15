@@ -39,11 +39,25 @@ const config: Config = {
           100: "#F7F1E6",
           200: "#EADBC4",
         },
+        // Exact tokens from the main landing site (vriddhinexus.com) so shared
+        // chrome renders identically across the two domains. Kept separate from
+        // the `brand` scale above so existing app styling is untouched.
+        site: {
+          primary: "#0B6E4F",
+          "primary-dark": "#07553D",
+          "primary-light": "#E6F2EE",
+          gold: "#D4AF37",
+          surface: "#FFFFFF",
+          text: "#1C2723",
+          muted: "#6E7975",
+          border: "#E1E8E4",
+        },
       },
       boxShadow: {
         soft: "0 8px 30px rgba(1, 60, 45, 0.08)",
         premium: "0 18px 60px rgba(1, 60, 45, 0.12)",
         panel: "0 10px 34px rgba(15, 23, 42, 0.08)",
+        header: "0 1px 3px 0 rgb(11 42 32 / 0.08)",
       },
     },
   },
