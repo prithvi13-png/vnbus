@@ -36,8 +36,18 @@ services:
         value: mock
       - key: PAYMENT_PROVIDER
         value: MOCK
+      # Email is live via Resend. The key is a secret and EMAIL_FROM changes
+      # once vriddhinexus.com is verified, so both are dashboard-managed
+      # (sync: false) rather than pinned here — a literal value in this file
+      # would overwrite the dashboard on the next blueprint sync.
+      # If RESEND_API_KEY is missing the API falls back to the mock sender and
+      # logs an error, so a half-configured environment fails loudly, not silently.
       - key: EMAIL_PROVIDER
-        value: mock
+        value: resend
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
       - key: PROMETHEUS_ENABLED
         value: "true"
       - key: LOG_LEVEL
