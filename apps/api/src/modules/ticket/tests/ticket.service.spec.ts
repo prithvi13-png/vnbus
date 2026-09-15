@@ -2,6 +2,7 @@ import { EmailLoggerService } from "../../../shared/email/email-logger.service";
 import { EmailQueueService } from "../../../shared/email/email-queue.service";
 import { EmailRetryStrategy } from "../../../shared/email/email-retry.strategy";
 import { EmailTemplateService } from "../../../shared/email/email-template.service";
+import { MockEmailSender } from "../../../shared/email/senders/mock-email.sender";
 import { BookingRepository } from "../../booking/repositories/booking.repository";
 import { BookingService } from "../../booking/services/booking.service";
 import { BookingModuleValidator } from "../../booking/validators/booking.validator";
@@ -36,7 +37,7 @@ describe("TicketService", () => {
       new DistributedLockService(),
     );
     const emailService = new EmailQueueService(
-      new EmailTemplateService(),
+      new EmailTemplateService(new MockEmailSender()),
       new EmailLoggerService(),
       new EmailRetryStrategy(),
     );

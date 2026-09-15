@@ -2,11 +2,12 @@ import { EmailLoggerService } from "./email-logger.service";
 import { EmailQueueService } from "./email-queue.service";
 import { EmailRetryStrategy } from "./email-retry.strategy";
 import { EmailTemplateService } from "./email-template.service";
+import { MockEmailSender } from "./senders/mock-email.sender";
 
 describe("EmailQueueService", () => {
   it("queues, logs, and marks architecture-only emails as sent", async () => {
     const service = new EmailQueueService(
-      new EmailTemplateService(),
+      new EmailTemplateService(new MockEmailSender()),
       new EmailLoggerService(),
       new EmailRetryStrategy(),
     );
@@ -28,7 +29,7 @@ describe("EmailQueueService", () => {
 
   it("calculates retry state without SMTP integration", () => {
     const service = new EmailQueueService(
-      new EmailTemplateService(),
+      new EmailTemplateService(new MockEmailSender()),
       new EmailLoggerService(),
       new EmailRetryStrategy(),
     );

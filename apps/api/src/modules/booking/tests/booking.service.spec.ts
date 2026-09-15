@@ -2,6 +2,7 @@ import { EmailLoggerService } from "../../../shared/email/email-logger.service";
 import { EmailQueueService } from "../../../shared/email/email-queue.service";
 import { EmailRetryStrategy } from "../../../shared/email/email-retry.strategy";
 import { EmailTemplateService } from "../../../shared/email/email-template.service";
+import { MockEmailSender } from "../../../shared/email/senders/mock-email.sender";
 import type { BookingRecord } from "@vnbus/types";
 import { DistributedLockService } from "../../integration/services/distributed-lock.service";
 import { IdempotencyService } from "../../integration/services/idempotency.service";
@@ -37,7 +38,7 @@ describe("BookingService", () => {
       new NotificationModuleValidator(),
     );
     const emailService = new EmailQueueService(
-      new EmailTemplateService(),
+      new EmailTemplateService(new MockEmailSender()),
       new EmailLoggerService(),
       new EmailRetryStrategy(),
     );

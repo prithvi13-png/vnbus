@@ -1,6 +1,7 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 
 import type { EmailMessage, EmailPort, PreparedEmail } from "./interfaces/email-message.interface";
+import { EMAIL_SENDER, type EmailSender } from "./interfaces/email-sender.interface";
 
 const templates = {
   welcome: {
@@ -58,6 +59,8 @@ const templates = {
 export class EmailTemplateService implements EmailPort {
   private readonly logger = new Logger(EmailTemplateService.name);
 
+  constructor(@Inject(EMAIL_SENDER) private readonly sender: EmailSender) {}
+
   prepare(message: EmailMessage): Promise<PreparedEmail> {
     const template = templates[message.templateKey];
 
@@ -80,6 +83,33 @@ export class EmailTemplateService implements EmailPort {
         toMasked: maskEmail(prepared.to),
       }),
     );
+
+    try {
+      const result = await this.sender.send(prepared);
+
+      this.logger.log(
+        JSON.stringify({
+          event: result.delivered ? "email.sent" : "email.recorded",
+          provider: this.sender.provider,
+          templateKey: message.templateKey,
+          toMasked: maskEmail(prepared.to),
+          providerMessageId: result.providerMessageId,
+        }),
+      );
+    } catch (error) {
+      // Mail is queued as a side effect of registration, password reset and
+      // booking confirmation. A provider outage must not fail those
+      // operations, so this is logged and swallowed rather than rethrown.
+      this.logger.error(
+        JSON.stringify({
+          event: "email.failed",
+          provider: this.sender.provider,
+          templateKey: message.templateKey,
+          toMasked: maskEmail(prepared.to),
+          reason: error instanceof Error ? error.message : "unknown error",
+        }),
+      );
+    }
   }
 
   private render(template: string, variables: Record<string, string>): string {
