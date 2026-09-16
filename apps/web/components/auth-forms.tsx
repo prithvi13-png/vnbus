@@ -276,7 +276,13 @@ export function ResetPasswordForm(): React.JSX.Element {
 
 export function VerifyEmailForm(): React.JSX.Element {
   const searchParams = useSearchParams();
+  const urlToken = searchParams?.get("token") ?? "";
   const [status, setStatus] = React.useState<StatusState>(null);
+  // The emailed link already carries the token, so verify on arrival rather
+  // than asking the recipient to make sense of an opaque string and press a
+  // button. The manual field remains for anyone landing here without one.
+  const [autoVerifying, setAutoVerifying] = React.useState(urlToken.length > 0);
+  const autoSubmitted = React.useRef(false);
   const {
     register,
     handleSubmit,
@@ -284,36 +290,64 @@ export function VerifyEmailForm(): React.JSX.Element {
   } = useForm<VerifyEmailFormValues>({
     resolver: zodResolver(verifyEmailSchema),
     defaultValues: {
-      token: searchParams?.get("token") ?? "",
+      token: urlToken,
     },
   });
 
-  const onSubmit = async (values: VerifyEmailFormValues): Promise<void> => {
+  const submitToken = React.useCallback(async (token: string): Promise<void> => {
     setStatus(null);
 
     try {
-      const response = await verifyEmail(values);
+      const response = await verifyEmail({ token });
       setStatus({ type: "success", message: response.message });
     } catch (error) {
       setStatus({ type: "error", message: getErrorMessage(error) });
     }
-  };
+  }, []);
+
+  React.useEffect(() => {
+    if (!urlToken || autoSubmitted.current) {
+      return;
+    }
+
+    // Tokens are single use, so a second submit would consume nothing and
+    // replace a success message with "invalid or expired". This ref guards
+    // against StrictMode invoking the effect twice in development.
+    autoSubmitted.current = true;
+    void submitToken(urlToken).finally(() => {
+      setAutoVerifying(false);
+    });
+  }, [urlToken, submitToken]);
+
+  if (autoVerifying) {
+    return (
+      <div className="grid gap-4" aria-live="polite">
+        <p className="text-sm text-gray-600 dark:text-gray-400">Verifying your email…</p>
+      </div>
+    );
+  }
+
+  const verified = status?.type === "success";
 
   return (
     <form
       className="grid gap-4"
       onSubmit={(event) => {
-        void handleSubmit(onSubmit)(event);
+        void handleSubmit((values) => submitToken(values.token))(event);
       }}
     >
       <StatusMessage status={status} />
-      <Field label="Verification token" error={errors.token?.message}>
-        <Input autoComplete="one-time-code" {...register("token")} />
-      </Field>
-      <Button type="submit" disabled={isSubmitting}>
-        <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-        {isSubmitting ? "Verifying email" : "Verify email"}
-      </Button>
+      {verified ? null : (
+        <>
+          <Field label="Verification token" error={errors.token?.message}>
+            <Input autoComplete="one-time-code" {...register("token")} />
+          </Field>
+          <Button type="submit" disabled={isSubmitting}>
+            <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+            {isSubmitting ? "Verifying email" : "Verify email"}
+          </Button>
+        </>
+      )}
       <AuthLinks
         primary={{ href: "/dashboard", label: "Open dashboard" }}
         secondary={{ href: "/login", label: "Sign in" }}
