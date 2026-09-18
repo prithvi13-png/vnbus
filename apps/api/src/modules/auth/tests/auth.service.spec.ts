@@ -1,4 +1,4 @@
-import { UnauthorizedException } from "@nestjs/common";
+import { ConflictException, UnauthorizedException } from "@nestjs/common";
 import type { ConfigService } from "@nestjs/config";
 import type { JwtService } from "@nestjs/jwt";
 
@@ -27,8 +27,10 @@ describe("AuthService", () => {
 
   const repository = {
     findByEmail: jest.fn(),
+    phoneExists: jest.fn(),
     updateLastLogin: jest.fn(),
     persistRefreshToken: jest.fn(),
+    createCustomerAccount: jest.fn(),
   } as unknown as jest.Mocked<AuthRepository>;
 
   const jwtService = {
@@ -106,5 +108,35 @@ describe("AuthService", () => {
         password: "wrong-password",
       }),
     ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it("rejects a registration whose phone number is already taken", async () => {
+    // The phone column is unique, so without this check the insert fails and the
+    // caller gets a 500 instead of being told which field to change.
+    repository.findByEmail.mockResolvedValue(null);
+    repository.phoneExists.mockResolvedValue(true);
+
+    const service = new AuthService(
+      repository,
+      jwtService,
+      passwordService,
+      config,
+      email,
+      activity,
+    );
+
+    await expect(
+      service.registerCustomer({
+        firstName: "Aarav",
+        lastName: "Sharma",
+        email: "someone.else@example.com",
+        password: "VNexus#2026Pass",
+        confirmPassword: "VNexus#2026Pass",
+        phone: "+919876543210",
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    expect(repository.phoneExists).toHaveBeenCalledWith("+919876543210");
+    expect(repository.createCustomerAccount).not.toHaveBeenCalled();
   });
 });

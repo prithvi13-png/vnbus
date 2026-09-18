@@ -45,6 +45,20 @@ export class AuthRepository {
     return user ? this.toAuthenticatedRecord(user) : null;
   }
 
+  /**
+   * Deliberately ignores `deletedAt`: the unique index on `phone` spans every
+   * row, so a soft-deleted account still owns its number. Filtering it out here
+   * would let the check pass and the insert fail.
+   */
+  async phoneExists(phone: string): Promise<boolean> {
+    const match = await this.prisma.user.findUnique({
+      where: { phone },
+      select: { id: true },
+    });
+
+    return match !== null;
+  }
+
   async findById(id: string): Promise<AuthenticatedUserRecord | null> {
     const user = await this.prisma.user.findFirst({
       where: {

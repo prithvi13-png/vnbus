@@ -59,6 +59,10 @@ export class AuthService {
       throw new ConflictException("Email is already registered");
     }
 
+    if (await this.repository.phoneExists(dto.phone)) {
+      throw new ConflictException("Phone number is already registered");
+    }
+
     const passwordHash = await this.passwordService.hashPassword(dto.password);
     const user = await this.repository.createCustomerAccount({ ...dto, email }, passwordHash);
     const verificationToken = await this.prepareEmailVerification(user.id, context);

@@ -1,11 +1,13 @@
 import {
   ArgumentsHost,
   Catch,
+  ConflictException,
   ExceptionFilter,
   HttpException,
   HttpStatus,
   Logger,
 } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import type { Response } from "express";
 import type { Request } from "express";
 
@@ -27,7 +29,8 @@ type CorrelatedRequest = Request & {
 export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger(AllExceptionsFilter.name);
 
-  catch(exception: unknown, host: ArgumentsHost): void {
+  catch(thrown: unknown, host: ArgumentsHost): void {
+    const exception = translateKnownDatabaseError(thrown);
     const context = host.switchToHttp();
     const response = context.getResponse<Response>();
     const request = context.getRequest<CorrelatedRequest>();
@@ -85,6 +88,41 @@ export class AllExceptionsFilter implements ExceptionFilter {
       timestamp: new Date().toISOString(),
     });
   }
+}
+
+/**
+ * Prisma reports a unique-constraint violation as P2002, which would otherwise
+ * reach the client as an opaque 500 even though it is squarely a client error:
+ * the caller sent a value someone else already owns. Handlers that can phrase a
+ * friendlier message still pre-check (see registration's email/phone checks);
+ * this is the net for the races those checks cannot close and for constraints
+ * no handler anticipated.
+ */
+function translateKnownDatabaseError(exception: unknown): unknown {
+  if (!(exception instanceof Prisma.PrismaClientKnownRequestError) || exception.code !== "P2002") {
+    return exception;
+  }
+
+  const fields = uniqueConstraintFields(exception);
+
+  return new ConflictException(
+    fields.length > 0 ? `${fields.join(", ")} already in use` : "Record already exists",
+  );
+}
+
+function uniqueConstraintFields(error: Prisma.PrismaClientKnownRequestError): string[] {
+  const target: unknown = error.meta?.["target"];
+
+  if (Array.isArray(target)) {
+    return target.map(String);
+  }
+
+  if (typeof target === "string") {
+    // PostgreSQL reports the index name rather than the columns, e.g. "User_phone_key".
+    return [/^[A-Za-z]+_(.+)_key$/u.exec(target)?.[1] ?? target];
+  }
+
+  return [];
 }
 
 function errorCodeFor(status: number): string {
