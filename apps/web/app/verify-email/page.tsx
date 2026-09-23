@@ -12,7 +12,7 @@ export default function VerifyEmailPage(): React.JSX.Element {
   return (
     <AuthLayout
       title="Verify email"
-      description="Confirm the email address attached to your account."
+      description="Open the verification link we emailed you to confirm your account."
     >
       <Suspense>
         <VerifyEmailForm />

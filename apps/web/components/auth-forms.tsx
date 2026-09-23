@@ -328,6 +328,11 @@ export function VerifyEmailForm(): React.JSX.Element {
   }
 
   const verified = status?.type === "success";
+  // Arriving with no token is the post-registration case: the account was just
+  // created and the email is on its way. That email carries a link, not a code,
+  // so asking for a one-time code here sent people looking for something that
+  // was never sent. Say what actually happened instead.
+  const awaitingLink = !urlToken && !verified;
 
   return (
     <form
@@ -337,9 +342,27 @@ export function VerifyEmailForm(): React.JSX.Element {
       }}
     >
       <StatusMessage status={status} />
+      {awaitingLink && (
+        <div
+          className="rounded-lg border border-brand-200 bg-brand-50 p-4 text-sm dark:border-brand-800 dark:bg-brand-950"
+          aria-live="polite"
+        >
+          <p className="font-semibold text-brand-900 dark:text-brand-100">
+            Verification link has been sent to your email
+          </p>
+          <p className="mt-1 text-gray-600 dark:text-gray-400">
+            Open the link in that email to verify your account. If it has not arrived in a few
+            minutes, check your spam folder.
+          </p>
+        </div>
+      )}
       {verified ? null : (
         <>
-          <Field label="Verification token" error={errors.token?.message}>
+          <Field
+            label="Verification token"
+            hint="Only needed if you cannot open the link — paste the token from it here."
+            error={errors.token?.message}
+          >
             <Input autoComplete="one-time-code" {...register("token")} />
           </Field>
           <Button type="submit" disabled={isSubmitting}>
@@ -418,10 +441,13 @@ export function ChangePasswordForm(): React.JSX.Element {
 function Field({
   label,
   error,
+  hint,
   children,
 }: {
   label: string;
   error: string | undefined;
+  /** Shown under the label to explain when the field is needed. */
+  hint?: string;
   children: React.ReactNode;
 }): React.JSX.Element {
   return (
@@ -429,6 +455,7 @@ function Field({
       <span className="text-xs font-semibold uppercase tracking-normal text-brand-800 dark:text-brand-100">
         {label}
       </span>
+      {hint && <span className="text-xs text-gray-600 dark:text-gray-400">{hint}</span>}
       {children}
       <span className="min-h-4 text-xs text-red-600">{error}</span>
     </label>
