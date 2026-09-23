@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Facebook, Instagram, Linkedin, Twitter } from "lucide-react";
+import { Facebook, Instagram } from "lucide-react";
 import { Button, Footer } from "@vnbus/ui";
 
 const columns = [
@@ -31,11 +31,12 @@ const columns = [
   },
 ];
 
+// Only profiles that actually exist are listed. Every entry needs a real href —
+// the previous list pointed all four at "#", which rendered four dead buttons.
+// LinkedIn returns here once its URL is known.
 const socials = [
-  { label: "LinkedIn", icon: Linkedin },
-  { label: "Twitter", icon: Twitter },
-  { label: "Instagram", icon: Instagram },
-  { label: "Facebook", icon: Facebook },
+  { label: "Instagram", icon: Instagram, href: "https://www.instagram.com/vriddhinexus/" },
+  { label: "Facebook", icon: Facebook, href: "https://www.facebook.com/vriddhinexus" },
 ];
 
 export function SiteFooter(): React.JSX.Element {
@@ -71,7 +72,12 @@ export function SiteFooter(): React.JSX.Element {
                 size="icon"
                 className="h-8 w-8 text-gold-100 hover:bg-gold-500/10 hover:text-gold-500"
               >
-                <a href="#" aria-label={social.label}>
+                <a
+                  href={social.href}
+                  aria-label={social.label}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   <Icon className="h-4 w-4" aria-hidden="true" />
                 </a>
               </Button>
