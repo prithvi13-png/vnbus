@@ -75,10 +75,21 @@ export class SeatService implements SeatModulePort {
       .sort()
       .join(",")}`;
     const idempotencyKey = lockKey;
-    const hold = await this.idempotency.runWithKey("seat-hold", idempotencyKey, dto, () =>
-      this.locks.withLock(lockKey, idempotencyKey, 30_000, () =>
-        this.supplierManager.holdSeats(dto),
-      ),
+    // The cached response must not outlive the hold it describes. The key has no
+    // time component, so with the default 24h TTL a lapsed hold kept being
+    // replayed for the same seats — the traveller re-picked them, got the dead
+    // reservation back, and "Seat reservation expired" locked those seats out for
+    // the rest of the day. Expiring with the hold lets the next attempt take a
+    // fresh one.
+    const hold = await this.idempotency.runWithKey(
+      "seat-hold",
+      idempotencyKey,
+      dto,
+      () =>
+        this.locks.withLock(lockKey, idempotencyKey, 30_000, () =>
+          this.supplierManager.holdSeats(dto),
+        ),
+      layout.holdDurationSeconds * 1000,
     );
 
     return this.repository.saveHold({
