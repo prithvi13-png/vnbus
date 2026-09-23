@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { confirmMockBooking, createMockBooking, prepareMockBookingEmail } from "@vnbus/shared";
+
 import type {
   BookingConfirmationResponse,
   BookingHistoryResponse,
@@ -9,6 +10,7 @@ import type {
 } from "@vnbus/types";
 
 import { EmailQueueService } from "../../../shared/email/email-queue.service";
+import { buildTicketEmail } from "../../../shared/email/ticket-email";
 import { NotificationService } from "../../notification/services/notification.service";
 import { SeatService } from "../../seat/services/seat.service";
 import { TimelineService } from "../../timeline/services/timeline.service";
@@ -22,6 +24,9 @@ import type {
 import type { BookingModulePort } from "../interfaces/booking.interface";
 import { BookingRepository } from "../repositories/booking.repository";
 import { BookingModuleValidator } from "../validators/booking.validator";
+
+/** Shown on the ticket as the address to quote a PNR to. */
+const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL ?? "info@vriddhinexus.com";
 
 @Injectable()
 export class BookingService implements BookingModulePort {
@@ -148,13 +153,14 @@ export class BookingService implements BookingModulePort {
       occurredAt: confirmation.ticket.issuedAt,
       tone: "success",
     });
+    const ticketEmail = buildTicketEmail(confirmation.ticket, SUPPORT_EMAIL);
     const emailLog = await this.emailService.queue({
       to: email.to,
       templateKey: "booking-confirmation",
       variables: {
-        bookingReference: confirmation.booking.bookingReference,
-        route: `${confirmation.booking.trip.sourceCity} to ${confirmation.booking.trip.destinationCity}`,
-        attachmentFileName: email.attachmentFileName,
+        subject: ticketEmail.subject,
+        ticketHtml: ticketEmail.ticketHtml,
+        ticketText: ticketEmail.ticketText,
       },
     });
     this.timelineService.append({

@@ -34,12 +34,12 @@ const templates = {
     htmlBody: "<p>Your password was changed. Contact support if this was not you.</p>",
     textBody: "Your password was changed. Contact support if this was not you.",
   },
+  // The body is the ticket itself, rendered by buildTicketEmail() — a traveller
+  // should be able to reach the boarding point on this email alone.
   "booking-confirmation": {
-    subject: "Booking confirmed: {{bookingReference}}",
-    htmlBody:
-      "<p>Your booking {{bookingReference}} is confirmed for {{route}}.</p><p>Ticket attachment prepared: {{attachmentFileName}}</p>",
-    textBody:
-      "Your booking {{bookingReference}} is confirmed for {{route}}. Ticket attachment prepared: {{attachmentFileName}}.",
+    subject: "{{subject}}",
+    htmlBody: "{{ticketHtml}}",
+    textBody: "{{ticketText}}",
   },
   "booking-cancelled": {
     subject: "Booking cancelled: {{bookingReference}}",
