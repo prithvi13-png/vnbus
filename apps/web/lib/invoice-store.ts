@@ -690,7 +690,6 @@ function renderInvoiceHtml(invoice: InvoiceRecord): string {
           <p><strong>CIN:</strong> ${escapeHtml(company.cin)}</p>
           <p><strong>Invoice date:</strong> ${formatDate(invoice.generatedAt)}</p>
           <p><strong>Booking:</strong> ${escapeHtml(invoice.bookingReference)}</p>
-          <p><strong>Status:</strong> ${escapeHtml(invoice.status)}</p>
         </div>
       </section>
       <h2>Customer</h2>
@@ -716,7 +715,12 @@ function renderInvoiceHtml(invoice: InvoiceRecord): string {
 }
 
 function formatMoney(value: Money): string {
-  return `${value.currency} ${value.amount.toLocaleString("en-IN")}`;
+  // Always two decimals — this renders onto a tax invoice, where "INR 38.5"
+  // instead of "INR 38.50" reads as an error.
+  return `${value.currency} ${value.amount.toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 }
 
 function formatDate(value: string): string {
