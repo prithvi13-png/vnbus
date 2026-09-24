@@ -73,7 +73,11 @@ const passengerSchema = z.object({
       seatNumber: z.string().min(1),
       firstName: z.string().min(2, "First name is required"),
       lastName: z.string().min(2, "Last name is required"),
-      age: z.number().int().min(1, "Enter a valid age").max(110, "Enter a valid age"),
+      age: z
+        .number({ message: "Enter a valid age" })
+        .int("Enter a valid age")
+        .min(1, "Enter a valid age")
+        .max(110, "Enter a valid age"),
       gender: z.enum(["MALE", "FEMALE", "OTHER"], {
         message: "Select gender",
       }),
@@ -351,10 +355,15 @@ export function PassengerDetailsFlow(): React.JSX.Element {
         seatNumber,
         firstName: passengers[index]?.firstName ?? "",
         lastName: passengers[index]?.lastName ?? "",
-        age: passengers[index]?.age ?? 30,
+        // Blank, not a guess. A prefilled age rides onto the ticket as fact.
+        age: passengers[index]?.age ?? Number.NaN,
         gender: passengers[index]?.gender ?? "MALE",
-        phone: passengers[index]?.phone ?? "+919876543210",
-        email: passengers[index]?.email ?? "traveller@example.com",
+        // These were prefilled with "+919876543210" and "traveller@example.com",
+        // which pass validation — so a traveller could accept the defaults and
+        // have their ticket delivered to a placeholder address that is not
+        // theirs. Contact details must be typed by the person booking.
+        phone: passengers[index]?.phone ?? "",
+        email: passengers[index]?.email ?? "",
         emergencyContact: passengers[index]?.emergencyContact ?? "",
       })),
     },

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Facebook, Instagram } from "lucide-react";
+import { Facebook, Instagram, Linkedin } from "lucide-react";
 import { Button, Footer } from "@vnbus/ui";
 
 const columns = [
@@ -37,6 +37,7 @@ const columns = [
 // the previous list pointed all four at "#", which rendered four dead buttons.
 // LinkedIn returns here once its URL is known.
 const socials = [
+  { label: "LinkedIn", icon: Linkedin, href: "https://www.linkedin.com/company/vriddhi-nexus/" },
   { label: "Instagram", icon: Instagram, href: "https://www.instagram.com/vriddhinexus/" },
   { label: "Facebook", icon: Facebook, href: "https://www.facebook.com/vriddhinexus" },
 ];
