@@ -50,6 +50,8 @@ import {
   searchMockTrips,
 } from "@vnbus/shared";
 
+import { useAuthStore } from "./auth-store";
+
 const configuredApiBaseUrl = process.env.NEXT_PUBLIC_API_URL;
 const apiBaseUrl = configuredApiBaseUrl ?? getLocalApiBaseUrl();
 const localHolds = new Map<string, SeatHoldResponse>();
@@ -66,11 +68,16 @@ export async function apiClient<T>(path: string, init?: RequestInit): Promise<T>
     throw new Error("NEXT_PUBLIC_API_URL is not configured for this deployment.");
   }
 
+  // Booking now requires a signed-in user, so every call carries the access
+  // token when there is one. Read from the store rather than a hook: this runs
+  // outside React. An explicit Authorization in `init` still wins.
+  const accessToken = useAuthStore.getState().accessToken;
   const response = await fetch(`${apiBaseUrl}/api/v1${path}`, {
     credentials: "include",
     ...init,
     headers: {
       "Content-Type": "application/json",
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       ...init?.headers,
     },
   });

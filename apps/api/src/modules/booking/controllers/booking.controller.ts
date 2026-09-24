@@ -25,6 +25,9 @@ import { BookingService } from "../services/booking.service";
 export class BookingController {
   constructor(private readonly service: BookingService) {}
 
+  // Health is the only public route here: booking now requires a signed-in
+  // user, so create/confirm and the per-customer listings sit behind the
+  // JWT guard rather than opting out of it.
   @Public()
   @Get("booking/health")
   getHealth(): BookingSummaryDto {
@@ -37,42 +40,36 @@ export class BookingController {
     return this.service.getSummary();
   }
 
-  @Public()
   @Get("bookings")
   @ApiOkResponse({ description: "Booking history" })
   listBookings(): BookingRecord[] {
     return this.service.listBookings();
   }
 
-  @Public()
   @Get("bookings/history")
   @ApiOkResponse({ description: "Full booking history with lifecycle timeline" })
   getHistory(): BookingHistoryResponse {
     return this.service.getHistory();
   }
 
-  @Public()
   @Get("bookings/upcoming")
   @ApiOkResponse({ description: "Upcoming customer trips" })
   listUpcoming(): BookingRecord[] {
     return this.service.listUpcoming();
   }
 
-  @Public()
   @Get("bookings/past")
   @ApiOkResponse({ description: "Past customer trips" })
   listPast(): BookingRecord[] {
     return this.service.listPast();
   }
 
-  @Public()
   @Get("bookings/cancelled")
   @ApiOkResponse({ description: "Cancelled customer trips" })
   listCancelled(): BookingRecord[] {
     return this.service.listCancelled();
   }
 
-  @Public()
   @Get("bookings/:id")
   @ApiOkResponse({ description: "Booking details" })
   getBooking(@Param("id") id: string): BookingRecord {
@@ -84,28 +81,24 @@ export class BookingController {
     return booking;
   }
 
-  @Public()
   @Post("bookings/create")
   @ApiOkResponse({ description: "Create pending-payment booking from held seats" })
   createBooking(@Body() dto: CreateBookingDto): Promise<BookingRecord> {
     return this.service.createBooking(dto);
   }
 
-  @Public()
   @Post("bookings/confirm")
   @ApiOkResponse({ description: "Confirm booking and generate ticket" })
   confirmBooking(@Body() dto: ConfirmBookingDto): Promise<BookingConfirmationResponse> {
     return this.service.confirmBooking(dto);
   }
 
-  @Public()
   @Post("bookings/cancel")
   @ApiOkResponse({ description: "Booking cancellation" })
   cancelBooking(@Body() dto: CancelBookingDto): Promise<CancelBookingResponse> {
     return this.service.cancelBooking(dto);
   }
 
-  @Public()
   @Post("bookings/reschedule")
   @ApiOkResponse({ description: "Booking reschedule flow" })
   rescheduleBooking(@Body() dto: RescheduleBookingDto): Promise<RescheduleBookingResponse> {

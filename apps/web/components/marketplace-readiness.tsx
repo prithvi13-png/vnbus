@@ -32,6 +32,7 @@ import {
   CardHeader,
   CardTitle,
   DataTable,
+  EmptyState,
   Input,
   Progress,
   StatusChip,
@@ -443,15 +444,19 @@ export function CustomerSupportCenter(): React.JSX.Element {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Recent support tickets</CardTitle>
-            <CardDescription>Sample queue for customer visibility.</CardDescription>
+            <CardTitle>Your support tickets</CardTitle>
+            <CardDescription>Tickets you have raised appear here.</CardDescription>
           </CardHeader>
           <CardContent>
-            <DataTable
-              columns={supportColumns}
-              data={supportTickets}
-              rowId={(row) => row.id}
-              pageSize={5}
+            {/*
+              Previously this listed fabricated tickets for invented customers
+              (Aarav Mehta, Priya Nair...), shown identically to every visitor.
+              Until tickets are persisted per user there is nothing genuine to
+              show, so show nothing rather than someone else's data.
+            */}
+            <EmptyState
+              title="No support tickets yet"
+              description="Raise a ticket above and it will appear here."
             />
           </CardContent>
         </Card>

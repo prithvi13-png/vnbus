@@ -50,6 +50,8 @@ import {
 } from "@vnbus/ui";
 import { todayIsoDate } from "@vnbus/shared";
 
+import { useAuthStore } from "../lib/auth-store";
+
 import {
   cancelBooking,
   createBooking,
@@ -183,6 +185,13 @@ export function SeatSelectionFlow(): React.JSX.Element {
         seatNumbers: selectedSeats,
       });
       setHold(response);
+      // Booking requires an account. Send anyone signed out to login first and
+      // bring them back here, rather than letting them fill in passenger
+      // details and hit a 401 at the end.
+      if (!useAuthStore.getState().accessToken) {
+        router.push(`/login?redirect=${encodeURIComponent("/passenger-details")}`);
+        return;
+      }
       router.push("/passenger-details");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Seat hold failed");
