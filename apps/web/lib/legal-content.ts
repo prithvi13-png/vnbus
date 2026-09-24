@@ -928,3 +928,167 @@ export const termsAndConditions: LegalDocument = {
     },
   ],
 };
+
+/**
+ * Cancellation and Refund policies. Unlike the Privacy Policy and Terms above,
+ * these were not issued as standalone documents by the company — they restate
+ * what the Terms already commit to (sections 9, 10, 11 and 13) so customers can
+ * find those rules under the headings they look for.
+ *
+ * They therefore must not add commitments the Terms do not make. In particular
+ * they state no fixed cancellation percentages and no guaranteed refund window,
+ * because the Terms leave both to the operator and the payment provider. If the
+ * company later issues its own signed documents, replace these wholesale.
+ */
+export const cancellationPolicy: LegalDocument = {
+  title: "Cancellation Policy",
+  effectiveDate: "22 September 2026",
+  lastUpdated: "22 September 2026",
+  intro:
+    "How to cancel a booking made through Vriddhi Nexus and what determines the charge. This policy restates the cancellation terms in our Terms & Conditions; where the two differ, the Terms & Conditions prevail.",
+  sections: [
+    {
+      heading: "1. Scope of This Policy",
+      body: [
+        "This policy covers bookings made through the Vriddhi Nexus platform. It explains how a booking can be cancelled and what determines the amount deducted. How the remaining amount is returned to you is covered in our Refund Policy.",
+        "Travel is provided by independent operators. The cancellation conditions applicable to your booking are set by the relevant operator or booking partner and are displayed during or before booking wherever provided.",
+      ],
+    },
+    {
+      heading: "2. How to Cancel a Booking",
+      body: ["You can cancel from the platform, or by contacting us with your booking ID or PNR."],
+      bullets: [
+        "Sign in and open Bookings, select the booking, and choose to cancel it.",
+        "Guests who booked without an account can use the booking ID or PNR from the confirmation email.",
+        `Email ${company.supportEmail} quoting your booking ID or PNR.`,
+        "A cancellation takes effect only once we confirm it. A request that has not been confirmed has not been cancelled.",
+      ],
+    },
+    {
+      heading: "3. Cancellation Charges",
+      body: ["Cancellation eligibility and charges may vary depending upon:"],
+      bullets: [
+        "bus operator;",
+        "route;",
+        "fare type;",
+        "time remaining before departure;",
+        "promotional conditions; and",
+        "other conditions applicable to the booking.",
+      ],
+      subsections: [
+        {
+          body: [
+            "The applicable cancellation conditions should be displayed during or before booking wherever provided by the operator or booking partner. Please check them before confirming payment.",
+            "Certain platform charges, payment charges, promotional amounts or convenience fees may be non-refundable where permitted by law and where disclosed to you.",
+          ],
+        },
+      ],
+    },
+    {
+      heading: "4. Cancellation or Modification by the Operator",
+      body: [
+        "Operators may cancel, postpone, reschedule or modify a service for operational, traffic, weather, regulatory, safety or other reasons beyond our reasonable control.",
+        "Where an operator cancels a journey and confirms refund eligibility, Vriddhi Nexus will facilitate the applicable refund based on information and funds received or authorised by the relevant operator, aggregator or payment partner. Where available, alternative services may be offered, but availability cannot be guaranteed.",
+      ],
+    },
+    {
+      heading: "5. No-Show",
+      body: [
+        "Failure to arrive at the boarding point within the time prescribed by the operator may be treated as a no-show and may result in forfeiture of the booking amount in accordance with the operator's policy.",
+        "Please reach the boarding point on time and carry your ticket together with valid identification where required.",
+      ],
+    },
+    {
+      heading: "6. Refunds Following Cancellation",
+      body: [
+        "Any refund following cancellation will be calculated in accordance with the applicable cancellation policy and processed as described in our Refund Policy.",
+      ],
+    },
+    {
+      heading: "7. Changes to This Policy",
+      body: [
+        "We may update this policy from time to time. The version published when you make a booking is the one that applies to that booking.",
+      ],
+    },
+    {
+      heading: "8. Contact Us",
+      body: [
+        "For cancellation queries:",
+        company.legalName,
+        `Email: ${company.supportEmail}`,
+        `Website: ${company.website}`,
+      ],
+    },
+  ],
+};
+
+export const refundPolicy: LegalDocument = {
+  title: "Refund Policy",
+  effectiveDate: "22 September 2026",
+  lastUpdated: "22 September 2026",
+  intro:
+    "How refunds are determined and processed for bookings made through Vriddhi Nexus. This policy restates the refund terms in our Terms & Conditions; where the two differ, the Terms & Conditions prevail.",
+  sections: [
+    {
+      heading: "1. Scope of This Policy",
+      body: [
+        "This policy explains how money is returned to you after a booking made through the Vriddhi Nexus platform is cancelled, or where a payment did not result in a confirmed booking. What it costs to cancel is covered in our Cancellation Policy.",
+      ],
+    },
+    {
+      heading: "2. How a Refund Is Determined",
+      body: [
+        "Refund eligibility is determined based on the circumstances of the booking and the applicable operator, cancellation or payment policy.",
+        "Certain platform charges, payment charges, promotional amounts or convenience fees may be non-refundable where permitted by law and where disclosed to you.",
+      ],
+    },
+    {
+      heading: "3. Refund Processing",
+      body: [
+        "Once approved and initiated, refunds will generally be processed back to the original payment method unless another method is required or permitted.",
+      ],
+    },
+    {
+      heading: "4. Refund Timelines",
+      body: [
+        "Actual credit timelines depend on banks, payment gateways, card networks and UPI service providers and may therefore vary. Once we have initiated a refund, the time taken for it to appear in your account is controlled by those providers rather than by us.",
+        "Please contact our support team if an approved refund has not been received within the expected banking or payment-provider timeline.",
+      ],
+    },
+    {
+      heading: "5. Payment Debited but Booking Not Confirmed",
+      body: [
+        "You should not consider a reservation confirmed merely because payment has been debited. A reservation is confirmed when a valid booking confirmation, ticket, booking ID or PNR is generated and communicated to you.",
+        "If payment is debited but a booking is not confirmed, Vriddhi Nexus will verify the transaction with the relevant payment and booking partners. Where a refund is applicable, it will be initiated in accordance with the applicable payment, banking and refund procedures.",
+      ],
+    },
+    {
+      heading: "6. Where the Operator Cancels",
+      body: [
+        "Where an operator cancels a journey and confirms refund eligibility, Vriddhi Nexus will facilitate the applicable refund based on information and funds received or authorised by the relevant operator, aggregator or payment partner.",
+      ],
+    },
+    {
+      heading: "7. How to Raise a Refund Query",
+      body: [
+        `Write to ${company.supportEmail} with your booking ID or PNR and the date of cancellation. We will tell you the status of the refund and the reference under which it was processed.`,
+        "Consumer grievances may also be raised with our Grievance Officer, whose details appear in our Terms & Conditions.",
+      ],
+    },
+    {
+      heading: "8. Changes to This Policy",
+      body: [
+        "We may update this policy from time to time. The version published when you make a booking is the one that applies to that booking.",
+      ],
+    },
+    {
+      heading: "9. Contact Us",
+      body: [
+        "For refund queries:",
+        company.legalName,
+        `Email: ${company.supportEmail}`,
+        `Website: ${company.website}`,
+      ],
+    },
+  ],
+};
