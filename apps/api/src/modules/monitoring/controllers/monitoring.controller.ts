@@ -14,7 +14,7 @@ export class MonitoringController {
 
   @Roles("ADMIN")
   @Get()
-  @ApiOkResponse({ description: "Mock system monitoring dashboard" })
+  @ApiOkResponse({ description: "System monitoring dashboard" })
   getDashboard(@Query() query: MonitoringQueryDto): AdminMonitoringResponse {
     return this.service.getDashboard(query);
   }

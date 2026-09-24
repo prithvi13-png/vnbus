@@ -6,7 +6,7 @@ import { SiteHeader } from "../../components/site-header";
 
 export const metadata: Metadata = {
   title: "Support",
-  description: "Mock helpdesk and customer support surface for Vriddhi Nexus bookings.",
+  description: "Helpdesk and customer support surface for Vriddhi Nexus bookings.",
 };
 
 export default function SupportPage(): React.JSX.Element {

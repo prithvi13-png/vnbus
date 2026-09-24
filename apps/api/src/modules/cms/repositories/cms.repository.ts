@@ -141,7 +141,7 @@ function page(
     status,
     content: `${title} content managed from the enterprise admin portal.`,
     seoTitle: `${title} | Vriddhi Nexus`,
-    seoDescription: `${title} metadata prepared for the mock admin CMS workflow.`,
+    seoDescription: `${title} metadata prepared for the admin CMS workflow.`,
     updatedBy: "admin",
     publishedAt: status === "PUBLISHED" ? updatedAt : null,
     updatedAt,

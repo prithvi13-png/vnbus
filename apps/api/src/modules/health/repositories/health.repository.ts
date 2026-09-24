@@ -67,7 +67,7 @@ export class HealthRepository {
         emailProvider === "mock" ? [] : ["EMAIL_FROM", "SMTP_HOST"],
         isProductionLike && emailProvider !== "mock",
         emailProvider === "mock"
-          ? "Mock email adapter is active; live delivery is disabled."
+          ? "Simulated email adapter is active; live delivery is disabled."
           : "Email provider configuration is present.",
         "Live email provider settings are incomplete.",
       ),
@@ -76,7 +76,7 @@ export class HealthRepository {
             "SUPPLIER",
             "HEALTHY",
             7,
-            "Mock supplier adapter is active; live suppliers are disabled.",
+            "Simulated supplier adapter is active; live suppliers are disabled.",
           )
         : this.configuredOrDegraded(
             "SUPPLIER",
@@ -90,7 +90,7 @@ export class HealthRepository {
             "PAYMENT",
             "HEALTHY",
             6,
-            "Mock payment provider is active; live gateway is disabled.",
+            "Simulated payment provider is active; live gateway is disabled.",
           )
         : this.configuredOrDegraded(
             "PAYMENT",

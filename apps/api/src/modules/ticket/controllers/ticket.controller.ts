@@ -35,14 +35,14 @@ export class TicketController {
 
   @Public()
   @Get("tickets/:id/pdf")
-  @ApiOkResponse({ description: "Base64 encoded mock PDF ticket" })
+  @ApiOkResponse({ description: "Base64 encoded PDF ticket" })
   downloadTicketPdf(@Param("id") id: string): TicketPdfResponse {
     return this.service.downloadTicketPdf(id);
   }
 
   @Public()
   @Get("tickets/:id/download")
-  @ApiOkResponse({ description: "Legacy base64 encoded mock PDF ticket route" })
+  @ApiOkResponse({ description: "Legacy base64 encoded PDF ticket route" })
   downloadTicket(@Param("id") id: string): TicketPdfResponse {
     return this.service.downloadTicketPdf(id);
   }

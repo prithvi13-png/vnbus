@@ -218,7 +218,7 @@ export async function createBooking(request: CreateBookingRequest): Promise<Book
       booking.bookingId,
       "PAYMENT_PENDING",
       "Payment pending",
-      "Mock payment confirmation is pending.",
+      "Payment confirmation is pending.",
       "warning",
     );
 
@@ -247,7 +247,7 @@ export async function confirmBooking(
       confirmation.booking.bookingId,
       "PAYMENT_CONFIRMED",
       "Payment confirmed",
-      "Mock payment accepted.",
+      "Payment accepted.",
       "success",
     );
     appendLocalTimeline(
@@ -261,7 +261,7 @@ export async function confirmBooking(
       confirmation.booking.bookingId,
       "EMAIL_SENT",
       "Email sent",
-      "Booking confirmation email logged by the mock queue.",
+      "Booking confirmation email logged by the email queue.",
       "info",
     );
     pushLocalNotification({
@@ -375,7 +375,7 @@ export async function cancelBooking(request: CancelBookingRequest): Promise<Canc
       cancelled.bookingId,
       "CANCELLED",
       "Booking cancelled",
-      "Mock cancellation completed.",
+      "Cancellation completed.",
       "danger",
     );
     appendLocalTimeline(
@@ -432,7 +432,7 @@ export async function rescheduleBooking(
       updated.bookingId,
       "RESCHEDULE_REQUESTED",
       "Reschedule requested",
-      "New date selected in the mock reschedule flow.",
+      "New date selected in the reschedule flow.",
       "info",
     );
     appendLocalTimeline(
@@ -530,7 +530,7 @@ export async function emailTicket(request: TicketEmailRequest): Promise<TicketEm
       request.bookingId,
       "EMAIL_SENT",
       "Ticket emailed",
-      `Ticket ${ticket.ticketNumber} email logged by mock email architecture.`,
+      `Ticket ${ticket.ticketNumber} email logged by the email queue.`,
       "info",
     );
     pushLocalNotification({
@@ -615,15 +615,15 @@ export async function getAgentDashboard(): Promise<AgentDashboardResponse> {
           id: "AGT-ACT-LOCAL-001",
           type: "BOOKING_CREATED",
           title: "Quick booking completed",
-          description: "Mock ticket generated through the shared booking flow.",
+          description: "Ticket generated through the shared booking flow.",
           occurredAt: new Date().toISOString(),
           actor: "Agent",
         },
         {
           id: "AGT-ACT-LOCAL-002",
           type: "SYSTEM",
-          title: "Mock supplier adapter healthy",
-          description: "Search, seats, booking, tickets, and email are in mock mode.",
+          title: "Supplier adapter healthy",
+          description: "Search, seats, booking, tickets, and email are in simulated mode.",
           occurredAt: "2026-08-08T07:45:00.000Z",
           actor: "System",
         },
@@ -888,7 +888,7 @@ export async function createAgentBooking(
     const created = await createBooking(request);
     const confirmation = await confirmBooking({
       bookingId: created.bookingId,
-      paymentReference: request.paymentReference ?? "AGENT-MOCK-PAYMENT",
+      paymentReference: request.paymentReference ?? "AGENT-PAY-REFERENCE",
     });
     const booking: BookingRecord = {
       ...confirmation.booking,
@@ -961,8 +961,8 @@ export async function listAgentNotifications(): Promise<NotificationRecord[]> {
         id: "AGT-NTF-002",
         type: "AGENT_SYSTEM",
         readStatus: "READ",
-        title: "Mock supplier healthy",
-        body: "Search, seats, booking, tickets, and email are available in mock mode.",
+        title: "Supplier adapter healthy",
+        body: "Search, seats, booking, tickets, and email are available in simulated mode.",
         createdAt: "2026-08-08T07:45:00.000Z",
         readAt: "2026-08-08T08:00:00.000Z",
       },

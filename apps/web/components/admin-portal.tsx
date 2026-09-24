@@ -152,7 +152,7 @@ export function AdminDashboardWorkspace(): React.JSX.Element {
         ))}
       </section>
       <section className="grid gap-5 xl:grid-cols-[1.35fr_0.65fr]">
-        <ChartCard title="Booking Trends" description="Weekly bookings and mock revenue">
+        <ChartCard title="Booking Trends" description="Weekly bookings and revenue">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={trendData}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -668,7 +668,7 @@ export function AdminNotificationsWorkspace(): React.JSX.Element {
           <Textarea
             className="md:col-span-3"
             aria-label="Body"
-            defaultValue="Service window is scheduled in mock mode."
+            defaultValue="Service window is scheduled in simulated mode."
           />
           <Button type="button" className="md:w-fit">
             <Megaphone className="h-4 w-4" aria-hidden="true" />
@@ -732,7 +732,7 @@ export function AdminReportsWorkspace(): React.JSX.Element {
         description="Daily, weekly, monthly, yearly reports for bookings, revenue, growth, agents, routes, and cancellations."
       />
       <section className="grid gap-5 xl:grid-cols-2">
-        <ChartCard title="Revenue Report" description="Mock revenue by day">
+        <ChartCard title="Revenue Report" description="Revenue by day">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={trendData}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -743,7 +743,7 @@ export function AdminReportsWorkspace(): React.JSX.Element {
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
-        <ChartCard title="Cancellation Rate" description="Mock cancellation trend">
+        <ChartCard title="Cancellation Rate" description="Cancellation trend">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={trendData}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -774,7 +774,7 @@ export function AdminAnalyticsWorkspace(): React.JSX.Element {
         description="Revenue, bookings, users, routes, journey trends, operator trends, retention, growth, and cancellations."
       />
       <section className="grid gap-5 xl:grid-cols-2">
-        <ChartCard title="Revenue" description="Mock revenue">
+        <ChartCard title="Revenue" description="Revenue">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={trendData}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -799,7 +799,7 @@ export function AdminAnalyticsWorkspace(): React.JSX.Element {
         </ChartCard>
       </section>
       <section className="grid gap-5 xl:grid-cols-[0.75fr_1.25fr]">
-        <ChartCard title="Retention" description="Mock retention cohort">
+        <ChartCard title="Retention" description="Retention cohort">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie data={retentionData} dataKey="value" nameKey="label" outerRadius={92} label>
@@ -982,7 +982,7 @@ function AdminSeatLayoutSettings(): React.JSX.Element {
             <CardDescription>
               {config
                 ? `Updated ${formatAdminDate(config.updatedAt)} by ${config.updatedBy}`
-                : "Admin-controlled mock layout"}
+                : "Admin-controlled layout"}
             </CardDescription>
           </div>
           <Badge variant="neutral">{selectedSummary}</Badge>
@@ -1350,9 +1350,9 @@ export function AdminSupplierConfigurationWorkspace(): React.JSX.Element {
         description="Supplier, payment, health, failover, and webhook readiness for Milestone 10."
       />
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <MetricTile label="Supplier Mode" value="Mock" tone="success" icon={PlugZap} />
+        <MetricTile label="Supplier Mode" value="Simulated" tone="success" icon={PlugZap} />
         <MetricTile label="Active Supplier" value="MOCK" tone="success" icon={ShieldCheck} />
-        <MetricTile label="Payment Provider" value="Mock" tone="success" icon={CreditCard} />
+        <MetricTile label="Payment Provider" value="Simulated" tone="success" icon={CreditCard} />
         <MetricTile label="Live Gateways" value="Disabled" tone="warning" icon={ServerCog} />
       </section>
       <Tabs defaultValue="suppliers">
@@ -2020,9 +2020,9 @@ const systemHealth = [
   { component: "Database", status: "Healthy", latency: "18 ms" },
   { component: "Redis", status: "Degraded", latency: "96 ms" },
   { component: "Storage", status: "Healthy", latency: "25 ms" },
-  { component: "Email", status: "Healthy", latency: "Mock adapter" },
-  { component: "Suppliers", status: "Healthy", latency: "Mock adapter" },
-  { component: "Payments", status: "Healthy", latency: "Mock adapter" },
+  { component: "Email", status: "Healthy", latency: "Simulated adapter" },
+  { component: "Suppliers", status: "Healthy", latency: "Simulated adapter" },
+  { component: "Payments", status: "Healthy", latency: "Simulated adapter" },
 ];
 
 const routeRows: AdminRow[] = [
@@ -2136,7 +2136,7 @@ const settingsRows: AdminRow[] = [
   row("set-5", "Currency", "Active", "INR", "Finance", "Commercial"),
   row("set-6", "Tax Percentage", "Active", "5", "Finance", "Commercial"),
   row("set-7", "Booking Fee", "Active", "INR 40", "Finance", "Commercial"),
-  row("set-8", "Cancellation Policy", "Active", "Mock policy", "Legal", "Policy"),
+  row("set-8", "Cancellation Policy", "Active", "Policy", "Legal", "Policy"),
 ];
 
 const featureFlagRows: AdminRow[] = [
@@ -2157,7 +2157,14 @@ const featureFlagRows: AdminRow[] = [
 ];
 
 const supplierRows: AdminRow[] = [
-  row("sup-0", "Mock Supplier", "Healthy", "Priority 1", "Supplier Ops", "Active mock mode"),
+  row(
+    "sup-0",
+    "Simulated Supplier",
+    "Healthy",
+    "Priority 1",
+    "Supplier Ops",
+    "Active in simulated mode",
+  ),
   row("sup-1", "BCI", "Disabled", "Priority 2", "Supplier Ops", "Not configured"),
   row("sup-2", "AbhiBus", "Disabled", "Priority 3", "Supplier Ops", "Not configured"),
   row("sup-3", "RedBus", "Disabled", "Priority 4", "Supplier Ops", "Not configured"),
@@ -2166,7 +2173,7 @@ const supplierRows: AdminRow[] = [
 ];
 
 const paymentProviderRows: AdminRow[] = [
-  row("pay-0", "Mock Payment", "Healthy", "INR", "Payments", "Active mock capture"),
+  row("pay-0", "Simulated Payment", "Healthy", "INR", "Payments", "Active in simulated capture"),
   row("pay-1", "Razorpay", "Disabled", "INR", "Payments", "Secret reference pending"),
   row("pay-2", "Cashfree", "Disabled", "INR", "Payments", "Secret reference pending"),
   row("pay-3", "PhonePe", "Disabled", "INR", "Payments", "Secret reference pending"),
@@ -2184,12 +2191,12 @@ const supplierPriorityRows: AdminRow[] = [
 ];
 
 const integrationHealthRows = [
-  { component: "Mock Supplier", status: "Healthy", latency: "8 ms" },
+  { component: "Simulated Supplier", status: "Healthy", latency: "8 ms" },
   { component: "BCI", status: "Disabled", latency: "Not configured" },
   { component: "AbhiBus", status: "Disabled", latency: "Not configured" },
   { component: "RedBus", status: "Disabled", latency: "Not configured" },
   { component: "TBO", status: "Disabled", latency: "Not configured" },
-  { component: "Mock Payment", status: "Healthy", latency: "6 ms" },
+  { component: "Simulated Payment", status: "Healthy", latency: "6 ms" },
   { component: "Live Payment", status: "Disabled", latency: "Not configured" },
 ];
 
@@ -2209,7 +2216,7 @@ const integrationLogRows: AdminRow[] = [
 ];
 
 const integrationToggleRows: AdminRow[] = [
-  row("toggle-1", "Mock Supplier Mode", "Enabled", "SUPPLIER_MODE", "Configuration", "mock"),
+  row("toggle-1", "Simulated Supplier Mode", "Enabled", "SUPPLIER_MODE", "Configuration", "mock"),
   row(
     "toggle-2",
     "Production Suppliers",
@@ -2218,7 +2225,7 @@ const integrationToggleRows: AdminRow[] = [
     "Configuration",
     "production",
   ),
-  row("toggle-3", "Mock Payment", "Enabled", "PAYMENT_PROVIDER", "Configuration", "MOCK"),
+  row("toggle-3", "Simulated Payment", "Enabled", "PAYMENT_PROVIDER", "Configuration", "MOCK"),
   row("toggle-4", "Payment Webhooks", "Enabled", "Webhook", "Payments", "Signature interface"),
   row("toggle-5", "Circuit Breakers", "Enabled", "Routing", "Suppliers", "Failure threshold"),
   row(

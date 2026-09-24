@@ -9,7 +9,7 @@ import type {
 } from "@vnbus/types";
 
 const SUPPLIER_NAMES: Record<SupplierCode, string> = {
-  MOCK: "Mock Supplier",
+  MOCK: "Simulated Supplier",
   BCI: "BCI",
   REDBUS: "RedBus",
   ABHIBUS: "AbhiBus",
@@ -18,7 +18,7 @@ const SUPPLIER_NAMES: Record<SupplierCode, string> = {
 };
 
 const PAYMENT_NAMES: Record<PaymentProviderCode, string> = {
-  MOCK: "Mock Payment",
+  MOCK: "Simulated Payment",
   RAZORPAY: "Razorpay",
   CASHFREE: "Cashfree",
   PHONEPE: "PhonePe",

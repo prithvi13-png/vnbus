@@ -60,7 +60,7 @@ export class AdminController {
 
   @Roles("ADMIN")
   @Post("bookings/:bookingId/resend-email")
-  @ApiOkResponse({ description: "Resend ticket email through the mock email queue" })
+  @ApiOkResponse({ description: "Resend ticket email through the email queue" })
   resendEmail(@Param("bookingId") bookingId: string): Promise<TicketEmailResponse> {
     return this.service.resendBookingEmail(bookingId);
   }
@@ -84,7 +84,7 @@ export class AdminController {
 
   @Roles("ADMIN")
   @Post("email-templates/:key/preview")
-  @ApiOkResponse({ description: "Render a template preview with mock variables" })
+  @ApiOkResponse({ description: "Render a template preview with sample variables" })
   previewEmailTemplate(
     @Param("key") key: string,
     @Body() dto: AdminEmailTemplatePreviewDto,

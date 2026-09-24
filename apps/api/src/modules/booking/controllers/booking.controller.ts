@@ -39,7 +39,7 @@ export class BookingController {
 
   @Public()
   @Get("bookings")
-  @ApiOkResponse({ description: "Mock booking history" })
+  @ApiOkResponse({ description: "Booking history" })
   listBookings(): BookingRecord[] {
     return this.service.listBookings();
   }
@@ -74,7 +74,7 @@ export class BookingController {
 
   @Public()
   @Get("bookings/:id")
-  @ApiOkResponse({ description: "Mock booking details" })
+  @ApiOkResponse({ description: "Booking details" })
   getBooking(@Param("id") id: string): BookingRecord {
     const booking = this.service.getBooking(id);
     if (!booking) {
@@ -93,21 +93,21 @@ export class BookingController {
 
   @Public()
   @Post("bookings/confirm")
-  @ApiOkResponse({ description: "Confirm mock booking and generate ticket" })
+  @ApiOkResponse({ description: "Confirm booking and generate ticket" })
   confirmBooking(@Body() dto: ConfirmBookingDto): Promise<BookingConfirmationResponse> {
     return this.service.confirmBooking(dto);
   }
 
   @Public()
   @Post("bookings/cancel")
-  @ApiOkResponse({ description: "Mock booking cancellation" })
+  @ApiOkResponse({ description: "Booking cancellation" })
   cancelBooking(@Body() dto: CancelBookingDto): Promise<CancelBookingResponse> {
     return this.service.cancelBooking(dto);
   }
 
   @Public()
   @Post("bookings/reschedule")
-  @ApiOkResponse({ description: "Mock booking reschedule architecture flow" })
+  @ApiOkResponse({ description: "Booking reschedule flow" })
   rescheduleBooking(@Body() dto: RescheduleBookingDto): Promise<RescheduleBookingResponse> {
     return this.service.rescheduleBooking(dto);
   }

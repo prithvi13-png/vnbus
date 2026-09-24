@@ -125,7 +125,7 @@ export class ConfirmBookingDto implements ConfirmBookingRequest {
   @MaxLength(80)
   bookingId!: string;
 
-  @ApiProperty({ example: "MOCK-PAYMENT-SUCCESS" })
+  @ApiProperty({ example: "PAY-REFERENCE-SUCCESS" })
   @IsString()
   @MaxLength(120)
   paymentReference!: string;

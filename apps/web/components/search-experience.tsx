@@ -535,7 +535,7 @@ function BusResultCard({
           <Fact
             icon={bus.liveTracking ? ShieldCheck : RotateCcw}
             label={bus.liveTracking ? "Tracking" : "Refund"}
-            value={bus.liveTracking ? "Mock ready" : "Policy shown"}
+            value={bus.liveTracking ? "Ready" : "Policy shown"}
           />
         </div>
       </CardContent>

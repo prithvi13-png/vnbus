@@ -72,7 +72,7 @@ export class TicketService implements TicketModulePort {
       bookingId: booking.bookingId,
       type: "TICKET_DOWNLOADED",
       title: "Ticket downloaded",
-      description: `PDF ${pdf.fileName} downloaded from the mock ticket service.`,
+      description: `PDF ${pdf.fileName} downloaded from the ticket service.`,
       occurredAt: downloadedAt,
       tone: "info",
     });
@@ -105,7 +105,7 @@ export class TicketService implements TicketModulePort {
       bookingId: booking.bookingId,
       type: "EMAIL_SENT",
       title: "Ticket emailed",
-      description: `Ticket email sent using mock email log ${emailLog.id}.`,
+      description: `Ticket email sent using email log ${emailLog.id}.`,
       occurredAt: emailedAt,
       tone: "info",
     });

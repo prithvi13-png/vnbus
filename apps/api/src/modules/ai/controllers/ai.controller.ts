@@ -28,7 +28,7 @@ export class AiController {
 
   @Public()
   @Get("recommendations")
-  @ApiOkResponse({ description: "Mock AI trip recommendations with future LLM architecture" })
+  @ApiOkResponse({ description: "AI trip recommendations with future LLM architecture" })
   getRecommendations(@Query() query: RecommendationQueryDto): RecommendationEngineResponse {
     return this.service.getRecommendations(query);
   }

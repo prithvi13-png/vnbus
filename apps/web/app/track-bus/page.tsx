@@ -6,7 +6,7 @@ import { SiteHeader } from "../../components/site-header";
 
 export const metadata: Metadata = {
   title: "Track Bus",
-  description: "Mock scheduled-route tracking for Vriddhi Nexus bus bookings.",
+  description: "Scheduled-route tracking for Vriddhi Nexus bus bookings.",
 };
 
 export default function TrackBusPage(): React.JSX.Element {

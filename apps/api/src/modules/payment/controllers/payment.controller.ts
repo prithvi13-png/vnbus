@@ -37,7 +37,7 @@ export class PaymentController {
 
   @Public()
   @Post("intents")
-  @ApiOkResponse({ description: "Create a mock payment intent through the provider abstraction." })
+  @ApiOkResponse({ description: "Create a payment intent through the provider abstraction." })
   createIntent(@Body() dto: CreatePaymentIntentDto): Promise<PaymentIntent> {
     return this.service.createIntent(dto);
   }

@@ -26,7 +26,7 @@ const summary = {
     },
     {
       name: "Seat hold timer",
-      description: "Hold selected mock seats for ten minutes before automatic expiry.",
+      description: "Hold selected seats for ten minutes before automatic expiry.",
     },
     {
       name: "Availability checks",

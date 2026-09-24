@@ -853,7 +853,7 @@ export function BookingHistoryDetailFlow(): React.JSX.Element {
     return (
       <EmptyState
         title="Booking not found"
-        description="The mock booking may belong to another browser session."
+        description="The booking may belong to another browser session."
         actionLabel="View booking history"
         onAction={() => {
           window.location.href = "/booking-history";
@@ -1301,7 +1301,7 @@ function BookingDetails({ booking }: { booking: BookingRecord }): React.JSX.Elem
           booking.bookingId,
           "EMAIL_SENT",
           "Ticket emailed",
-          `Ticket email recorded by mock email log ${response.emailLogId}.`,
+          `Ticket email recorded by email log ${response.emailLogId}.`,
           "info",
         ),
       ]);
@@ -1438,7 +1438,7 @@ function BookingDetails({ booking }: { booking: BookingRecord }): React.JSX.Elem
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <SummaryTile label="Ticket ID" value={ticket?.ticketId ?? "Generating"} />
           <SummaryTile label="Ticket Number" value={ticket?.ticketNumber ?? "Generating"} />
-          <SummaryTile label="Bus Number" value={ticket?.busNumber ?? "MOCK"} />
+          <SummaryTile label="Bus Number" value={ticket?.busNumber ?? "Pending"} />
           <SummaryTile label="Support" value={ticket?.supportContact.phone ?? "+91-80-4567-8899"} />
           <div className="flex flex-wrap gap-3 sm:col-span-2">
             <Button type="button" onClick={() => void download()} loading={working === "download"}>
@@ -1673,7 +1673,7 @@ function getTimelineForBooking(
         booking.bookingId,
         "CANCELLED",
         "Booking cancelled",
-        "Mock cancellation completed.",
+        "Cancellation completed.",
         "danger",
         booking.cancelledAt ?? new Date().toISOString(),
       ),

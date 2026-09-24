@@ -263,7 +263,7 @@ export function createInvoice(
     generatedAt: issuedAt,
     uploadedAt: issuedAt,
     downloadedAt: null,
-    storagePath: `mock://invoices/${invoiceNumber}.html`,
+    storagePath: `local://invoices/${invoiceNumber}.html`,
     uploadBatchId,
   };
 }

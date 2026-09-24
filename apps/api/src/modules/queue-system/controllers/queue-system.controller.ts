@@ -21,7 +21,7 @@ export class QueueSystemController {
 
   @Roles("ADMIN")
   @Post("enqueue")
-  @ApiOkResponse({ description: "Add a mock BullMQ job to a queue" })
+  @ApiOkResponse({ description: "Add a sample BullMQ job to a queue" })
   enqueue(@Body() dto: EnqueueJobDto): QueueDashboardResponse {
     return this.service.enqueue(dto);
   }

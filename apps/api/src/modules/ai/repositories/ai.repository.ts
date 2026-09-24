@@ -68,18 +68,18 @@ export class AiRepository {
         "Lowest fare available for this route.",
         generatedAt,
       ),
-      toRecommendation("FASTEST_ROUTE", fastest, "Shortest mock journey duration.", generatedAt),
+      toRecommendation("FASTEST_ROUTE", fastest, "Shortest journey duration.", generatedAt),
       toRecommendation(
         "BEST_RATED_OPERATOR",
         bestRated,
-        "Highest operator rating in the mock dataset.",
+        "Highest operator rating in the dataset.",
         generatedAt,
       ),
       routeRecommendation(
         "POPULAR_ROUTE",
         popularRoute.sourceCity,
         popularRoute.destinationCity,
-        "Popular route by distance-weighted mock demand.",
+        "Popular route by distance-weighted demand.",
         generatedAt,
       ),
       routeRecommendation(
@@ -93,21 +93,21 @@ export class AiRepository {
         "NEARBY_DESTINATION",
         sourceCity,
         nearbyDestination(sourceCity),
-        "Nearby destination based on mock city proximity.",
+        "Nearby destination based on city proximity.",
         generatedAt,
       ),
       routeRecommendation(
         "FREQUENTLY_BOOKED_ROUTE",
         "Chennai",
         "Coimbatore",
-        "Frequently booked corridor in mock analytics.",
+        "Frequently booked corridor in analytics.",
         generatedAt,
       ),
       routeRecommendation(
         "TRENDING_ROUTE",
         "Pune",
         "Goa",
-        "Trending route from recent mock search velocity.",
+        "Trending route from recent search velocity.",
         generatedAt,
       ),
       routeRecommendation(
@@ -200,7 +200,7 @@ function routeRecommendation(
       confidenceScore: confidenceFor(type),
       fare: { amount: 999, currency: "INR" },
       durationMinutes: 480,
-      operatorName: "Vriddhi Mock Express",
+      operatorName: "Vriddhi Express",
       rating: 4.4,
       tags: tagsFor(type),
       generatedAt,
@@ -230,7 +230,7 @@ function confidenceFor(type: RecommendationType): number {
 }
 
 function tagsFor(type: RecommendationType): string[] {
-  return [titleFor(type), "Mock Rules", "LLM Ready"];
+  return [titleFor(type), "Rules Engine", "LLM Ready"];
 }
 
 function nearbyDestination(sourceCity: string): string {

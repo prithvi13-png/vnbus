@@ -100,8 +100,8 @@ const seedActivity: AgentActivityLogRecord[] = [
   {
     id: "AGT-ACT-003",
     type: "SYSTEM",
-    title: "Mock supplier adapter healthy",
-    description: "Search and seat layout mocks responded normally.",
+    title: "Supplier adapter healthy",
+    description: "Search and seat layout adapters responded normally.",
     occurredAt: "2026-08-08T07:45:00.000Z",
     actor: "System",
   },

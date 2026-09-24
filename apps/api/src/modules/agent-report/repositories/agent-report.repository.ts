@@ -8,7 +8,7 @@ const summary = {
   status: "READY_FOR_INTEGRATION",
   capabilities: [
     {
-      name: "Mock report generation",
+      name: "Report generation",
       description: "Generate daily, weekly, monthly, customer, route, and trend reports.",
     },
     {

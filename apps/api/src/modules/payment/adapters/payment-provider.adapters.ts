@@ -75,7 +75,7 @@ export class CustomPaymentAdapter extends NotConfiguredPaymentAdapter {
 
 export class MockPaymentAdapter implements PaymentProvider {
   readonly code = "MOCK";
-  readonly name = "Mock Payment";
+  readonly name = "Simulated Payment";
 
   createIntent(request: CreatePaymentIntentRequest): Promise<PaymentIntent> {
     const now = new Date();

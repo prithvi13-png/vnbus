@@ -65,7 +65,7 @@ function flag(
     flagId,
     key,
     name,
-    description: `${name} controls the mock admin feature rollout.`,
+    description: `${name} controls the admin feature rollout.`,
     enabled,
     rolloutPercentage,
     owner,

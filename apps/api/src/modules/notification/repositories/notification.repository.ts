@@ -163,7 +163,7 @@ function seedHistory(): NotificationRecord[] {
       readStatus: "UNREAD",
       channel: "IN_APP",
       title: "Scheduled maintenance",
-      body: "Admin broadcast prepared for mock maintenance window.",
+      body: "Admin broadcast prepared for the maintenance window.",
       createdAt: "2026-08-08T08:10:00.000Z",
       readAt: null,
     },

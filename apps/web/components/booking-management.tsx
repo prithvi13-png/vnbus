@@ -63,7 +63,7 @@ export function BookingHistoryCenter({
       ) : (
         <EmptyState
           title="No bookings in this view"
-          description="Bookings from the mock flow will appear here after confirmation."
+          description="Bookings will appear here after confirmation."
           actionLabel="Search buses"
           onAction={() => {
             window.location.href = "/search";

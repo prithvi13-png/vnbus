@@ -64,7 +64,7 @@ const features = [
   },
   {
     title: "Wallet rewards",
-    description: "Mock wallet credits, referrals, and loyalty benefits are ready in customer UI.",
+    description: "Wallet credits, referrals, and loyalty benefits are ready in customer UI.",
     icon: WalletCards,
   },
 ];
@@ -74,7 +74,7 @@ const reasons = [
   ["Fewer clicks", "Default stops help customers continue after selecting seats."],
   ["Easy review", "Trip, passengers, and fare are separated into simple sections."],
   ["Ready records", "Tickets and invoices are available from completed bookings."],
-  ["Tracking preview", "Trip status, ETA, and message channels are visible in mock mode."],
+  ["Tracking preview", "Trip status, ETA, and message channels are visible in preview mode."],
   ["Support ready", "Customers can raise ticket, invoice, refund, and boarding questions."],
 ];
 
@@ -125,7 +125,7 @@ const faqs = [
   {
     question: "Can customers book a ticket here?",
     answer:
-      "Yes. Customers can search buses, choose seats, enter passenger details, and confirm a mock booking.",
+      "Yes. Customers can search buses, choose seats, enter passenger details, and confirm a booking.",
   },
   {
     question: "Is the admin dashboard separate?",
@@ -138,12 +138,12 @@ const faqs = [
   {
     question: "Are live supplier APIs and real payments connected?",
     answer:
-      "No. The platform is currently using mock bus inventory, mock tracking, and mock payment status so the product can be tested safely.",
+      "No. The platform is currently running on simulated bus inventory, tracking, and payment status so the product can be tested safely.",
   },
   {
     question: "Can customers track, get support, and view rewards?",
     answer:
-      "Yes. Tracking preview, support requests, saved travellers, wallet rewards, tickets, and invoices are available as clean mock-ready flows.",
+      "Yes. Tracking preview, support requests, saved travellers, wallet rewards, tickets, and invoices are available as clean, ready-to-connect flows.",
   },
 ];
 

@@ -56,7 +56,7 @@ async function bootstrap(): Promise<void> {
   const swaggerConfig = new DocumentBuilder()
     .setTitle("Vriddhi Nexus Bus API")
     .setDescription(
-      "OpenAPI contract for the Vriddhi Nexus bus booking platform, including production health probes, maintenance controls, Redis caching, BullMQ queues, mock supplier adapters, mock payment adapters, monitoring, metrics, observability, and launch-readiness APIs.",
+      "OpenAPI contract for the Vriddhi Nexus bus booking platform, including production health probes, maintenance controls, Redis caching, BullMQ queues, supplier adapters, payment adapters, monitoring, metrics, observability, and launch-readiness APIs.",
     )
     .setVersion("0.1.0")
     .addBearerAuth()

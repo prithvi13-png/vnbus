@@ -27,7 +27,7 @@ export class SearchController {
 
   @Public()
   @ApiOkResponse({
-    description: "Production-shaped mock bus search response.",
+    description: "Production-shaped bus search response.",
     schema: {
       example: {
         success: true,

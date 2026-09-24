@@ -35,7 +35,7 @@ export class SeatController {
 
   @Public()
   @Get("seats/:tripId")
-  @ApiOkResponse({ description: "Mock supplier seat layout" })
+  @ApiOkResponse({ description: "Supplier seat layout" })
   getSeatLayout(
     @Param("tripId") tripId: string,
     @Query("date") journeyDate = todayIsoDate(),
@@ -45,14 +45,14 @@ export class SeatController {
 
   @Roles("ADMIN")
   @Get("seat-layout/config")
-  @ApiOkResponse({ description: "Admin-controlled mock seat layout and fare settings" })
+  @ApiOkResponse({ description: "Admin-controlled seat layout and fare settings" })
   getSeatLayoutConfiguration(): SeatLayoutAdminConfig {
     return this.service.getLayoutConfiguration();
   }
 
   @Roles("ADMIN")
   @Patch("seat-layout/config")
-  @ApiOkResponse({ description: "Update mock seat layout and fare settings" })
+  @ApiOkResponse({ description: "Update seat layout and fare settings" })
   updateSeatLayoutConfiguration(@Body() dto: UpdateSeatLayoutConfigDto): SeatLayoutAdminConfig {
     return this.service.updateLayoutConfiguration(dto);
   }

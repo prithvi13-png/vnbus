@@ -122,7 +122,7 @@ export class BookingService implements BookingModulePort {
       bookingId: saved.bookingId,
       type: "PAYMENT_PENDING",
       title: "Payment pending",
-      description: "Mock payment confirmation is pending.",
+      description: "Payment confirmation is pending.",
       occurredAt: saved.createdAt,
       tone: "warning",
     });
@@ -141,7 +141,7 @@ export class BookingService implements BookingModulePort {
       bookingId: confirmation.booking.bookingId,
       type: "PAYMENT_CONFIRMED",
       title: "Payment confirmed",
-      description: `Payment reference ${dto.paymentReference} accepted by the mock payment step.`,
+      description: `Payment reference ${dto.paymentReference} accepted by the payment step.`,
       occurredAt: confirmation.booking.confirmedAt ?? confirmation.ticket.issuedAt,
       tone: "success",
     });
@@ -167,7 +167,7 @@ export class BookingService implements BookingModulePort {
       bookingId: confirmation.booking.bookingId,
       type: "EMAIL_SENT",
       title: "Email sent",
-      description: `Booking confirmation queued and marked sent by mock email log ${emailLog.id}.`,
+      description: `Booking confirmation queued and marked sent by email log ${emailLog.id}.`,
       occurredAt: emailLog.sentAt ?? emailLog.queuedAt,
       tone: "info",
     });
@@ -205,7 +205,7 @@ export class BookingService implements BookingModulePort {
       bookingId: cancelledBooking.bookingId,
       type: "CANCELLED",
       title: "Booking cancelled",
-      description: "Mock cancellation completed.",
+      description: "Cancellation completed.",
       occurredAt: requestedAt,
       tone: "danger",
     });
@@ -263,7 +263,7 @@ export class BookingService implements BookingModulePort {
       bookingId: rescheduledBooking.bookingId,
       type: "RESCHEDULE_REQUESTED",
       title: "Reschedule requested",
-      description: "Customer selected a new journey date using the mock reschedule flow.",
+      description: "Customer selected a new journey date using the reschedule flow.",
       occurredAt: rescheduledAt,
       tone: "info",
     });

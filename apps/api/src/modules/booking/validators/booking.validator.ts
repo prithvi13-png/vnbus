@@ -34,7 +34,7 @@ export class BookingModuleValidator {
       throw new BadRequestException("Passenger count must match selected seats");
     }
     if (dto.supplierCode !== "MOCK") {
-      throw new BadRequestException("Only MOCK supplier is enabled in Milestone 6");
+      throw new BadRequestException("This supplier is not enabled");
     }
   }
 

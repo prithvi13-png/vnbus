@@ -44,7 +44,7 @@ export class SupplierConfigurationRepository {
 
 function seedConfigurations(): AdminSupplierConfigurationRecord[] {
   return [
-    supplier("SUPCFG-MOCK", "MOCK", "Mock Supplier", true, 1, "HEALTHY"),
+    supplier("SUPCFG-MOCK", "MOCK", "Simulated Supplier", true, 1, "HEALTHY"),
     supplier("SUPCFG-BCI", "BCI", "BCI", false, 2, "DISABLED"),
     supplier("SUPCFG-ABHIBUS", "ABHIBUS", "AbhiBus", false, 3, "DISABLED"),
     supplier("SUPCFG-REDBUS", "REDBUS", "RedBus", false, 4, "DISABLED"),

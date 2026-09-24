@@ -26,7 +26,7 @@ const emailSenderProvider = {
       // environment asks for Resend before its key is in place. The log is
       // an error because outbound mail is silently off until it is fixed.
       logger.error(
-        "EMAIL_PROVIDER=resend but RESEND_API_KEY is not set — falling back to the mock sender. No email will be delivered.",
+        "EMAIL_PROVIDER=resend but RESEND_API_KEY is not set — falling back to the no-op sender. No email will be delivered.",
       );
 
       return new MockEmailSender();

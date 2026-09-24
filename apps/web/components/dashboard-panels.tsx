@@ -176,7 +176,7 @@ const customerFeatureLinks = [
   },
   {
     title: "Wallet & Rewards",
-    description: "Mock wallet credits, rewards progress, and referral benefits.",
+    description: "Wallet credits, rewards progress, and referral benefits.",
     href: "/customer/rewards",
     icon: WalletCards,
   },
@@ -209,7 +209,7 @@ const customerFeatureLinks = [
 const adminFeatureLinks = [
   {
     title: "Refund Desk",
-    description: "Review cancellation queues, mock refund modes, and policy readiness.",
+    description: "Review cancellation queues, refund modes, and policy readiness.",
     href: "/admin/refunds",
     icon: RotateCcw,
   },

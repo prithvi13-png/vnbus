@@ -74,7 +74,7 @@ export class AdminRepository {
         { label: "Today's Bookings", value: "36", change: "+12% vs yesterday", tone: "success" },
         { label: "Weekly Bookings", value: "242", change: "+8% week over week", tone: "success" },
         { label: "Monthly Bookings", value: "1,128", change: "+14% month lift", tone: "success" },
-        { label: "Revenue", value: "INR 18.6L", change: "Mock settlement", tone: "neutral" },
+        { label: "Revenue", value: "INR 18.6L", change: "Settlement", tone: "neutral" },
         { label: "Users", value: "12,408", change: "Customer and staff", tone: "neutral" },
         { label: "Travel Agents", value: "326", change: "294 active", tone: "success" },
         { label: "Upcoming Journeys", value: "418", change: "Next 7 days", tone: "neutral" },
@@ -110,15 +110,25 @@ export class AdminRepository {
       systemHealth: [
         health("API", "HEALTHY", 42, "Core REST surface responding normally."),
         health("Database", "HEALTHY", 18, "Postgres read/write checks passing."),
-        health("Redis", "DEGRADED", 96, "Queue latency above target in mock snapshot."),
+        health("Redis", "DEGRADED", 96, "Queue latency above target in this snapshot."),
         health("Storage", "HEALTHY", 25, "Ticket object storage placeholder reachable."),
-        health("Email", "HEALTHY", 12, "Mock email queue is active; live provider is not enabled."),
-        health("Suppliers", "HEALTHY", 8, "Mock supplier is active; live suppliers are disabled."),
+        health(
+          "Email",
+          "HEALTHY",
+          12,
+          "Simulated email queue is active; live provider is not enabled.",
+        ),
+        health(
+          "Suppliers",
+          "HEALTHY",
+          8,
+          "Simulated supplier is active; live suppliers are disabled.",
+        ),
         health(
           "Payments",
           "HEALTHY",
           6,
-          "Mock payment provider is active; live gateway is disabled.",
+          "Simulated payment provider is active; live gateway is disabled.",
         ),
       ],
       emailQueueStatus: {

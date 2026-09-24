@@ -47,7 +47,7 @@ export class EmailQueueService {
 
     return this.logs.markFailed(
       emailLogId,
-      "Retry scheduled by mock email architecture",
+      "Retry scheduled by the email queue",
       this.retryStrategy.getNextRetryAt(log.attempts + 1),
     );
   }

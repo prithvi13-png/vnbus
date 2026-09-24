@@ -95,7 +95,7 @@ export function PaymentFlow(): React.JSX.Element {
     try {
       const confirmation = await confirmBooking({
         bookingId: booking.bookingId,
-        paymentReference: `MOCK-${method}-${Date.now()}`,
+        paymentReference: `PAY-${method}-${Date.now()}`,
       });
       setConfirmation(confirmation);
       router.push(`/booking-confirmation?bookingId=${confirmation.booking.bookingId}`);

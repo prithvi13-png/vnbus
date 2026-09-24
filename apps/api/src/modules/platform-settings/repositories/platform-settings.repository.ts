@@ -78,7 +78,7 @@ function seedSettings(): AdminPlatformSettingRecord[] {
       "policy.cancellation",
       "POLICY",
       "Cancellation Policy",
-      "Mock cancellation policy: refund eligibility depends on departure window.",
+      "Cancellation policy: refund eligibility depends on departure window.",
     ),
   ];
 }

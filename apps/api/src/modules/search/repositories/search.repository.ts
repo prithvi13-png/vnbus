@@ -34,9 +34,9 @@ const summary = {
       description: "Model filters for operator, fare, timing, and amenities.",
     },
     {
-      name: "Mock search engine",
+      name: "Search engine",
       description:
-        "Run route, date, filter, sort, and pagination over production-shaped mock trips.",
+        "Run route, date, filter, sort, and pagination over production-shaped trip data.",
     },
   ],
 } satisfies ModuleSummary;

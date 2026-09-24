@@ -448,7 +448,7 @@ function getCityPoint(city: string): GeoPoint {
   const point = CITY_POINTS[city];
 
   if (!point) {
-    throw new Error(`Unknown mock city: ${city}`);
+    throw new Error(`Unknown city: ${city}`);
   }
 
   return point;
@@ -458,7 +458,7 @@ function pick<T>(items: readonly T[], index: number): T {
   const item = items[index % items.length];
 
   if (item === undefined) {
-    throw new Error("Cannot pick from an empty mock data collection");
+    throw new Error("Cannot pick from an empty data collection");
   }
 
   return item;

@@ -35,7 +35,7 @@ export class ReportsController {
 
   @Roles("ADMIN")
   @Post("admin")
-  @ApiOkResponse({ description: "Generate mock admin report" })
+  @ApiOkResponse({ description: "Generate admin report" })
   generateAdminReport(@Body() dto: CreateAdminReportDto): AdminReportRecord {
     return this.service.generateAdminReport(dto);
   }

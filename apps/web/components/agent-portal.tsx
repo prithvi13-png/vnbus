@@ -252,7 +252,7 @@ export function AgentQuickBookingWorkspace(): React.JSX.Element {
 
   async function runSearch(): Promise<void> {
     setError(null);
-    setStatus("Searching mock buses...");
+    setStatus("Searching buses...");
     const response = await searchBuses(search);
     setResults(response.buses);
     addRecentSearch(search);
@@ -838,7 +838,7 @@ export function AgentBookingsWorkspace(): React.JSX.Element {
         {!records.length ? (
           <EmptyState
             title="No agent bookings yet"
-            description="Use quick booking to create an agent-owned mock booking."
+            description="Use quick booking to create an agent-owned booking."
             actionLabel="Quick booking"
             onAction={() => {
               window.location.href = "/agent/quick-booking";
@@ -1028,7 +1028,7 @@ export function AgentHelpWorkspace(): React.JSX.Element {
           ],
           ["Customer Management", "Use notes and tags to speed repeat bookings."],
           ["Reports", "Download CSV/PDF exports from report tables."],
-          ["Mock Mode", "Supplier, payment, ticket, and email flows remain mock-only in M7."],
+          ["Simulated Mode", "Supplier, payment, ticket, and email flows remain simulated in M7."],
         ].map(([title, body]) => (
           <Card key={title}>
             <CardHeader>

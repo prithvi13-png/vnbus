@@ -45,14 +45,14 @@ const trackingTimeline: TimelineItem[] = [
   {
     id: "tracking-1",
     title: "Booking verified",
-    description: "Ticket and passenger details are matched with the mock booking record.",
+    description: "Ticket and passenger details are matched with the booking record.",
     timestamp: "6:00 PM",
     tone: "success",
   },
   {
     id: "tracking-2",
     title: "Boarding reminder ready",
-    description: "SMS, WhatsApp, email, and in-app reminder templates are queued as mock events.",
+    description: "SMS, WhatsApp, email, and in-app reminder templates are queued as sample events.",
     timestamp: "6:15 PM",
     tone: "info",
   },
@@ -189,7 +189,7 @@ const trustRows = [
   },
   {
     id: "TR-03",
-    operator: "GreenLine Mock",
+    operator: "GreenLine Express",
     rating: "4.5",
     punctuality: "89%",
     support: "95%",
@@ -231,7 +231,7 @@ const savedRoutes = [
 ];
 
 const rewardBenefits: Array<[string, string]> = [
-  ["Weekend saver", "INR 120 route credit for mock weekend bookings."],
+  ["Weekend saver", "INR 120 route credit for weekend bookings."],
   ["Referral reward", "Earn INR 100 credit after a friend completes one trip."],
   ["Invoice-ready booking", "Auto invoice generation stays visible after confirmation."],
 ];
@@ -316,7 +316,7 @@ export function PublicTrackingCenter(): React.JSX.Element {
         <Card>
           <CardHeader>
             <Badge variant="default" className="w-max">
-              Mock tracking
+              Live tracking preview
             </Badge>
             <CardTitle className="text-2xl">Track your bus</CardTitle>
             <CardDescription>
@@ -353,7 +353,7 @@ export function PublicTrackingCenter(): React.JSX.Element {
           <CardHeader>
             <CardTitle>Journey timeline</CardTitle>
             <CardDescription>
-              Mock milestone events that mirror a live journey experience.
+              Milestone events that mirror a live journey experience.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -371,10 +371,10 @@ export function CustomerRewardsCenter(): React.JSX.Element {
     <CustomerFeatureLayout
       eyebrow="Wallet"
       title="Wallet and Rewards"
-      description="Mock wallet, credits, referral rewards, and trip benefits for customer retention."
+      description="Wallet, credits, referral rewards, and trip benefits for customer retention."
     >
       <section className="grid gap-4 lg:grid-cols-3">
-        <MetricCard icon={WalletCards} label="Wallet credit" value="INR 620" note="Mock balance" />
+        <MetricCard icon={WalletCards} label="Wallet credit" value="INR 620" note="Balance" />
         <MetricCard icon={Sparkles} label="Reward points" value="2,840" note="Gold tier" />
         <MetricCard icon={IndianRupee} label="Savings" value="INR 1,280" note="This month" />
       </section>
@@ -422,7 +422,7 @@ export function CustomerSupportCenter(): React.JSX.Element {
           <CardHeader>
             <CardTitle>Create support request</CardTitle>
             <CardDescription>
-              Stores as a mock support ticket until helpdesk integration.
+              Stored as a support ticket until helpdesk integration.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4">
@@ -437,7 +437,7 @@ export function CustomerSupportCenter(): React.JSX.Element {
             </Field>
             <Button type="button">
               <MessageSquareText className="h-4 w-4" aria-hidden="true" />
-              Create mock ticket
+              Create support ticket
             </Button>
           </CardContent>
         </Card>
@@ -518,7 +518,7 @@ export function CustomerTrackingCenter(): React.JSX.Element {
     <CustomerFeatureLayout
       eyebrow="Tracking"
       title="Trip Tracking"
-      description="Mock live-tracking workspace for confirmed bookings and scheduled reminders."
+      description="Live-tracking workspace for confirmed bookings and scheduled reminders."
     >
       <PublicTrackingCenter />
     </CustomerFeatureLayout>
@@ -534,7 +534,7 @@ export function AdminSupportOperations(): React.JSX.Element {
     >
       <section className="grid gap-4 lg:grid-cols-4">
         <MetricCard icon={Headphones} label="Open tickets" value="31" note="5 high priority" />
-        <MetricCard icon={Clock3} label="Avg response" value="12m" note="Mock SLA" />
+        <MetricCard icon={Clock3} label="Avg response" value="12m" note="SLA" />
         <MetricCard icon={MessageSquareText} label="Channels" value="4" note="Email/SMS/WA/App" />
         <MetricCard icon={CheckCircle2} label="Resolved today" value="84" note="Sample data" />
       </section>
@@ -559,10 +559,10 @@ export function AdminRefundOperations(): React.JSX.Element {
     <AdminFeatureLayout
       eyebrow="Refunds"
       title="Cancellation and Refund Desk"
-      description="Mock refund queue with modes, ETA, and operator-policy readiness."
+      description="Refund queue with modes, ETA, and operator-policy readiness."
     >
       <section className="grid gap-4 lg:grid-cols-4">
-        <MetricCard icon={RotateCcw} label="Pending refunds" value="18" note="Mock queue" />
+        <MetricCard icon={RotateCcw} label="Pending refunds" value="18" note="Queue" />
         <MetricCard icon={WalletCards} label="Wallet credits" value="INR 42k" note="Pending" />
         <MetricCard icon={ReceiptText} label="Policy mapped" value="82%" note="By route" />
         <MetricCard icon={ShieldCheck} label="Audit ready" value="100%" note="Events tracked" />
@@ -598,10 +598,10 @@ export function AdminTrustOperations(): React.JSX.Element {
     <AdminFeatureLayout
       eyebrow="Trust"
       title="Ratings and Trust Signals"
-      description="Operator rating, punctuality, women-friendly labels, and premium-bus badges as mock controls."
+      description="Operator rating, punctuality, women-friendly labels, and premium-bus badges as controls."
     >
       <section className="grid gap-4 lg:grid-cols-4">
-        <MetricCard icon={Star} label="Avg rating" value="4.6" note="Mock reviews" />
+        <MetricCard icon={Star} label="Avg rating" value="4.6" note="Reviews" />
         <MetricCard icon={ShieldCheck} label="Premium buses" value="28" note="Tagged" />
         <MetricCard icon={UserRound} label="Women-friendly" value="41" note="Routes marked" />
         <MetricCard icon={Bell} label="Safety alerts" value="0" note="No open alerts" />
@@ -721,7 +721,7 @@ function MockRouteMap({ bookingId }: { bookingId: string }): React.JSX.Element {
               <strong className="text-brand-950 dark:text-white">Status:</strong> Scheduled
             </span>
             <span>
-              <strong className="text-brand-950 dark:text-white">Source:</strong> Mock data
+              <strong className="text-brand-950 dark:text-white">Source:</strong> Simulated data
             </span>
           </div>
         </div>
@@ -779,7 +779,7 @@ function SupportContactGrid(): React.JSX.Element {
       <FeaturePanel
         icon={Headphones}
         title="24/7 support desk"
-        description="Mock SLA cards for ticket, refund, and journey help."
+        description="SLA cards for ticket, refund, and journey help."
       />
       <FeaturePanel
         icon={Phone}

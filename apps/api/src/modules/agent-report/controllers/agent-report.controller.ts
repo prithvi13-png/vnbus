@@ -14,7 +14,7 @@ export class AgentReportController {
 
   @Public()
   @Get()
-  @ApiOkResponse({ description: "Mock agent reports and chart-ready report series" })
+  @ApiOkResponse({ description: "Agent reports and chart-ready report series" })
   getReports(@Query() _query: AgentReportQueryDto): AgentReportsResponse {
     return this.service.getReports();
   }
