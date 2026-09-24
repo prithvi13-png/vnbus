@@ -78,7 +78,7 @@ export class CreateBookingDto implements CreateBookingRequest {
   @MaxLength(40)
   supplierCode!: string;
 
-  @ApiProperty({ example: "mock-route-001-1" })
+  @ApiProperty({ example: "vn-route-001-1" })
   @IsString()
   @MaxLength(120)
   tripId!: string;
@@ -154,7 +154,7 @@ export class RescheduleBookingDto implements RescheduleBookingRequest {
   @IsDateString()
   newJourneyDate!: string;
 
-  @ApiPropertyOptional({ example: "mock-route-001-2" })
+  @ApiPropertyOptional({ example: "vn-route-001-2" })
   @IsOptional()
   @IsString()
   @MaxLength(120)

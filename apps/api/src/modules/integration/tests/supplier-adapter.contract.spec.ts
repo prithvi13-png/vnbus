@@ -59,7 +59,7 @@ describe("SupplierAdapter contract", () => {
 
     const layout = await adapter.getSeatLayout({
       supplierCode: "MOCK",
-      tripId: search.trips[0]?.tripId ?? "mock-route-001-1",
+      tripId: search.trips[0]?.tripId ?? "vn-route-001-1",
       journeyDate,
     });
     const seat = layout.decks

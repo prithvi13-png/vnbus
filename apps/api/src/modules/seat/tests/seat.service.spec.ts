@@ -27,7 +27,7 @@ describe("SeatService", () => {
   it("returns a mock supplier layout and holds seats", async () => {
     const service = createService();
     const journeyDate = tomorrowIsoDate();
-    const layout = await service.getSeatLayout("mock-route-001-1", journeyDate);
+    const layout = await service.getSeatLayout("vn-route-001-1", journeyDate);
     const firstSeat = layout.decks
       .flatMap((deck) => deck.seats)
       .find((seat) => seat.status === "AVAILABLE");

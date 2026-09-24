@@ -334,7 +334,7 @@ function createBus({
 
   return {
     supplierCode: "MOCK",
-    tripId: `mock-${route.id}-${busIndex + 1}`,
+    tripId: `vn-${route.id}-${busIndex + 1}`,
     routeId: route.id,
     operatorId: operator.id,
     operatorName: operator.name,

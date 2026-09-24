@@ -16,7 +16,7 @@ export class HoldSeatsDto implements SeatHoldRequest {
   @MaxLength(40)
   supplierCode!: string;
 
-  @ApiProperty({ example: "mock-route-001-1" })
+  @ApiProperty({ example: "vn-route-001-1" })
   @IsString()
   @MaxLength(120)
   tripId!: string;

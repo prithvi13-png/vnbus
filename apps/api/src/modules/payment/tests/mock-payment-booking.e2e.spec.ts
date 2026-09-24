@@ -59,7 +59,7 @@ describe("Mock supplier and payment E2E flow", () => {
       idempotency,
     );
     const journeyDate = tomorrowIsoDate();
-    const layout = await seatService.getSeatLayout("mock-route-001-1", journeyDate);
+    const layout = await seatService.getSeatLayout("vn-route-001-1", journeyDate);
     const seat = layout.decks
       .flatMap((deck) => deck.seats)
       .find((item) => item.status === "AVAILABLE");

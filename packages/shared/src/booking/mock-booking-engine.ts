@@ -541,7 +541,7 @@ function enrichPoint(point: BusPoint, seed: number): BoardingDroppingPoint {
 }
 
 function getFallbackTrip(journeyDate: string) {
-  const fallback = getMockTripById("mock-route-001-1", journeyDate);
+  const fallback = getMockTripById("vn-route-001-1", journeyDate);
   if (!fallback) {
     throw new Error("Trip inventory is unavailable");
   }

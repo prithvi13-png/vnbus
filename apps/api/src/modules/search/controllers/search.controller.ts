@@ -50,7 +50,7 @@ export class SearchController {
   }
 
   @Public()
-  @Get("mock-dataset")
+  @Get("dataset")
   getMockDataset(): ReturnType<SearchService["getDatasetSummary"]> {
     return this.service.getDatasetSummary();
   }

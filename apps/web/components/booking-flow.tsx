@@ -102,7 +102,7 @@ const bookingSteps: Array<{ id: BookingStepId; label: string }> = [
 export function SeatSelectionFlow(): React.JSX.Element {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const tripId = searchParams?.get("tripId") ?? "mock-route-001-1";
+  const tripId = searchParams?.get("tripId") ?? "vn-route-001-1";
   const journeyDate = searchParams?.get("date") ?? todayIsoDate();
   const selectedSeats = useBookingStore((state) => state.selectedSeats);
   const setLayout = useBookingStore((state) => state.setLayout);

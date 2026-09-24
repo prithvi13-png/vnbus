@@ -98,7 +98,7 @@ function mockBooking(): BookingRecord {
     status: "TICKET_GENERATED",
     trip: {
       supplierCode: "MOCK",
-      tripId: "mock-route-001-1",
+      tripId: "vn-route-001-1",
       operatorName: "Vriddhi Express",
       busType: "AC Sleeper",
       sourceCity: "Bangalore",
