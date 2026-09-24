@@ -38,6 +38,8 @@ export const company = {
   gstin: "36AAMCV5800E1ZC",
   website: "www.vriddhinexus.com",
   supportEmail: "support@vriddhinexus.com",
+  /** GST place of supply, shown on tax invoices. */
+  placeOfSupply: "Telangana (36)",
   address:
     "Lorven Smart Spaces, 2nd Floor, Vaishanavi's Cynosure, Cyber Hills, Gachibowli, R.R. District, Telangana – 500032, India.",
   grievanceOfficer: {

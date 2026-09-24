@@ -3,6 +3,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { BookingFareSummary, BookingRecord, Money } from "@vnbus/types";
+import { BRAND_MARK_DATA_URI } from "./brand-assets";
+import { company } from "./legal-content";
 
 export type InvoiceSource = "CUSTOMER_BOOKING" | "ADMIN_MANUAL" | "BULK_UPLOAD";
 export type InvoiceStatus = "UPLOADED" | "DOWNLOADED";
@@ -581,9 +583,12 @@ function readMoney(row: Record<string, string>, aliases: string[], required = tr
 }
 
 function fareToLineItems(fare: BookingFareSummary): InvoiceLineItem[] {
+  const { cgst, sgst } = splitGst(fare.taxes);
+
   return [
-    { description: "Base fare", amount: fare.baseFare },
-    { description: "Taxes", amount: fare.taxes },
+    { description: `Bus ticket fare (SAC ${SAC_CODE})`, amount: fare.baseFare },
+    { description: "CGST @ 2.5%", amount: cgst },
+    { description: "SGST @ 2.5%", amount: sgst },
     { description: "Convenience fee", amount: fare.convenienceFee },
     { description: "Discount", amount: money(-Math.abs(fare.discount.amount)) },
   ].filter((item) => item.amount.amount !== 0);
@@ -622,6 +627,21 @@ function upsertManyById<T>(items: T[], next: T[], getId: (item: T) => string): T
   return next.reduce((current, item) => upsertById(current, item, getId), items);
 }
 
+/**
+ * Indian GST on AC bus tickets is 5%, which a tax invoice must show as CGST
+ * 2.5% + SGST 2.5% rather than one "Taxes" line. The odd paise goes to SGST so
+ * the two halves always re-sum to the tax actually charged.
+ */
+function splitGst(taxes: Money): { cgst: Money; sgst: Money } {
+  const totalPaise = Math.round(taxes.amount * 100);
+  const cgstPaise = Math.floor(totalPaise / 2);
+
+  return { cgst: money(cgstPaise / 100), sgst: money((totalPaise - cgstPaise) / 100) };
+}
+
+/** Passenger transport by road — used on the invoice line. */
+const SAC_CODE = "996412";
+
 function renderInvoiceHtml(invoice: InvoiceRecord): string {
   const rows = invoice.lineItems
     .map(
@@ -648,7 +668,9 @@ function renderInvoiceHtml(invoice: InvoiceRecord): string {
       table { border-collapse: collapse; margin-top: 12px; width: 100%; }
       th, td { border-bottom: 1px solid #e5e7eb; padding: 12px; text-align: left; }
       th:last-child, td:last-child { text-align: right; }
-      .badge { background: #FFF8EA; border: 1px solid #E4C083; color: #02553E; display: inline-block; font-weight: 700; padding: 6px 10px; }
+      .mark { display: block; height: 52px; margin-bottom: 10px; width: auto; }
+      .issuer { max-width: 320px; text-align: right; }
+      .issuer p { font-size: 13px; }
       .total { color: #02553E; font-size: 22px; font-weight: 700; text-align: right; }
       .muted { color: #6b7280; }
     </style>
@@ -657,14 +679,18 @@ function renderInvoiceHtml(invoice: InvoiceRecord): string {
     <main class="invoice">
       <section class="header">
         <div>
-          <span class="badge">Vriddhi Nexus Pvt Ltd</span>
+          <img class="mark" src="${BRAND_MARK_DATA_URI}" alt="Vriddhi Nexus" />
           <h1>Tax Invoice</h1>
           <p class="muted">Invoice ${escapeHtml(invoice.invoiceNumber)}</p>
         </div>
-        <div>
-          <p><strong>Status:</strong> ${escapeHtml(invoice.status)}</p>
-          <p><strong>Generated:</strong> ${formatDate(invoice.generatedAt)}</p>
+        <div class="issuer">
+          <p><strong>${escapeHtml(company.legalName)}</strong></p>
+          <p class="muted">${escapeHtml(company.address)}</p>
+          <p><strong>GSTIN:</strong> ${escapeHtml(company.gstin)}</p>
+          <p><strong>CIN:</strong> ${escapeHtml(company.cin)}</p>
+          <p><strong>Invoice date:</strong> ${formatDate(invoice.generatedAt)}</p>
           <p><strong>Booking:</strong> ${escapeHtml(invoice.bookingReference)}</p>
+          <p><strong>Status:</strong> ${escapeHtml(invoice.status)}</p>
         </div>
       </section>
       <h2>Customer</h2>
@@ -681,7 +707,9 @@ function renderInvoiceHtml(invoice: InvoiceRecord): string {
         <tbody>${rows}</tbody>
       </table>
       <p class="total">Total ${formatMoney(invoice.total)}</p>
-      <p class="muted">Uploaded to ${escapeHtml(invoice.storagePath)}</p>
+      <p class="muted">Place of supply: ${escapeHtml(company.placeOfSupply)}</p>
+      <p class="muted">Amount charged is inclusive of GST. This is a computer-generated invoice and does not require a signature.</p>
+      <p class="muted">Queries: ${escapeHtml(company.supportEmail)}</p>
     </main>
   </body>
 </html>`;
