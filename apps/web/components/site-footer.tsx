@@ -7,18 +7,16 @@ const columns = [
   {
     title: "Company",
     links: [
-      { label: "About", href: "/#why-choose-us" },
+      { label: "About Us", href: "/#about-us" },
       { label: "Contact", href: "/#footer" },
-      { label: "FAQ", href: "/#faq" },
+      { label: "FAQs", href: "/faq" },
     ],
   },
   {
     title: "Product",
     links: [
-      { label: "Search", href: "/search" },
       { label: "Track Bus", href: "/track-bus" },
       { label: "Bookings", href: "/booking-history" },
-      { label: "Dashboard", href: "/dashboard" },
     ],
   },
   {

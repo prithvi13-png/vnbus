@@ -35,6 +35,7 @@ import {
 import { SearchPanel } from "../components/search-panel";
 import { SiteFooter } from "../components/site-footer";
 import { SiteHeader } from "../components/site-header";
+import { homepageFaqs } from "../lib/faq-content";
 
 const features = [
   {
@@ -118,32 +119,6 @@ const testimonials = [
     name: "Customer",
     role: "Invoice user",
     quote: "Ticket and invoice actions are visible after booking.",
-  },
-];
-
-const faqs = [
-  {
-    question: "Can customers book a ticket here?",
-    answer:
-      "Yes. Customers can search buses, choose seats, enter passenger details, and confirm a booking.",
-  },
-  {
-    question: "Is the admin dashboard separate?",
-    answer: "Yes. Admin pages are protected and customers are sent to the customer experience.",
-  },
-  {
-    question: "Do bookings create invoices?",
-    answer: "Yes. Confirmed customer bookings include invoice download actions.",
-  },
-  {
-    question: "Are live supplier APIs and real payments connected?",
-    answer:
-      "No. The platform is currently running on simulated bus inventory, tracking, and payment status so the product can be tested safely.",
-  },
-  {
-    question: "Can customers track, get support, and view rewards?",
-    answer:
-      "Yes. Tracking preview, support requests, saved travellers, wallet rewards, tickets, and invoices are available as clean, ready-to-connect flows.",
   },
 ];
 
@@ -236,12 +211,12 @@ export default function LandingPage(): React.JSX.Element {
         </section>
 
         <section
-          id="why-choose-us"
+          id="about-us"
           className="border-y border-gold-100 bg-white/70 py-12 shadow-inner dark:border-brand-800 dark:bg-brand-950/70"
         >
           <div className="mx-auto grid max-w-7xl gap-8 px-4 sm:px-6 lg:grid-cols-[0.8fr_1.2fr] lg:px-8">
             <SectionHeading
-              eyebrow="Why choose us"
+              eyebrow="About Us"
               title="A calmer booking experience"
               description="The customer path keeps each choice clear and avoids unnecessary dashboard-style controls."
             />
@@ -349,12 +324,12 @@ export default function LandingPage(): React.JSX.Element {
         >
           <div className="mx-auto grid max-w-7xl gap-8 px-4 sm:px-6 lg:grid-cols-[0.8fr_1.2fr] lg:px-8">
             <SectionHeading
-              eyebrow="FAQ"
+              eyebrow="FAQs"
               title="Booking questions"
-              description="Quick answers for customers and operators."
+              description="A few common ones. The full list is on our FAQs page."
             />
             <Accordion type="single" collapsible className="grid gap-3">
-              {faqs.map((faq) => (
+              {homepageFaqs.map((faq) => (
                 <AccordionItem
                   key={faq.question}
                   value={faq.question}
