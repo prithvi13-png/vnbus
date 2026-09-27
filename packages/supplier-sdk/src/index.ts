@@ -32,7 +32,15 @@ import {
   todayIsoDate,
 } from "@vnbus/shared";
 
-export const SUPPLIER_CODES = ["MOCK", "BCI", "REDBUS", "ABHIBUS", "TBO", "CUSTOM"] as const;
+export const SUPPLIER_CODES = [
+  "MOCK",
+  "BCI",
+  "REDBUS",
+  "ABHIBUS",
+  "TBO",
+  "SRDV",
+  "CUSTOM",
+] as const;
 
 export interface SupplierOperationContext {
   requestId?: string;
@@ -680,3 +688,5 @@ function createIntegrationId(prefix: string): string {
     .slice(2, 8)
     .toUpperCase()}`;
 }
+
+export * from "./srdv/index.js";

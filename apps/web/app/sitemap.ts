@@ -7,8 +7,11 @@ const routes = [
   "/booking-history",
   "/support",
   "/notifications",
+  "/faq",
   "/privacy",
   "/terms",
+  "/cancellation-policy",
+  "/refund-policy",
   "/login",
   "/register",
 ];

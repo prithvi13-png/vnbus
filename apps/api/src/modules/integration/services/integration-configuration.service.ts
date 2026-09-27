@@ -14,6 +14,7 @@ const SUPPLIER_NAMES: Record<SupplierCode, string> = {
   REDBUS: "RedBus",
   ABHIBUS: "AbhiBus",
   TBO: "TBO",
+  SRDV: "SRDV Technologies",
   CUSTOM: "Custom Bus API",
 };
 

@@ -339,6 +339,12 @@ export default function LandingPage(): React.JSX.Element {
                   <AccordionContent>{faq.answer}</AccordionContent>
                 </AccordionItem>
               ))}
+              <Link
+                href="/faq"
+                className="justify-self-start text-sm font-semibold text-brand-700 underline-offset-4 hover:underline dark:text-gold-100"
+              >
+                See all FAQs
+              </Link>
             </Accordion>
           </div>
         </section>

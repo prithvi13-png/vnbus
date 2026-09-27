@@ -1280,7 +1280,7 @@ export interface UpdateAdminPlatformSettingRequest {
   value: string;
 }
 
-export type SupplierCode = "MOCK" | "BCI" | "REDBUS" | "ABHIBUS" | "TBO" | "CUSTOM";
+export type SupplierCode = "MOCK" | "BCI" | "REDBUS" | "ABHIBUS" | "TBO" | "SRDV" | "CUSTOM";
 
 export type SupplierEnvironment = "MOCK" | "SANDBOX_PLACEHOLDER" | "PRODUCTION_PLACEHOLDER";
 

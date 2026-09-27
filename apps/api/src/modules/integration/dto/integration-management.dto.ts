@@ -1,8 +1,11 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { IsBoolean, IsIn, IsInt, IsOptional, Min } from "class-validator";
 import type { SupplierCode } from "@vnbus/types";
+import { SUPPLIER_CODES } from "@vnbus/supplier-sdk";
 
-const supplierCodes = ["MOCK", "BCI", "REDBUS", "ABHIBUS", "TBO", "CUSTOM"] as const;
+// Derived from the SDK rather than re-listed: a hand-kept copy silently went
+// stale when SRDV was added.
+const supplierCodes = SUPPLIER_CODES;
 
 export class UpdateSupplierIntegrationDto {
   @ApiProperty({ required: false, example: true })
