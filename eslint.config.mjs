@@ -16,6 +16,9 @@ export default tseslint.config(
       "**/storybook-static/**",
       "**/postcss.config.mjs",
       "**/tailwind.config.ts",
+      "**/jest.config.cjs",
+      // Build/verification scripts: plain Node, outside any tsconfig project.
+      "packages/supplier-sdk/scripts/**",
     ],
   },
   js.configs.recommended,

@@ -1,11 +1,11 @@
-import type { SrdvCredentials, SrdvError } from "./types";
+import type { SrdvCredentials, SrdvError } from "./types.js";
 
 /**
  * Thin HTTP client for SRDV. One POST per operation, credentials in the body
  * and the token in a header, exactly as the integration guide specifies.
  *
- * SRDV reports failures in a 200 response body (`Error.ErrorCode !== 0`) as
- * well as by status code, so both are turned into the same thrown error.
+ * SRDV reports failures in a 200 response body (a non-zero `Error.ErrorCode`)
+ * as well as by status code, so both are turned into the same thrown error.
  */
 export class SrdvApiError extends Error {
   constructor(
@@ -85,11 +85,15 @@ export class SrdvClient {
 
     const payload = (await response.json()) as T;
 
-    // A 200 with a non-zero ErrorCode is still a failure.
-    if (payload.Error && payload.Error.ErrorCode !== 0) {
+    // A 200 with a non-zero ErrorCode is still a failure. SRDV types this
+    // field inconsistently — 0 on Search/Block/Book, "0" on Cancel/Balance —
+    // so compare numerically; a strict !== 0 rejects every successful cancel.
+    const errorCode = Number(payload.Error?.ErrorCode ?? 0);
+
+    if (payload.Error && errorCode !== 0) {
       throw new SrdvApiError(
         operation,
-        payload.Error.ErrorCode,
+        errorCode,
         payload.Error.ErrorMessage || `SRDV ${operation} failed`,
         response.status,
       );

@@ -68,12 +68,37 @@ export interface SupplierTripDetailsRequest {
   destinationCity?: string;
 }
 
+/**
+ * A passenger on a block request. Only the seat is required, which is all the
+ * mock supplier ever needed; real suppliers demand identity as well. SRDV's
+ * Block rejects a passenger without a name, age, gender and lead flag, so its
+ * adapter validates these up front rather than sending a partial booking.
+ */
+export interface SupplierBlockPassenger {
+  seatNumber: string;
+  title?: string;
+  firstName?: string;
+  lastName?: string;
+  gender?: "MALE" | "FEMALE" | "OTHER";
+  age?: number;
+  email?: string;
+  phone?: string;
+  /** Exactly one passenger on a booking is the lead. */
+  isLeadPassenger?: boolean;
+  idNumber?: string;
+  idType?: string;
+  address?: string;
+}
+
 export interface SeatBlockRequest {
   tripId: string;
   supplierCode: SupplierCode;
-  passengers: Array<{ seatNumber: string }>;
+  passengers: SupplierBlockPassenger[];
   contactEmail: string;
   contactPhone: string;
+  /** Boarding/dropping point ids, as returned by the supplier's point list. */
+  boardingPointId?: string;
+  droppingPointId?: string;
 }
 
 export interface SeatBlockResponse {
@@ -87,6 +112,12 @@ export interface SupplierConfirmBookingRequest {
   blockId: string;
   booking?: BookingRecord;
   paymentReference: string;
+  /**
+   * The trip this booking belongs to. SRDV's Book is keyed by the search's
+   * TraceId/SrdvIndex/ResultIndex rather than by the block handle, and those
+   * live in the tripId — a blockId alone cannot address the booking.
+   */
+  tripId?: string;
 }
 
 export interface SupplierConfirmBookingResponse {
@@ -113,6 +144,13 @@ export interface SupplierCancelBookingRequest {
   bookingId?: string;
   supplierBookingId: string;
   reason: string;
+  /**
+   * SRDV cancels by the search's TraceId (carried in tripId) plus the seat
+   * name, not by booking id — and it cancels one seat at a time, which is what
+   * its PartialCancellationAllowed flag refers to.
+   */
+  tripId?: string;
+  seatName?: string;
 }
 
 export interface SupplierRescheduleBookingRequest {

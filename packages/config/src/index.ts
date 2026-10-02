@@ -77,6 +77,43 @@ export const serverEnvSchema = z.object({
   ABHIBUS_API_KEY: z.string().optional(),
   TBO_API_URL: z.string().optional(),
   TBO_API_KEY: z.string().optional(),
+  // SRDV. All optional: absent credentials leave the supplier unregistered and
+  // mock development untouched. SRDV_API_TOKEN is the credential the supplier
+  // actually authenticates on, taking the place of the _API_KEY the other
+  // suppliers use.
+  SRDV_API_URL: z.string().optional(),
+  SRDV_API_TOKEN: z.string().optional(),
+  // The v9 documentation still shows these on some endpoint examples while
+  // describing the newer flow as token-authenticated, so they are optional
+  // until an endpoint is confirmed to require them.
+  SRDV_CLIENT_ID: z.string().optional(),
+  SRDV_USER_NAME: z.string().optional(),
+  SRDV_PASSWORD: z.string().optional(),
+  /** The whitelisted public IP SRDV ties requests to. */
+  SRDV_END_USER_IP: z.string().optional(),
+  /**
+   * Path between SRDV_API_URL and the operation name. Exists because the docs
+   * disagree on where the version sits: with a base of ".../bus" this is
+   * "v9/rest"; with ".../bus/v9" it is "rest". Both resolve to the same
+   * endpoint, and only a call with a valid token can confirm which base is
+   * live, so it is configuration rather than a guess baked into the client.
+   */
+  SRDV_REST_PATH_PREFIX: z.string().default("v9/rest"),
+  /**
+   * SRDV addresses cities by numeric code, and no city-list endpoint has been
+   * supplied, so the mapping is configuration: "bangalore:19402,hyderabad:8875".
+   * Codes must come from SRDV — never inferred from a sample response, where an
+   * example pairing proves nothing about which city a code denotes.
+   * Unmapped cities are reported as errors rather than guessed.
+   */
+  SRDV_CITY_CODES: z.string().optional(),
+  /**
+   * SRDV's own request timeout. Separate from SUPPLIER_REQUEST_TIMEOUT_MS
+   * because a consolidator fans out to many operators per search and is far
+   * slower than the 3s global default, which would abort every live search.
+   * Raising it only here leaves the other suppliers' budgets untouched.
+   */
+  SRDV_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(20_000),
   CUSTOM_BUS_API_URL: z.string().optional(),
   CUSTOM_BUS_API_KEY: z.string().optional(),
   PAYMENT_PROVIDER: z.string().default("MOCK"),

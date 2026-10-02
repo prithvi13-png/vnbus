@@ -5,6 +5,7 @@ import {
   CustomApiAdapter,
   MockSupplierAdapter,
   RedBusAdapter,
+  SrdvBusAdapter,
   SupplierIntegrationError,
   SupplierTimeoutError,
   SupplierUnavailableError,
@@ -59,6 +60,38 @@ export class SupplierManagerService {
       new TBOAdapter(),
       new CustomApiAdapter(),
     ].forEach((adapter) => this.registerSupplier(adapter));
+
+    this.registerSrdvIfConfigured();
+  }
+
+  /**
+   * SRDV is registered only once it has a base URL and token. Without them the
+   * code stays absent from the adapter map, so getEnabledSupplierConfigs skips
+   * it and development keeps running on the mock supplier untouched.
+   *
+   * City codes come from SRDV_CITY_CODES. The map is allowed to be empty — SRDV
+   * publishes no city-list endpoint we have, so an unmapped city is reported as
+   * an error per search rather than guessed. Searches never silently degrade to
+   * mock results; the mock supplier answers separately, on its own entry.
+   */
+  private registerSrdvIfConfigured(): void {
+    const connection = this.configuration.getSrdvConnection();
+
+    if (!connection) {
+      return;
+    }
+
+    // SRDV's own budget, not the 3s global — a consolidator search is far
+    // slower than the suppliers that default governs.
+    const timeout = this.configuration.getSupplierTimeoutPolicy("SRDV");
+
+    this.registerSupplier(
+      new SrdvBusAdapter(
+        { credentials: connection.credentials, timeoutMs: timeout.requestTimeoutMs },
+        connection.cityCodes,
+        connection.restPathPrefix,
+      ),
+    );
   }
 
   registerSupplier(adapter: SupplierAdapter): void {
