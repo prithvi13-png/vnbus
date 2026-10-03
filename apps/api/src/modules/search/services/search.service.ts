@@ -1,11 +1,13 @@
 import { Injectable } from "@nestjs/common";
-import { getSearchDatasetSummary, normalizeCity } from "@vnbus/shared";
+import { normalizeCity } from "@vnbus/shared";
 import type {
   BusSearchRequest,
   BusSearchResponse,
+  CitySuggestion,
   RecordRecentSearchRequest,
   SearchInsightsResponse,
   SearchSuggestionRecord,
+  TripSearchResponse,
 } from "@vnbus/types";
 
 import { SearchSummaryDto } from "../dto/search-summary.dto";
@@ -14,6 +16,7 @@ import type { SearchModulePort } from "../interfaces/search.interface";
 import { SupplierManagerService } from "../../integration/services/supplier-manager.service";
 import { SearchRepository } from "../repositories/search.repository";
 import { SearchModuleValidator } from "../validators/search.validator";
+import { CityDirectoryService } from "./city-directory.service";
 
 @Injectable()
 export class SearchService implements SearchModulePort {
@@ -21,6 +24,7 @@ export class SearchService implements SearchModulePort {
     private readonly repository: SearchRepository,
     private readonly validator: SearchModuleValidator,
     private readonly supplierManager: SupplierManagerService,
+    private readonly cities: CityDirectoryService,
   ) {}
 
   getSummary(): SearchSummaryDto {
@@ -30,8 +34,8 @@ export class SearchService implements SearchModulePort {
     return new SearchSummaryDto(summary);
   }
 
-  getDatasetSummary(): ReturnType<typeof getSearchDatasetSummary> {
-    return getSearchDatasetSummary();
+  suggestCities(query: string, limit?: number): CitySuggestion[] {
+    return this.cities.suggest(query, limit);
   }
 
   async search(dto: SearchTripsDto): Promise<BusSearchResponse> {
@@ -62,8 +66,10 @@ export class SearchService implements SearchModulePort {
     copyDefinedSearchOption(request, "sortBy", dto.sortBy);
 
     const supplierResponse = await this.supplierManager.searchTrips(request);
+    const response = this.repository.searchTrips(supplierResponse.trips, request);
+    const notice = supplierResponse.trips.length ? null : describeFailure(supplierResponse.errors);
 
-    return this.repository.searchTrips(supplierResponse.trips, request);
+    return notice ? { ...response, notice } : response;
   }
 
   getSuggestions(query?: string): SearchSuggestionRecord[] {
@@ -77,6 +83,25 @@ export class SearchService implements SearchModulePort {
   recordRecentSearch(input: RecordRecentSearchRequest): SearchInsightsResponse {
     return this.repository.recordRecentSearch(input);
   }
+}
+
+/**
+ * A traveller-facing reason for an empty search. A city the supplier does not
+ * serve is worth saying so; anything else is an outage on our side, and the
+ * supplier's own wording stays in the logs.
+ */
+function describeFailure(errors: TripSearchResponse["errors"]): string | null {
+  const unknownCity = errors.find((error) => error.message.startsWith("No SRDV city code"));
+
+  if (unknownCity) {
+    const city = /"([^"]+)"/u.exec(unknownCity.message)?.[1];
+
+    return city
+      ? `We don't have buses from or to ${city} yet. Pick a city from the suggestions.`
+      : "We don't have buses on that route yet.";
+  }
+
+  return errors.length ? "Bus search is not available right now. Please try again shortly." : null;
 }
 
 function copyDefinedSearchOption<TKey extends keyof BusSearchRequest>(

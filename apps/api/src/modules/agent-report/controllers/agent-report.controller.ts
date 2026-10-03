@@ -1,8 +1,10 @@
-import { Controller, Get, Query } from "@nestjs/common";
+import { Controller, Get, Query, Req } from "@nestjs/common";
 import { ApiBearerAuth, ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import type { AgentReportsResponse } from "@vnbus/types";
 
-import { Public } from "../../../shared/security/decorators/public.decorator";
+import { Roles } from "../../../shared/security/decorators/roles.decorator";
+import type { AuthenticatedRequest } from "../../../shared/security/interfaces/authenticated-request.interface";
+import { requirePrincipal } from "../../../shared/security/require-user";
 import { AgentReportQueryDto } from "../dto/agent-report.dto";
 import { AgentReportService } from "../services/agent-report.service";
 
@@ -12,10 +14,13 @@ import { AgentReportService } from "../services/agent-report.service";
 export class AgentReportController {
   constructor(private readonly service: AgentReportService) {}
 
-  @Public()
+  @Roles("TRAVEL_AGENT")
   @Get()
-  @ApiOkResponse({ description: "Agent reports and chart-ready report series" })
-  getReports(@Query() _query: AgentReportQueryDto): AgentReportsResponse {
-    return this.service.getReports();
+  @ApiOkResponse({ description: "Reports over the signed-in agent's bookings" })
+  getReports(
+    @Query() _query: AgentReportQueryDto,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<AgentReportsResponse> {
+    return this.service.getReports(requirePrincipal(request));
   }
 }

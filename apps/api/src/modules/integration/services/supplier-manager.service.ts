@@ -3,7 +3,6 @@ import {
   AbhiBusAdapter,
   BCIAdapter,
   CustomApiAdapter,
-  MockSupplierAdapter,
   RedBusAdapter,
   SrdvBusAdapter,
   SupplierIntegrationError,
@@ -11,17 +10,19 @@ import {
   SupplierUnavailableError,
   TBOAdapter,
   toSupplierError,
+  type SeatBlockRequest,
+  type SeatBlockResponse,
   type SeatLayoutRequest,
   type SupplierAdapter,
+  type SupplierCancelBookingRequest,
+  type SupplierConfirmBookingRequest,
+  type SupplierConfirmBookingResponse,
 } from "@vnbus/supplier-sdk";
 import type {
   BusSearchResult,
+  Cancellation,
   IntegrationDashboardResponse,
-  SeatHoldRequest,
-  SeatHoldResponse,
   SeatLayoutDetails,
-  SeatReleaseRequest,
-  SeatReleaseResponse,
   SupplierCode,
   SupplierError,
   SupplierIntegrationConfig,
@@ -36,6 +37,7 @@ import { IntegrationConfigurationService } from "./integration-configuration.ser
 import { NormalizationService } from "./normalization.service";
 import { SupplierHealthService } from "./supplier-health.service";
 import { SupplierRequestLogService } from "./supplier-request-log.service";
+import { TripCacheService } from "./trip-cache.service";
 
 type SupplierConfigOverride = Partial<Pick<SupplierIntegrationConfig, "enabled" | "priority">>;
 
@@ -51,9 +53,9 @@ export class SupplierManagerService {
     private readonly requestLogs: SupplierRequestLogService,
     private readonly health: SupplierHealthService,
     private readonly circuits: CircuitBreakerService,
+    private readonly tripCache: TripCacheService,
   ) {
     [
-      new MockSupplierAdapter(),
       new BCIAdapter(),
       new RedBusAdapter(),
       new AbhiBusAdapter(),
@@ -67,12 +69,10 @@ export class SupplierManagerService {
   /**
    * SRDV is registered only once it has a base URL and token. Without them the
    * code stays absent from the adapter map, so getEnabledSupplierConfigs skips
-   * it and development keeps running on the mock supplier untouched.
+   * it and a search reports that no supplier is available.
    *
-   * City codes come from SRDV_CITY_CODES. The map is allowed to be empty — SRDV
-   * publishes no city-list endpoint we have, so an unmapped city is reported as
-   * an error per search rather than guessed. Searches never silently degrade to
-   * mock results; the mock supplier answers separately, on its own entry.
+   * City codes are SRDV's own list, overlaid by SRDV_CITY_CODES. An unmapped
+   * city is reported as an error per search rather than guessed.
    */
   private registerSrdvIfConfigured(): void {
     const connection = this.configuration.getSrdvConnection();
@@ -124,7 +124,6 @@ export class SupplierManagerService {
     const suppliers = this.listSuppliers();
 
     return {
-      supplierMode: this.configuration.getSupplierMode(),
       suppliers,
       health: this.health.list(suppliers),
       requestLogs: this.requestLogs.list(50),
@@ -152,10 +151,11 @@ export class SupplierManagerService {
         supplierResults: [],
         errors: [
           {
-            supplierCode: "MOCK",
+            // SRDV is the only supplier with a working adapter.
+            supplierCode: "SRDV",
             operation: "SEARCH_TRIPS",
-            code: "SUPPLIER_UNAVAILABLE",
-            message: "No supplier is enabled for search.",
+            code: "SUPPLIER_NOT_CONFIGURED",
+            message: "No bus supplier is configured. Set SRDV_API_URL and SRDV_API_TOKEN.",
             retryable: false,
           },
         ],
@@ -188,6 +188,9 @@ export class SupplierManagerService {
       if (result.status === "fulfilled") {
         trips.push(...result.value.trips);
         supplierResults.push(...result.value.supplierResults);
+        // A supplier can answer without throwing and still report why it found
+        // nothing — SRDV does this for a city it has no code for.
+        errors.push(...result.value.errors);
       } else {
         const error = toSupplierError(result.reason, config.code, "SEARCH_TRIPS");
         errors.push(error);
@@ -202,6 +205,7 @@ export class SupplierManagerService {
     });
 
     const normalizedTrips = this.normalizer.normalizeTrips(trips);
+    this.tripCache.remember(normalizedTrips);
 
     return {
       success: normalizedTrips.length > 0,
@@ -225,6 +229,11 @@ export class SupplierManagerService {
     ).then((trip) => this.normalizer.normalizeTrip(trip));
   }
 
+  /** A trip from a recent search, or null once it has expired. */
+  findSearchedTrip(tripId: string): BusSearchResult | null {
+    return this.tripCache.find(tripId);
+  }
+
   getSeatLayout(request: SeatLayoutRequest): Promise<SeatLayoutDetails> {
     return this.executeForSupplier(
       request.supplierCode,
@@ -234,21 +243,32 @@ export class SupplierManagerService {
     );
   }
 
-  holdSeats(request: SeatHoldRequest): Promise<SeatHoldResponse> {
-    return this.executeForSupplier(
-      request.supplierCode as SupplierCode,
-      "HOLD_SEATS",
-      false,
-      (adapter, context) => adapter.holdSeats(request, context),
+  /**
+   * Reserves seats upstream. Never retried: a retry after a timeout could hold
+   * a second set of seats for the same traveller.
+   */
+  blockSeats(request: SeatBlockRequest): Promise<SeatBlockResponse> {
+    return this.executeForSupplier(request.supplierCode, "HOLD_SEATS", false, (adapter, context) =>
+      adapter.blockSeats(request, context),
     );
   }
 
-  releaseSeats(
-    request: SeatReleaseRequest,
-    supplierCode: SupplierCode = "MOCK",
-  ): Promise<SeatReleaseResponse> {
-    return this.executeForSupplier(supplierCode, "RELEASE_SEATS", false, (adapter, context) =>
-      adapter.releaseSeats(request, context),
+  /** Sells the blocked seats. Never retried, for the same reason as blockSeats. */
+  confirmBooking(
+    supplierCode: SupplierCode,
+    request: SupplierConfirmBookingRequest,
+  ): Promise<SupplierConfirmBookingResponse> {
+    return this.executeForSupplier(supplierCode, "CONFIRM_BOOKING", false, (adapter, context) =>
+      adapter.confirmBooking(request, context),
+    );
+  }
+
+  cancelBooking(
+    supplierCode: SupplierCode,
+    request: SupplierCancelBookingRequest,
+  ): Promise<Cancellation> {
+    return this.executeForSupplier(supplierCode, "CANCEL_BOOKING", false, (adapter, context) =>
+      adapter.cancelBooking(request, context),
     );
   }
 

@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
-import { getPopularRoutes, mockSearchDatabase, normalizeCity } from "@vnbus/shared";
+import { normalizeCity } from "@vnbus/shared";
 import type {
+  BusSearchResult,
   RecommendationEngineResponse,
   RecommendationType,
   RecentlyViewedRouteRequest,
@@ -8,6 +9,7 @@ import type {
 } from "@vnbus/types";
 
 import type { ModuleSummary } from "../../../shared/domain/module-summary";
+import { TripCacheService } from "../../integration/services/trip-cache.service";
 
 const summary = {
   module: "ai",
@@ -29,9 +31,16 @@ const summary = {
   ],
 } satisfies ModuleSummary;
 
+/**
+ * Rule-based suggestions over real search results. Only what can be read off
+ * buses a supplier actually returned is suggested — the cheapest and fastest
+ * on the route — and only while that search is fresh.
+ */
 @Injectable()
 export class AiRepository {
   private readonly recentlyViewed: TripRecommendationRecord[] = [];
+
+  constructor(private readonly tripCache: TripCacheService) {}
 
   findSummary(): ModuleSummary {
     return summary;
@@ -43,88 +52,36 @@ export class AiRepository {
       destinationCity?: string;
     } = {},
   ): RecommendationEngineResponse {
-    const sourceCity = normalizeCity(input.sourceCity ?? "Bangalore");
-    const destinationCity = normalizeCity(input.destinationCity ?? "Hyderabad");
-    const routeTrips = mockSearchDatabase.buses.filter(
-      (trip) => trip.sourceCity === sourceCity && trip.destinationCity === destinationCity,
-    );
-    const fallbackTrips = routeTrips.length ? routeTrips : mockSearchDatabase.buses.slice(0, 10);
-    const cheapest = [...fallbackTrips].sort(
-      (left, right) => left.fare.amount - right.fare.amount,
-    )[0];
-    const fastest = [...fallbackTrips].sort(
+    const generatedAt = new Date().toISOString();
+    const trips =
+      input.sourceCity && input.destinationCity
+        ? this.tripCache.findByRoute(
+            normalizeCity(input.sourceCity),
+            normalizeCity(input.destinationCity),
+          )
+        : [];
+    const cheapest = [...trips].sort((left, right) => left.fare.amount - right.fare.amount)[0];
+    const fastest = [...trips].sort(
       (left, right) => left.durationMinutes - right.durationMinutes,
     )[0];
-    const bestRated = [...fallbackTrips].sort((left, right) => right.rating - left.rating)[0];
-    const popularRoute = getPopularRoutes(1)[0] ?? {
-      sourceCity,
-      destinationCity,
-    };
-    const generatedAt = new Date().toISOString();
     const recommendations = [
-      toRecommendation(
-        "CHEAPEST_ROUTE",
-        cheapest,
-        "Lowest fare available for this route.",
-        generatedAt,
-      ),
-      toRecommendation("FASTEST_ROUTE", fastest, "Shortest journey duration.", generatedAt),
-      toRecommendation(
-        "BEST_RATED_OPERATOR",
-        bestRated,
-        "Highest operator rating in the dataset.",
-        generatedAt,
-      ),
-      routeRecommendation(
-        "POPULAR_ROUTE",
-        popularRoute.sourceCity,
-        popularRoute.destinationCity,
-        "Popular route by distance-weighted demand.",
-        generatedAt,
-      ),
-      routeRecommendation(
-        "WEEKEND_SUGGESTION",
-        "Bangalore",
-        "Goa",
-        "Weekend-friendly leisure route suggestion.",
-        generatedAt,
-      ),
-      routeRecommendation(
-        "NEARBY_DESTINATION",
-        sourceCity,
-        nearbyDestination(sourceCity),
-        "Nearby destination based on city proximity.",
-        generatedAt,
-      ),
-      routeRecommendation(
-        "FREQUENTLY_BOOKED_ROUTE",
-        "Chennai",
-        "Coimbatore",
-        "Frequently booked corridor in analytics.",
-        generatedAt,
-      ),
-      routeRecommendation(
-        "TRENDING_ROUTE",
-        "Pune",
-        "Goa",
-        "Trending route from recent search velocity.",
-        generatedAt,
-      ),
-      routeRecommendation(
-        "RECENTLY_BOOKED_AGAIN",
-        destinationCity,
-        sourceCity,
-        "Return-trip recommendation from recent booking patterns.",
-        generatedAt,
-      ),
-    ].filter(Boolean) as TripRecommendationRecord[];
+      cheapest &&
+        toRecommendation(
+          "CHEAPEST_ROUTE",
+          cheapest,
+          "Lowest fare on this route right now.",
+          generatedAt,
+        ),
+      fastest &&
+        toRecommendation("FASTEST_ROUTE", fastest, "Shortest journey on this route.", generatedAt),
+    ].filter((item): item is TripRecommendationRecord => Boolean(item));
 
     return {
-      engine: "MOCK_RULES",
+      engine: "RULES",
       generatedAt,
       recommendations,
       recentlyViewed: this.recentlyViewed.slice(0, 5),
-      trendingRoutes: recommendations.filter((item) => item.type === "TRENDING_ROUTE"),
+      trendingRoutes: [],
       architecture: {
         modelProvider: "NONE",
         futureLlmPort: "AiRecommendationProvider",
@@ -135,15 +92,26 @@ export class AiRepository {
 
   recordRecentlyViewed(input: RecentlyViewedRouteRequest): RecommendationEngineResponse {
     const generatedAt = input.viewedAt ?? new Date().toISOString();
-    this.recentlyViewed.unshift(
-      routeRecommendation(
-        "RECENTLY_VIEWED_ROUTE",
-        normalizeCity(input.sourceCity),
-        normalizeCity(input.destinationCity),
-        "Recently viewed route persisted for recommendation ranking.",
-        generatedAt,
-      ),
-    );
+    const sourceCity = normalizeCity(input.sourceCity);
+    const destinationCity = normalizeCity(input.destinationCity);
+
+    this.recentlyViewed.unshift({
+      recommendationId: `REC-RECENT-${sourceCity}-${destinationCity}-${generatedAt}`,
+      type: "RECENTLY_VIEWED_ROUTE",
+      title: titleFor("RECENTLY_VIEWED_ROUTE"),
+      route: `${sourceCity} to ${destinationCity}`,
+      sourceCity,
+      destinationCity,
+      reason: "Route you looked at recently.",
+      confidenceScore: 1,
+      fare: { amount: 0, currency: "INR" },
+      durationMinutes: 0,
+      operatorName: "",
+      rating: 0,
+      tags: [titleFor("RECENTLY_VIEWED_ROUTE")],
+      generatedAt,
+    });
+    this.recentlyViewed.splice(20);
 
     return this.getRecommendations(input);
   }
@@ -151,61 +119,26 @@ export class AiRepository {
 
 function toRecommendation(
   type: RecommendationType,
-  trip: (typeof mockSearchDatabase.buses)[number] | undefined,
+  trip: BusSearchResult,
   reason: string,
   generatedAt: string,
-): TripRecommendationRecord | null {
-  if (!trip) {
-    return null;
-  }
-
+): TripRecommendationRecord {
   return {
-    recommendationId: `REC-${type}-${trip.routeId}`,
+    recommendationId: `REC-${type}-${trip.tripId}`,
     type,
     title: titleFor(type),
     route: `${trip.sourceCity} to ${trip.destinationCity}`,
     sourceCity: trip.sourceCity,
     destinationCity: trip.destinationCity,
     reason,
-    confidenceScore: confidenceFor(type),
+    confidenceScore: 1,
     fare: trip.fare,
     durationMinutes: trip.durationMinutes,
     operatorName: trip.operatorName,
     rating: trip.rating,
-    tags: tagsFor(type),
+    tags: [titleFor(type)],
     generatedAt,
   };
-}
-
-function routeRecommendation(
-  type: RecommendationType,
-  sourceCity: string,
-  destinationCity: string,
-  reason: string,
-  generatedAt: string,
-): TripRecommendationRecord {
-  const trip = mockSearchDatabase.buses.find(
-    (item) => item.sourceCity === sourceCity && item.destinationCity === destinationCity,
-  );
-
-  return (
-    toRecommendation(type, trip, reason, generatedAt) ?? {
-      recommendationId: `REC-${type}-${sourceCity}-${destinationCity}`,
-      type,
-      title: titleFor(type),
-      route: `${sourceCity} to ${destinationCity}`,
-      sourceCity,
-      destinationCity,
-      reason,
-      confidenceScore: confidenceFor(type),
-      fare: { amount: 999, currency: "INR" },
-      durationMinutes: 480,
-      operatorName: "Vriddhi Express",
-      rating: 4.4,
-      tags: tagsFor(type),
-      generatedAt,
-    }
-  );
 }
 
 function titleFor(type: RecommendationType): string {
@@ -223,24 +156,4 @@ function titleFor(type: RecommendationType): string {
   };
 
   return titles[type];
-}
-
-function confidenceFor(type: RecommendationType): number {
-  return type === "RECENTLY_VIEWED_ROUTE" ? 0.72 : type === "BEST_RATED_OPERATOR" ? 0.91 : 0.84;
-}
-
-function tagsFor(type: RecommendationType): string[] {
-  return [titleFor(type), "Rules Engine", "LLM Ready"];
-}
-
-function nearbyDestination(sourceCity: string): string {
-  const nearby: Record<string, string> = {
-    Bangalore: "Mysore",
-    Chennai: "Pondicherry",
-    Mumbai: "Pune",
-    Delhi: "Jaipur",
-    Pune: "Goa",
-  };
-
-  return nearby[sourceCity] ?? "Hyderabad";
 }

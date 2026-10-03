@@ -1,15 +1,19 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { TEST_API_ORIGIN, testBooking, useFakeApi } from "./fixtures/fake-api";
+
 test.setTimeout(180_000);
 
 test("landing page exposes the bus search experience", async ({ page }) => {
+  await useFakeApi(page);
   await page.goto("/");
 
   await expect(page.getByRole("heading", { name: "Vriddhi Nexus Pvt Ltd" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Search", exact: true })).toBeVisible();
 });
 
-test("search route renders mock bus results from query params", async ({ page }) => {
+test("search route renders supplier bus results from query params", async ({ page }) => {
+  await useFakeApi(page);
   const journeyDate = futureIsoDate();
 
   await page.goto(`/search?from=Bangalore&to=Hyderabad&date=${journeyDate}`);
@@ -17,17 +21,20 @@ test("search route renders mock bus results from query params", async ({ page })
   await expect(page.getByRole("heading", { name: "Bangalore to Hyderabad" })).toBeVisible();
   await expect(page.getByText(/buses found/i).first()).toBeVisible({ timeout: 20_000 });
   await expect(page.getByRole("heading", { name: "Filters" })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText("Test Travels 1")).toBeVisible();
   await expect(page.getByRole("link", { name: /View Seats/i }).first()).toBeVisible({
     timeout: 20_000,
   });
 });
 
-test("mock booking flow reaches ticket view", async ({ page }) => {
+test("booking flow reaches ticket view", async ({ page }) => {
+  await useFakeApi(page);
   const journeyDate = futureIsoDate();
+  const tripId = encodeURIComponent("trace-1~1~result-1~6");
 
   // Booking requires an account: Continue sends guests to login.
   await signInAs(page, "CUSTOMER");
-  await page.goto(`/seat-layout?tripId=mock-route-001-1&date=${journeyDate}`);
+  await page.goto(`/seat-layout?tripId=${tripId}&date=${journeyDate}`);
 
   await expect(page.getByRole("heading", { name: "Choose seats and points" })).toBeVisible();
   const firstAvailableSeat = page.locator('button[aria-pressed="false"]:not([disabled])').first();
@@ -45,7 +52,7 @@ test("mock booking flow reaches ticket view", async ({ page }) => {
   await page.getByLabel("Last Name").fill("Sharma");
   await page.getByLabel("Age").fill("29");
   await page.getByLabel("Phone").fill("+919876543210");
-  await page.getByLabel("Email", { exact: true }).fill("aarav.sharma@example.com");
+  await page.getByLabel("Email", { exact: true }).fill("aarav.sharma@test.invalid");
   await Promise.all([
     page.waitForURL("**/booking-review", { timeout: 15_000 }),
     page.getByRole("button", { name: /Review booking/i }).click(),
@@ -53,17 +60,12 @@ test("mock booking flow reaches ticket view", async ({ page }) => {
 
   await expect(page.getByRole("heading", { name: "Booking Review" })).toBeVisible();
   await Promise.all([
-    page.waitForURL("**/payment", { timeout: 15_000 }),
-    page.getByRole("button", { name: /Continue to Payment/i }).click(),
-  ]);
-
-  await expect(page.getByRole("heading", { name: "Payment", exact: true })).toBeVisible();
-  await Promise.all([
     page.waitForURL(/booking-confirmation/, { timeout: 15_000 }),
-    page.getByRole("button", { name: /^Pay / }).click(),
+    page.getByRole("button", { name: /Confirm Booking/i }).click(),
   ]);
 
   await expect(page.getByText("Booking Confirmed")).toBeVisible();
+  await expect(page.getByText("PNR-TEST-1")).toBeVisible();
   await expect(page.getByRole("button", { name: /Download Invoice/i })).toBeVisible();
   await Promise.all([
     page.waitForURL(/ticket/, { timeout: 15_000 }),
@@ -81,32 +83,62 @@ test("mock booking flow reaches ticket view", async ({ page }) => {
   await expect(page.getByText("Ticket generated").first()).toBeVisible();
 });
 
+test("an expired search asks the traveller to search again", async ({ page }) => {
+  const api = await useFakeApi(page);
+  await page.route(`${TEST_API_ORIGIN}/api/v1/seats/**`, (route) =>
+    route.request().method() === "GET"
+      ? route.fulfill({
+          status: 410,
+          headers: {
+            "Access-Control-Allow-Origin": "http://127.0.0.1:3100",
+            "Access-Control-Allow-Credentials": "true",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            statusCode: 410,
+            message: "This bus is no longer available to book from that search.",
+          }),
+        })
+      : api.handle(route),
+  );
+
+  await page.goto(`/seat-layout?tripId=stale&date=${futureIsoDate()}`);
+
+  await expect(page.getByText("Seats are not available")).toBeVisible();
+  await expect(page.getByText(/no longer available to book/)).toBeVisible();
+});
+
 test("admin dashboard route renders", async ({ page }) => {
+  await useFakeApi(page);
   await signInAs(page, "ADMIN");
   await page.goto("/admin/dashboard");
 
   await expect(page.getByRole("heading", { name: "Admin Dashboard" })).toBeVisible();
+  await expect(page.getByText("Today's Bookings")).toBeVisible();
 });
 
-test("admin integration configuration renders milestone ten controls", async ({ page }) => {
+test("admin integration configuration shows suppliers and payment gateways", async ({ page }) => {
+  await useFakeApi(page);
   await signInAs(page, "ADMIN");
   await page.goto("/admin/supplier-configuration");
 
   await expect(page.getByRole("heading", { name: "Integration Configuration" })).toBeVisible();
-  await expect(page.getByText("Supplier Mode")).toBeVisible();
+  await expect(page.getByText("SRDV Technologies")).toBeVisible();
   await expect(page.getByRole("tab", { name: "Payments" })).toBeVisible();
   await page.getByRole("tab", { name: "Payments" }).click();
   await expect(page.getByText("Razorpay")).toBeVisible();
 });
 
 test("admin bookings generate invoices and upload bulk booking sheet", async ({ page }) => {
+  const api = await useFakeApi(page);
+  api.adminBookings = [testBooking("VNB-ADM001")];
   await signInAs(page, "ADMIN");
   await page.goto("/admin/bookings");
 
   await page.getByRole("button", { name: "Generate Invoice" }).first().click();
-  await expect(page.getByText(/VNI-ADM-001 generated and uploaded/)).toBeVisible();
+  await expect(page.getByText(/VNI-ADM001 generated and uploaded/)).toBeVisible();
   await expect(page.getByRole("heading", { name: "Invoice Repository" })).toBeVisible();
-  await expect(page.getByRole("cell", { name: "VNI-ADM-001" })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "VNI-ADM001" })).toBeVisible();
 
   await page.locator('input[type="file"]').setInputFiles({
     name: "bulk-bookings.csv",
@@ -114,7 +146,7 @@ test("admin bookings generate invoices and upload bulk booking sheet", async ({ 
     buffer: Buffer.from(
       [
         "bookingReference,customerName,customerEmail,customerPhone,route,operatorName,journeyDate,seats,baseFare,taxes,discount,convenienceFee,total",
-        "VNB-BULK-101,Kavya Nair,kavya@example.com,+919876543219,Bangalore to Hyderabad,Eastern Travels,2026-08-28,A1 A2,2000,100,0,50,2150",
+        "VNB-BULK-101,Kavya Nair,kavya@test.invalid,+919876543219,Bangalore to Hyderabad,Test Travels,2026-08-28,A1 A2,2000,100,0,50,2150",
       ].join("\n"),
     ),
   });
@@ -124,6 +156,7 @@ test("admin bookings generate invoices and upload bulk booking sheet", async ({ 
 });
 
 test("customer cannot access the admin dashboard", async ({ page }) => {
+  await useFakeApi(page);
   await signInAs(page, "CUSTOMER");
   await page.goto("/admin/dashboard");
 
@@ -132,6 +165,7 @@ test("customer cannot access the admin dashboard", async ({ page }) => {
 });
 
 test("dashboard shortcut sends guests to login", async ({ page }) => {
+  await useFakeApi(page);
   await page.goto("/dashboard");
 
   await expect(page).toHaveURL(/\/login\?redirect=%2Fdashboard/);
@@ -139,6 +173,7 @@ test("dashboard shortcut sends guests to login", async ({ page }) => {
 });
 
 test("dashboard shortcut sends customers to customer dashboard", async ({ page }) => {
+  await useFakeApi(page);
   await signInAs(page, "CUSTOMER");
   await page.goto("/dashboard");
 
@@ -147,6 +182,7 @@ test("dashboard shortcut sends customers to customer dashboard", async ({ page }
 });
 
 test("dashboard shortcut sends admins to admin dashboard", async ({ page }) => {
+  await useFakeApi(page);
   await signInAs(page, "ADMIN");
   await page.goto("/dashboard");
 
@@ -154,7 +190,8 @@ test("dashboard shortcut sends admins to admin dashboard", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Admin Dashboard" })).toBeVisible();
 });
 
-test("agent portal routes render milestone seven workspaces", async ({ page }) => {
+test("agent portal routes render the agent workspaces", async ({ page }) => {
+  await useFakeApi(page);
   await signInAs(page, "TRAVEL_AGENT");
   await page.goto("/agent/dashboard");
   await expect(page.getByRole("heading", { name: "Agent Dashboard" })).toBeVisible({
@@ -170,6 +207,7 @@ test("agent portal routes render milestone seven workspaces", async ({ page }) =
 });
 
 test("auth routes expose milestone two forms", async ({ page }) => {
+  await useFakeApi(page);
   await page.goto("/login");
   await expect(page.getByRole("heading", { name: "Sign in" }).first()).toBeVisible();
   await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
@@ -206,10 +244,10 @@ async function signInAs(page: Page, role: TestRole): Promise<void> {
       lastName: "User",
       email:
         selectedRole === "ADMIN"
-          ? "admin@vriddhinexus.com"
+          ? "admin@test.invalid"
           : selectedRole === "TRAVEL_AGENT"
-            ? "agent@vriddhinexus.com"
-            : "user@vriddhinexus.com",
+            ? "agent@test.invalid"
+            : "user@test.invalid",
       phone: "+919999999999",
       avatar: null,
       role: selectedRole,

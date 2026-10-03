@@ -3,7 +3,8 @@ import { Inject, Injectable, Logger } from "@nestjs/common";
 import type { EmailMessage, EmailPort, PreparedEmail } from "./interfaces/email-message.interface";
 import { EMAIL_SENDER, type EmailSender } from "./interfaces/email-sender.interface";
 
-const templates = {
+/** The templates every outgoing email is rendered from. */
+export const EMAIL_TEMPLATES = {
   welcome: {
     subject: "Welcome to Vriddhi Nexus",
     htmlBody: "<p>Welcome {{firstName}}, your Vriddhi Nexus account is ready.</p>",
@@ -42,16 +43,11 @@ const templates = {
     textBody: "{{ticketText}}",
   },
   "booking-cancelled": {
-    subject: "Booking cancelled: {{bookingReference}}",
+    subject: "Cancellation requested: {{bookingReference}}",
     htmlBody:
-      "<p>Your booking {{bookingReference}} has been cancelled.</p><p>Refund status: {{refundStatus}}</p>",
+      "<p>We have asked the bus operator to cancel your booking {{bookingReference}}.</p><p>Refund status: {{refundStatus}}</p>",
     textBody:
-      "Your booking {{bookingReference}} has been cancelled. Refund status: {{refundStatus}}.",
-  },
-  "booking-rescheduled": {
-    subject: "Booking rescheduled: {{bookingReference}}",
-    htmlBody: "<p>Your booking {{bookingReference}} has been rescheduled to {{journeyDate}}.</p>",
-    textBody: "Your booking {{bookingReference}} has been rescheduled to {{journeyDate}}.",
+      "We have asked the bus operator to cancel your booking {{bookingReference}}. Refund status: {{refundStatus}}.",
   },
 } as const;
 
@@ -62,7 +58,7 @@ export class EmailTemplateService implements EmailPort {
   constructor(@Inject(EMAIL_SENDER) private readonly sender: EmailSender) {}
 
   prepare(message: EmailMessage): Promise<PreparedEmail> {
-    const template = templates[message.templateKey];
+    const template = EMAIL_TEMPLATES[message.templateKey];
 
     return Promise.resolve({
       to: message.to,

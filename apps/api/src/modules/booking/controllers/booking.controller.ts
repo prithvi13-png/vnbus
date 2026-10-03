@@ -1,22 +1,19 @@
-import { Body, Controller, Get, NotFoundException, Param, Post } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Req } from "@nestjs/common";
 import { ApiBearerAuth, ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import type {
   BookingConfirmationResponse,
   BookingHistoryResponse,
   BookingRecord,
+  BookingTimelineEvent,
   CancelBookingResponse,
-  RescheduleBookingResponse,
 } from "@vnbus/types";
 
 import { Public } from "../../../shared/security/decorators/public.decorator";
 import { Roles } from "../../../shared/security/decorators/roles.decorator";
+import type { AuthenticatedRequest } from "../../../shared/security/interfaces/authenticated-request.interface";
+import { requirePrincipal } from "../../../shared/security/require-user";
 import { BookingSummaryDto } from "../dto/booking-summary.dto";
-import {
-  CancelBookingDto,
-  ConfirmBookingDto,
-  CreateBookingDto,
-  RescheduleBookingDto,
-} from "../dto/booking-workflow.dto";
+import { CancelBookingDto, CreateBookingDto } from "../dto/booking-workflow.dto";
 import { BookingService } from "../services/booking.service";
 
 @ApiTags("Booking")
@@ -25,9 +22,8 @@ import { BookingService } from "../services/booking.service";
 export class BookingController {
   constructor(private readonly service: BookingService) {}
 
-  // Health is the only public route here: booking now requires a signed-in
-  // user, so create/confirm and the per-customer listings sit behind the
-  // JWT guard rather than opting out of it.
+  // Health is the only public route here. Everything else is the signed-in
+  // user's own bookings: real tickets with passenger names and phone numbers.
   @Public()
   @Get("booking/health")
   getHealth(): BookingSummaryDto {
@@ -41,67 +37,68 @@ export class BookingController {
   }
 
   @Get("bookings")
-  @ApiOkResponse({ description: "Booking history" })
-  listBookings(): BookingRecord[] {
-    return this.service.listBookings();
+  @ApiOkResponse({ description: "The signed-in user's bookings" })
+  listBookings(@Req() request: AuthenticatedRequest): Promise<BookingRecord[]> {
+    return this.service.listBookings(requirePrincipal(request));
   }
 
   @Get("bookings/history")
-  @ApiOkResponse({ description: "Full booking history with lifecycle timeline" })
-  getHistory(): BookingHistoryResponse {
-    return this.service.getHistory();
+  @ApiOkResponse({ description: "Booking history with lifecycle timeline" })
+  getHistory(@Req() request: AuthenticatedRequest): Promise<BookingHistoryResponse> {
+    return this.service.getHistory(requirePrincipal(request));
   }
 
   @Get("bookings/upcoming")
-  @ApiOkResponse({ description: "Upcoming customer trips" })
-  listUpcoming(): BookingRecord[] {
-    return this.service.listUpcoming();
+  @ApiOkResponse({ description: "Upcoming trips" })
+  listUpcoming(@Req() request: AuthenticatedRequest): Promise<BookingRecord[]> {
+    return this.service.listUpcoming(requirePrincipal(request));
   }
 
   @Get("bookings/past")
-  @ApiOkResponse({ description: "Past customer trips" })
-  listPast(): BookingRecord[] {
-    return this.service.listPast();
+  @ApiOkResponse({ description: "Past trips" })
+  listPast(@Req() request: AuthenticatedRequest): Promise<BookingRecord[]> {
+    return this.service.listPast(requirePrincipal(request));
   }
 
   @Get("bookings/cancelled")
-  @ApiOkResponse({ description: "Cancelled customer trips" })
-  listCancelled(): BookingRecord[] {
-    return this.service.listCancelled();
+  @ApiOkResponse({ description: "Cancelled trips" })
+  listCancelled(@Req() request: AuthenticatedRequest): Promise<BookingRecord[]> {
+    return this.service.listCancelled(requirePrincipal(request));
   }
 
   @Get("bookings/:id")
   @ApiOkResponse({ description: "Booking details" })
-  getBooking(@Param("id") id: string): BookingRecord {
-    const booking = this.service.getBooking(id);
-    if (!booking) {
-      throw new NotFoundException("Booking not found");
-    }
+  getBooking(
+    @Param("id") id: string,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<BookingRecord> {
+    return this.service.getBookingForUser(id, requirePrincipal(request));
+  }
 
-    return booking;
+  @Get("bookings/:id/timeline")
+  @ApiOkResponse({ description: "Booking lifecycle timeline" })
+  getTimeline(
+    @Param("id") id: string,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<BookingTimelineEvent[]> {
+    return this.service.getTimeline(id, requirePrincipal(request));
   }
 
   @Post("bookings/create")
-  @ApiOkResponse({ description: "Create pending-payment booking from held seats" })
-  createBooking(@Body() dto: CreateBookingDto): Promise<BookingRecord> {
-    return this.service.createBooking(dto);
-  }
-
-  @Post("bookings/confirm")
-  @ApiOkResponse({ description: "Confirm booking and generate ticket" })
-  confirmBooking(@Body() dto: ConfirmBookingDto): Promise<BookingConfirmationResponse> {
-    return this.service.confirmBooking(dto);
+  @ApiOkResponse({ description: "Book the selected seats with the supplier and issue the ticket" })
+  createBooking(
+    @Body() dto: CreateBookingDto,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<BookingConfirmationResponse> {
+    return this.service.createBooking(dto, requirePrincipal(request));
   }
 
   @Post("bookings/cancel")
-  @ApiOkResponse({ description: "Booking cancellation" })
-  cancelBooking(@Body() dto: CancelBookingDto): Promise<CancelBookingResponse> {
-    return this.service.cancelBooking(dto);
-  }
-
-  @Post("bookings/reschedule")
-  @ApiOkResponse({ description: "Booking reschedule flow" })
-  rescheduleBooking(@Body() dto: RescheduleBookingDto): Promise<RescheduleBookingResponse> {
-    return this.service.rescheduleBooking(dto);
+  @ApiOkResponse({ description: "Ask the supplier to cancel the booking" })
+  cancelBooking(
+    @Body() dto: CancelBookingDto,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<CancelBookingResponse> {
+    return this.service.cancelBooking(dto, requirePrincipal(request));
   }
 }

@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { ForbiddenException, Injectable } from "@nestjs/common";
 import type { AgentProfileRecord } from "@vnbus/types";
 
 import type { ModuleSummary } from "../../../shared/domain/module-summary";
@@ -17,7 +17,7 @@ export class AgentModuleValidator {
 
   ensureActive(profile: AgentProfileRecord): void {
     if (profile.status !== "ACTIVE") {
-      throw new Error("Agent profile is not active");
+      throw new ForbiddenException("Your travel agent account is not active yet");
     }
   }
 }

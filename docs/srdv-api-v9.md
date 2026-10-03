@@ -71,10 +71,12 @@ One call with a valid token settles which base is live.
 }
 ```
 
-Cities are addressed by **numeric code**, not name. No city-list endpoint has
-been supplied, so the mapping lives in `SRDV_CITY_CODES`. The codes in the
-example above must not be taken to denote any particular city — an example
-pairing is not a documented mapping.
+Cities are addressed by **numeric code**, not name. SRDV supplied its city list
+as a database export; it ships in `src/srdv/city-codes.ts` (regenerate it with
+`pnpm --filter @vnbus/supplier-sdk import:city-codes <file>`), and
+`SRDV_CITY_CODES` overlays it to add or correct a city without a release. The
+codes in the example above must not be taken to denote any particular city — an
+example pairing is not a documented mapping.
 
 Response envelope: `Error { ErrorCode, ErrorMessage }`, `TraceId`, `Result[]`.
 

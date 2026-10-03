@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import type { BookingHistoryResponse, BookingRecord } from "@vnbus/types";
 
+import type { JwtPrincipal } from "../../../shared/security/interfaces/jwt-principal.interface";
 import { BookingService } from "../../booking/services/booking.service";
 import { BookingHistorySummaryDto } from "../dto/booking-history-summary.dto";
 import type { BookingHistoryModulePort } from "../interfaces/booking-history.interface";
@@ -22,19 +23,19 @@ export class BookingHistoryService implements BookingHistoryModulePort {
     return new BookingHistorySummaryDto(summary);
   }
 
-  getHistory(): BookingHistoryResponse {
-    return this.bookingService.getHistory();
+  getHistory(principal: JwtPrincipal): Promise<BookingHistoryResponse> {
+    return this.bookingService.getHistory(principal);
   }
 
-  listUpcoming(): BookingRecord[] {
-    return this.bookingService.listUpcoming();
+  listUpcoming(principal: JwtPrincipal): Promise<BookingRecord[]> {
+    return this.bookingService.listUpcoming(principal);
   }
 
-  listPast(): BookingRecord[] {
-    return this.bookingService.listPast();
+  listPast(principal: JwtPrincipal): Promise<BookingRecord[]> {
+    return this.bookingService.listPast(principal);
   }
 
-  listCancelled(): BookingRecord[] {
-    return this.bookingService.listCancelled();
+  listCancelled(principal: JwtPrincipal): Promise<BookingRecord[]> {
+    return this.bookingService.listCancelled(principal);
   }
 }

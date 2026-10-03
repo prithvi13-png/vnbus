@@ -183,7 +183,6 @@ export function buildTicketEmail(ticket: TicketRecord, supportEmail: string): Ti
         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
           ${detailRow("Operator", ticket.operatorName)}
           ${detailRow("Bus type", ticket.busType)}
-          ${detailRow("Bus number", ticket.busNumber)}
           ${detailRow("Seats", ticket.seatNumbers.join(", "))}
         </table>
       </td>
@@ -284,7 +283,6 @@ export function buildTicketEmail(ticket: TicketRecord, supportEmail: string): Ti
     ``,
     `Operator: ${ticket.operatorName}`,
     `Bus type: ${ticket.busType}`,
-    `Bus number: ${ticket.busNumber}`,
     `Seats: ${ticket.seatNumbers.join(", ")}`,
     ``,
     `Board at ${formatTime(ticket.boardingPoint.time)} — ${ticket.boardingPoint.name}`,

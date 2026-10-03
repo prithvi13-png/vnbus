@@ -15,8 +15,8 @@ interface SearchState {
 }
 
 const defaultSearch: SearchFormValues = {
-  sourceCity: "Bangalore",
-  destinationCity: "Hyderabad",
+  sourceCity: "",
+  destinationCity: "",
   journeyDate: new Date().toISOString().slice(0, 10),
   passengerCount: 1,
 };
@@ -26,10 +26,7 @@ export const useSearchStore = create<SearchState>()(
     (set) => ({
       lastSearch: defaultSearch,
       recentSearches: [],
-      favoriteRoutes: [
-        { sourceCity: "Bangalore", destinationCity: "Hyderabad" },
-        { sourceCity: "Chennai", destinationCity: "Coimbatore" },
-      ],
+      favoriteRoutes: [],
       setLastSearch: (value) => set({ lastSearch: value }),
       addRecentSearch: (value) =>
         set((state) => {

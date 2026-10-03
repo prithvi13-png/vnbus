@@ -3,7 +3,7 @@ import { QueueSystemService } from "../services/queue-system.service";
 import { QueueSystemValidator } from "../validators/queue-system.validator";
 
 describe("QueueSystemService", () => {
-  it("returns BullMQ queue status and enqueues jobs", () => {
+  it("starts every queue empty and counts what is enqueued", () => {
     const service = new QueueSystemService(new QueueSystemRepository(), new QueueSystemValidator());
     const queued = service.enqueue({
       queue: "AI_QUEUE",
@@ -12,6 +12,6 @@ describe("QueueSystemService", () => {
 
     expect(queued.driver).toBe("BULLMQ");
     expect(queued.retryStrategy.deadLetterQueue).toBe("DEAD_LETTER_QUEUE");
-    expect(queued.queues.find((queue) => queue.queue === "AI_QUEUE")?.waiting).toBeGreaterThan(8);
+    expect(queued.queues.find((queue) => queue.queue === "AI_QUEUE")?.waiting).toBe(1);
   });
 });

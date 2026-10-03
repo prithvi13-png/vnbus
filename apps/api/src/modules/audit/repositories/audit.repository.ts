@@ -4,6 +4,7 @@ import type { AdminAuditLogRecord } from "@vnbus/types";
 import type { ListAuditLogsQueryDto } from "../dto/list-audit-logs-query.dto";
 
 import type { ModuleSummary } from "../../../shared/domain/module-summary";
+import { PrismaService } from "../../../shared/prisma/prisma.service";
 
 const summary = {
   module: "audit",
@@ -25,52 +26,39 @@ const summary = {
   ],
 } satisfies ModuleSummary;
 
+/** The request activity log, which records every authenticated change. */
 @Injectable()
 export class AuditRepository {
-  private readonly logs = seedAuditLogs();
+  constructor(private readonly prisma: PrismaService) {}
 
   findSummary(): ModuleSummary {
     return summary;
   }
 
-  listLogs(query: ListAuditLogsQueryDto): AdminAuditLogRecord[] {
-    return this.logs
-      .filter(
-        (log) =>
-          (!query.action || log.action.includes(query.action)) &&
-          (!query.entityType || log.entityType === query.entityType) &&
-          (!query.actor || log.actor.toLowerCase().includes(query.actor.toLowerCase())),
-      )
-      .slice(0, query.limit);
+  async listLogs(query: ListAuditLogsQueryDto): Promise<AdminAuditLogRecord[]> {
+    const rows = await this.prisma.activityLog.findMany({
+      where: {
+        ...(query.action ? { action: { contains: query.action } } : {}),
+        ...(query.entityType ? { entityType: query.entityType } : {}),
+        ...(query.actor
+          ? { actor: { email: { contains: query.actor, mode: "insensitive" as const } } }
+          : {}),
+      },
+      include: { actor: { select: { email: true } } },
+      orderBy: { createdAt: "desc" },
+      take: query.limit,
+    });
+
+    return rows.map((row) => ({
+      auditId: row.id,
+      actor: row.actor?.email ?? row.actorType.toLowerCase(),
+      action: row.action,
+      entityType: row.entityType ?? "",
+      entityId: row.entityId,
+      ipAddress: row.ipAddress ?? "",
+      userAgent: row.userAgent ?? "",
+      metadata: (row.metadata as Record<string, unknown> | null) ?? {},
+      createdAt: row.createdAt.toISOString(),
+    }));
   }
-}
-
-function seedAuditLogs(): AdminAuditLogRecord[] {
-  return [
-    audit("AUD-001", "admin@vriddhinexus.com", "user.login", "user", "USR-001"),
-    audit("AUD-002", "admin@vriddhinexus.com", "booking.cancelled", "booking", "VNB-ADM-002"),
-    audit("AUD-003", "ops@vriddhinexus.com", "role.permission_assigned", "role", "ADMIN"),
-    audit("AUD-004", "content@vriddhinexus.com", "cms.page_published", "cms_page", "CMS-FAQ"),
-    audit("AUD-005", "growth@vriddhinexus.com", "coupon.updated", "coupon", "WELCOME500"),
-  ];
-}
-
-function audit(
-  auditId: string,
-  actor: string,
-  action: string,
-  entityType: string,
-  entityId: string,
-): AdminAuditLogRecord {
-  return {
-    auditId,
-    actor,
-    action,
-    entityType,
-    entityId,
-    ipAddress: "103.21.244.12",
-    userAgent: "Mozilla/5.0 Chrome/126 AdminConsole",
-    metadata: { source: "admin-portal", mock: true },
-    createdAt: "2026-08-08T08:00:00.000Z",
-  };
 }

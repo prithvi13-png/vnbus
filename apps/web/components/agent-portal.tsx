@@ -10,7 +10,6 @@ import {
   HelpCircle,
   Mail,
   Plus,
-  RefreshCw,
   Search,
   Settings,
   Ticket,
@@ -70,17 +69,17 @@ import {
   getAgentDashboard,
   getAgentReports,
   getSeatLayout,
-  holdSeats,
   listAgentBookings,
   listAgentCustomers,
   listAgentNotifications,
-  rescheduleBooking,
   searchBuses,
   updateAgentCustomer,
 } from "../lib/api-client";
 import { useAgentStore } from "../lib/agent-store";
+import { useAuthStore } from "../lib/auth-store";
 import { useBookingStore } from "../lib/booking-store";
 import { PageHeader } from "./page-header";
+import { CityAutocomplete } from "./search-panel";
 
 const chartColors = ["#02553E", "#B88327", "#037A58", "#9F6F20", "#dc2626"];
 
@@ -111,40 +110,11 @@ export function AgentDashboardWorkspace(): React.JSX.Element {
         />
         <MetricTile label="Cancelled Bookings" value={`${metrics?.cancelledBookings ?? 0}`} />
       </section>
-      <section className="grid gap-5 xl:grid-cols-[1.3fr_0.7fr]">
-        <Card>
-          <CardHeader>
-            <CardTitle>Booking Trend</CardTitle>
-            <CardDescription>Mock operational demand for this week.</CardDescription>
-          </CardHeader>
-          <CardContent className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={agentTrendData}>
-                <defs>
-                  <linearGradient id="agentRevenue" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="5%" stopColor="#B88327" stopOpacity={0.35} />
-                    <stop offset="95%" stopColor="#B88327" stopOpacity={0.03} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="label" />
-                <YAxis />
-                <RechartsTooltip />
-                <Area
-                  type="monotone"
-                  dataKey="bookings"
-                  stroke="#B88327"
-                  fill="url(#agentRevenue)"
-                  strokeWidth={2}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+      <section className="grid gap-5">
         <Card>
           <CardHeader>
             <CardTitle>Booking Status Summary</CardTitle>
-            <CardDescription>Confirmed, pending, rescheduled, and cancelled mix.</CardDescription>
+            <CardDescription>Your bookings by status.</CardDescription>
           </CardHeader>
           <CardContent className="h-72">
             <ResponsiveContainer width="100%" height="100%">
@@ -222,6 +192,15 @@ export function AgentDashboardWorkspace(): React.JSX.Element {
   );
 }
 
+interface QuickPassenger {
+  firstName: string;
+  lastName: string;
+  age: string;
+  gender: "MALE" | "FEMALE" | "OTHER";
+}
+
+const emptyPassenger: QuickPassenger = { firstName: "", lastName: "", age: "", gender: "MALE" };
+
 export function AgentQuickBookingWorkspace(): React.JSX.Element {
   const addRecentSearch = useAgentStore((state) => state.addRecentSearch);
   const addRecentCustomer = useAgentStore((state) => state.addRecentCustomer);
@@ -231,89 +210,155 @@ export function AgentQuickBookingWorkspace(): React.JSX.Element {
   const [selectedTrip, setSelectedTrip] = React.useState<BusSearchResult | null>(null);
   const [layout, setLayout] = React.useState<SeatLayoutDetails | null>(null);
   const [selectedSeats, setSelectedSeats] = React.useState<string[]>([]);
-  const [customerId, setCustomerId] = React.useState("CUS-AGT-001");
+  const [passengers, setPassengers] = React.useState<Record<string, QuickPassenger>>({});
+  const [boardingPointId, setBoardingPointId] = React.useState("");
+  const [droppingPointId, setDroppingPointId] = React.useState("");
+  const [customerId, setCustomerId] = React.useState("");
   const [status, setStatus] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const [submitting, setSubmitting] = React.useState(false);
   const [search, setSearch] = React.useState({
-    sourceCity: "Bangalore",
-    destinationCity: "Hyderabad",
+    sourceCity: "",
+    destinationCity: "",
     journeyDate: todayIsoDate(),
     passengerCount: 1,
   });
 
   React.useEffect(() => {
-    void listAgentCustomers({ pageSize: 50 }).then((response) => {
+    void listAgentCustomers({ pageSize: 100 }).then((response) => {
       setCustomers(response.customers);
-      if (response.customers[0]) {
-        setCustomerId(response.customers[0].customerId);
-      }
+      setCustomerId((current) => current || response.customers[0]?.customerId || "");
     });
   }, []);
 
   async function runSearch(): Promise<void> {
-    setError(null);
-    setStatus("Searching buses...");
-    const response = await searchBuses(search);
-    setResults(response.buses);
-    addRecentSearch(search);
-    setStatus(`${response.buses.length} buses found`);
+    try {
+      setError(null);
+      setStatus("Searching buses...");
+      setSelectedTrip(null);
+      setLayout(null);
+      const response = await searchBuses(search);
+      setResults(response.buses);
+      addRecentSearch(search);
+      setStatus(
+        response.buses.length
+          ? `${response.buses.length} buses found`
+          : (response.notice ?? "No buses found."),
+      );
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Search failed");
+      setStatus(null);
+    }
   }
 
   async function chooseTrip(trip: BusSearchResult): Promise<void> {
-    setSelectedTrip(trip);
-    setSelectedSeats([]);
-    setLayout(await getSeatLayout(trip.tripId, search.journeyDate));
+    try {
+      setError(null);
+      setSelectedTrip(trip);
+      setSelectedSeats([]);
+      setPassengers({});
+      const seatLayout = await getSeatLayout(trip.tripId, search.journeyDate);
+      setLayout(seatLayout);
+      setBoardingPointId(seatLayout.boardingPoints[0]?.id ?? "");
+      setDroppingPointId(seatLayout.droppingPoints[0]?.id ?? "");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Seats could not be loaded");
+    }
+  }
+
+  function toggleSeat(seatNumber: string): void {
+    const maxSeats = layout?.maxSelectableSeats || 6;
+
+    setSelectedSeats((current) =>
+      current.includes(seatNumber)
+        ? current.filter((item) => item !== seatNumber)
+        : [...current, seatNumber].slice(0, maxSeats),
+    );
+    setPassengers((current) => ({
+      ...current,
+      [seatNumber]: current[seatNumber] ?? emptyPassenger,
+    }));
+  }
+
+  function updatePassenger(seatNumber: string, patch: Partial<QuickPassenger>): void {
+    setPassengers((current) => ({
+      ...current,
+      [seatNumber]: { ...(current[seatNumber] ?? emptyPassenger), ...patch },
+    }));
   }
 
   async function createBooking(): Promise<void> {
+    const customer = customers.find((item) => item.customerId === customerId);
+
     if (!selectedTrip || !layout || !selectedSeats.length) {
       setError("Select a bus and at least one seat.");
       return;
     }
-    const customer = customers.find((item) => item.customerId === customerId);
     if (!customer) {
-      setError("Select a customer.");
+      setError("Select the customer this booking is for.");
+      return;
+    }
+
+    // Every traveller's name and age go on the ticket, so they are typed in
+    // for each seat rather than guessed from the customer record.
+    const incomplete = selectedSeats.find((seat) => {
+      const passenger = passengers[seat];
+      const age = Number(passenger?.age);
+
+      return (
+        !passenger?.firstName.trim() ||
+        !passenger.lastName.trim() ||
+        !Number.isInteger(age) ||
+        age < 1 ||
+        age > 110
+      );
+    });
+    if (incomplete) {
+      setError(`Enter the name and age of the traveller in seat ${incomplete}.`);
       return;
     }
 
     try {
+      setSubmitting(true);
       setError(null);
-      setStatus("Holding seats...");
-      const hold = await holdSeats({
-        supplierCode: selectedTrip.supplierCode,
-        tripId: selectedTrip.tripId,
-        journeyDate: search.journeyDate,
-        seatNumbers: selectedSeats,
-      });
-      setStatus("Creating booking and generating ticket...");
+      setStatus("Booking with the operator...");
       const response = await createAgentBooking({
-        reservationId: hold.reservationId,
         supplierCode: selectedTrip.supplierCode,
         tripId: selectedTrip.tripId,
         journeyDate: search.journeyDate,
         selectedSeats,
-        boardingPointId: layout.boardingPoints[0]?.id ?? "",
-        droppingPointId: layout.droppingPoints[0]?.id ?? "",
-        passengers: selectedSeats.map((seatNumber) => ({
-          seatNumber,
-          firstName: customer.name.split(" ")[0] ?? customer.name,
-          lastName: customer.name.split(" ").slice(1).join(" ") || "Traveller",
-          age: 30,
-          gender: customer.gender,
-          phone: customer.phone,
-          email: customer.email,
-          ...(customer.emergencyContact ? { emergencyContact: customer.emergencyContact } : {}),
-        })),
+        boardingPointId,
+        droppingPointId,
+        passengers: selectedSeats.map((seatNumber) => {
+          const passenger = passengers[seatNumber] ?? emptyPassenger;
+
+          return {
+            seatNumber,
+            firstName: passenger.firstName.trim(),
+            lastName: passenger.lastName.trim(),
+            age: Number(passenger.age),
+            gender: passenger.gender,
+            phone: customer.phone,
+            email: customer.email,
+            ...(customer.emergencyContact ? { emergencyContact: customer.emergencyContact } : {}),
+          };
+        }),
         customerId: customer.customerId,
         emailTicket: true,
       });
 
       setConfirmation({ booking: response.booking, ticket: response.ticket });
       addRecentCustomer(response.customer);
-      setStatus(`Ticket ${response.ticket.ticketNumber} generated and emailed.`);
+      setStatus(
+        `Ticket ${response.ticket.ticketNumber} (PNR ${response.ticket.pnr}) issued and emailed.`,
+      );
+      setSelectedSeats([]);
+      setPassengers({});
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Booking failed");
       setStatus(null);
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -322,7 +367,7 @@ export function AgentQuickBookingWorkspace(): React.JSX.Element {
       <PageHeader
         eyebrow="Agent"
         title="Quick Booking"
-        description="Search, select seats, attach a customer, generate ticket, and email it from one desk."
+        description="Search, pick seats, enter the travellers, and issue the ticket for one of your customers."
       />
       {error ? (
         <Alert variant="danger">
@@ -340,48 +385,42 @@ export function AgentQuickBookingWorkspace(): React.JSX.Element {
         <CardHeader>
           <CardTitle>Search Bus</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-5">
-          <Input
-            aria-label="Source"
+        <CardContent className="grid gap-3 md:grid-cols-4">
+          <CityAutocomplete
             value={search.sourceCity}
-            onChange={(event) => setSearch({ ...search, sourceCity: event.target.value })}
+            placeholder="Leaving from"
+            onChange={(sourceCity) => setSearch({ ...search, sourceCity })}
           />
-          <Input
-            aria-label="Destination"
+          <CityAutocomplete
             value={search.destinationCity}
-            onChange={(event) => setSearch({ ...search, destinationCity: event.target.value })}
+            placeholder="Going to"
+            onChange={(destinationCity) => setSearch({ ...search, destinationCity })}
           />
           <Input
             aria-label="Journey Date"
             type="date"
+            min={todayIsoDate()}
             value={search.journeyDate}
             onChange={(event) => setSearch({ ...search, journeyDate: event.target.value })}
           />
-          <Input
-            aria-label="Passengers"
-            type="number"
-            min={1}
-            max={6}
-            value={search.passengerCount}
-            onChange={(event) =>
-              setSearch({ ...search, passengerCount: Number(event.target.value) })
-            }
-          />
-          <Button type="button" onClick={() => void runSearch()}>
+          <Button
+            type="button"
+            disabled={!search.sourceCity.trim() || !search.destinationCity.trim()}
+            onClick={() => void runSearch()}
+          >
             <Search className="h-4 w-4" aria-hidden="true" />
             Search
           </Button>
         </CardContent>
       </Card>
-      <section className="grid gap-5 xl:grid-cols-[1fr_380px]">
+      <section className="grid gap-5 xl:grid-cols-[1fr_420px]">
         <Card>
           <CardHeader>
             <CardTitle>Available Buses</CardTitle>
-            <CardDescription>Results come from the existing mock search module.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3">
             {results.length ? (
-              results.slice(0, 6).map((trip) => (
+              results.slice(0, 20).map((trip) => (
                 <button
                   key={trip.tripId}
                   type="button"
@@ -394,7 +433,8 @@ export function AgentQuickBookingWorkspace(): React.JSX.Element {
                         {trip.operatorName}
                       </p>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {trip.sourceCity} to {trip.destinationCity} · {trip.busType}
+                        {trip.busType} · departs {formatTime(trip.departureTime)} ·{" "}
+                        {trip.availableSeats} seats
                       </p>
                     </div>
                     <Badge variant={selectedTrip?.tripId === trip.tripId ? "success" : "neutral"}>
@@ -406,7 +446,7 @@ export function AgentQuickBookingWorkspace(): React.JSX.Element {
             ) : (
               <EmptyState
                 title="Search to begin"
-                description="Bus results will appear here after agents run a route search."
+                description="Bus results appear here after you search a route."
               />
             )}
           </CardContent>
@@ -414,62 +454,142 @@ export function AgentQuickBookingWorkspace(): React.JSX.Element {
         <Card>
           <CardHeader>
             <CardTitle>Create Booking</CardTitle>
-            <CardDescription>Seats and ticketing reuse M6 services.</CardDescription>
+            <CardDescription>The ticket is emailed to the customer you choose.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4">
-            <label className="grid gap-1 text-sm font-medium text-gray-700 dark:text-gray-200">
-              Customer
-              <select
-                className="h-10 rounded-md border border-gray-300 bg-white px-3 text-sm dark:border-gray-700 dark:bg-gray-950"
-                value={customerId}
-                onChange={(event) => setCustomerId(event.target.value)}
-              >
-                {customers.map((customer) => (
-                  <option key={customer.customerId} value={customer.customerId}>
-                    {customer.name} · {customer.phone}
-                  </option>
-                ))}
-              </select>
-            </label>
+            {customers.length ? (
+              <label className="grid gap-1 text-sm font-medium text-gray-700 dark:text-gray-200">
+                Customer
+                <select
+                  className="h-10 rounded-md border border-gray-300 bg-white px-3 text-sm dark:border-gray-700 dark:bg-gray-950"
+                  value={customerId}
+                  onChange={(event) => setCustomerId(event.target.value)}
+                >
+                  {customers.map((customer) => (
+                    <option key={customer.customerId} value={customer.customerId}>
+                      {customer.name} · {customer.phone}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <EmptyState
+                title="Add a customer first"
+                description="Bookings are made for one of your customers."
+                actionLabel="Add customer"
+                onAction={() => {
+                  window.location.href = "/agent/customers";
+                }}
+              />
+            )}
             {layout ? (
-              <div className="grid gap-2">
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-200">Select Seats</p>
-                <div className="grid grid-cols-4 gap-2">
-                  {layout.decks
-                    .flatMap((deck) => deck.seats)
-                    .filter((seat) => seat.status === "AVAILABLE")
-                    .slice(0, 16)
-                    .map((seat) => {
-                      const selected = selectedSeats.includes(seat.seatNumber);
+              <>
+                <PointSelect
+                  label="Boarding point"
+                  points={layout.boardingPoints}
+                  value={boardingPointId}
+                  onChange={setBoardingPointId}
+                />
+                <PointSelect
+                  label="Dropping point"
+                  points={layout.droppingPoints}
+                  value={droppingPointId}
+                  onChange={setDroppingPointId}
+                />
+                <div className="grid gap-2">
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                    Select Seats
+                  </p>
+                  <div className="grid grid-cols-5 gap-2">
+                    {layout.decks
+                      .flatMap((deck) => deck.seats)
+                      .filter((seat) => seat.status === "AVAILABLE" || seat.status === "LADIES")
+                      .map((seat) => {
+                        const selected = selectedSeats.includes(seat.seatNumber);
 
-                      return (
-                        <button
-                          key={seat.seatNumber}
-                          type="button"
-                          aria-pressed={selected}
-                          className={`h-10 rounded-md border text-sm font-semibold ${
-                            selected
-                              ? "border-gold-600 bg-gold-600 text-white"
-                              : "border-gray-300 bg-white text-gray-800 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
-                          }`}
-                          onClick={() =>
-                            setSelectedSeats((current) =>
-                              current.includes(seat.seatNumber)
-                                ? current.filter((item) => item !== seat.seatNumber)
-                                : [...current, seat.seatNumber].slice(0, search.passengerCount),
-                            )
+                        return (
+                          <button
+                            key={seat.seatNumber}
+                            type="button"
+                            aria-pressed={selected}
+                            title={`${seat.seatNumber} · INR ${seat.fare.amount}${seat.genderRestriction === "LADIES" ? " · women only" : ""}`}
+                            className={`h-10 rounded-md border text-sm font-semibold ${
+                              selected
+                                ? "border-gold-600 bg-gold-600 text-white"
+                                : "border-gray-300 bg-white text-gray-800 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+                            }`}
+                            onClick={() => toggleSeat(seat.seatNumber)}
+                          >
+                            {seat.seatNumber}
+                          </button>
+                        );
+                      })}
+                  </div>
+                </div>
+                {selectedSeats.map((seatNumber) => {
+                  const passenger = passengers[seatNumber] ?? emptyPassenger;
+
+                  return (
+                    <fieldset
+                      key={seatNumber}
+                      className="grid gap-2 rounded-md border border-gray-200 p-3 dark:border-gray-800"
+                    >
+                      <legend className="px-1 text-sm font-semibold">Seat {seatNumber}</legend>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Input
+                          aria-label={`Seat ${seatNumber} first name`}
+                          placeholder="First name"
+                          value={passenger.firstName}
+                          onChange={(event) =>
+                            updatePassenger(seatNumber, { firstName: event.target.value })
+                          }
+                        />
+                        <Input
+                          aria-label={`Seat ${seatNumber} last name`}
+                          placeholder="Last name"
+                          value={passenger.lastName}
+                          onChange={(event) =>
+                            updatePassenger(seatNumber, { lastName: event.target.value })
+                          }
+                        />
+                        <Input
+                          aria-label={`Seat ${seatNumber} age`}
+                          placeholder="Age"
+                          type="number"
+                          min={1}
+                          max={110}
+                          value={passenger.age}
+                          onChange={(event) =>
+                            updatePassenger(seatNumber, { age: event.target.value })
+                          }
+                        />
+                        <select
+                          aria-label={`Seat ${seatNumber} gender`}
+                          className="h-10 rounded-md border border-gray-300 bg-white px-3 text-sm dark:border-gray-700 dark:bg-gray-950"
+                          value={passenger.gender}
+                          onChange={(event) =>
+                            updatePassenger(seatNumber, {
+                              gender: event.target.value as QuickPassenger["gender"],
+                            })
                           }
                         >
-                          {seat.seatNumber}
-                        </button>
-                      );
-                    })}
-                </div>
-              </div>
+                          <option value="MALE">Male</option>
+                          <option value="FEMALE">Female</option>
+                          <option value="OTHER">Other</option>
+                        </select>
+                      </div>
+                    </fieldset>
+                  );
+                })}
+              </>
             ) : null}
-            <Button type="button" onClick={() => void createBooking()}>
+            <Button
+              type="button"
+              disabled={submitting || !customers.length}
+              onClick={() => void createBooking()}
+            >
               <Ticket className="h-4 w-4" aria-hidden="true" />
-              Generate & Email Ticket
+              Book & Email Ticket
             </Button>
           </CardContent>
         </Card>
@@ -478,18 +598,67 @@ export function AgentQuickBookingWorkspace(): React.JSX.Element {
   );
 }
 
+function PointSelect({
+  label,
+  onChange,
+  points,
+  value,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  points: SeatLayoutDetails["boardingPoints"];
+  value: string;
+}): React.JSX.Element {
+  return (
+    <label className="grid gap-1 text-sm font-medium text-gray-700 dark:text-gray-200">
+      {label}
+      <select
+        className="h-10 rounded-md border border-gray-300 bg-white px-3 text-sm dark:border-gray-700 dark:bg-gray-950"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        {points.map((point) => (
+          <option key={point.id} value={point.id}>
+            {formatTime(point.time)} · {point.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function formatTime(iso: string): string {
+  const date = new Date(iso);
+
+  return Number.isNaN(date.getTime())
+    ? iso
+    : new Intl.DateTimeFormat("en-IN", {
+        hour: "numeric",
+        minute: "2-digit",
+        timeZone: "Asia/Kolkata",
+      }).format(date);
+}
+
 export function AgentCustomersWorkspace(): React.JSX.Element {
   const customerFilters = useAgentStore((state) => state.customerFilters);
   const setCustomerFilters = useAgentStore((state) => state.setCustomerFilters);
   const addRecentCustomer = useAgentStore((state) => state.addRecentCustomer);
   const [customers, setCustomers] = React.useState<AgentCustomerRecord[]>([]);
   const [status, setStatus] = React.useState<string | null>(null);
-  const [draft, setDraft] = React.useState({
+  const [draft, setDraft] = React.useState<{
+    name: string;
+    email: string;
+    phone: string;
+    notes: string;
+    tags: string;
+    gender: "MALE" | "FEMALE" | "OTHER";
+  }>({
     name: "",
     email: "",
     phone: "",
     notes: "",
-    tags: "VIP",
+    tags: "",
+    gender: "OTHER",
   });
 
   const refresh = React.useCallback(async () => {
@@ -502,19 +671,33 @@ export function AgentCustomersWorkspace(): React.JSX.Element {
   }, [refresh]);
 
   async function addCustomer(): Promise<void> {
-    const customer = await createAgentCustomer({
-      name: draft.name || "New Traveller",
-      email: draft.email || `traveller${Date.now()}@example.com`,
-      phone: draft.phone || "+919900000010",
-      gender: "OTHER",
-      preferredRoutes: ["Bangalore to Hyderabad"],
-      notes: draft.notes,
-      tags: draft.tags.split(",").map((tag) => tag.trim()),
-    });
-    addRecentCustomer(customer);
-    setStatus(`${customer.name} added.`);
-    setDraft({ name: "", email: "", phone: "", notes: "", tags: "VIP" });
-    await refresh();
+    // The ticket is emailed and the operator may call this number, so neither
+    // is ever filled in for the agent.
+    if (!draft.name.trim() || !draft.email.trim() || !draft.phone.trim()) {
+      setStatus("Enter the customer's name, email, and phone.");
+      return;
+    }
+
+    try {
+      const customer = await createAgentCustomer({
+        name: draft.name.trim(),
+        email: draft.email.trim(),
+        phone: draft.phone.trim(),
+        gender: draft.gender,
+        preferredRoutes: [],
+        notes: draft.notes,
+        tags: draft.tags
+          .split(",")
+          .map((tag) => tag.trim())
+          .filter(Boolean),
+      });
+      addRecentCustomer(customer);
+      setStatus(`${customer.name} added.`);
+      setDraft({ name: "", email: "", phone: "", notes: "", tags: "", gender: "OTHER" });
+      await refresh();
+    } catch (caught) {
+      setStatus(caught instanceof Error ? caught.message : "Customer could not be added.");
+    }
   }
 
   const rows = customers.map((customer) => ({
@@ -669,7 +852,6 @@ export function AgentCustomersWorkspace(): React.JSX.Element {
 export function AgentBookingsWorkspace(): React.JSX.Element {
   const bookingFilters = useAgentStore((state) => state.bookingFilters);
   const setBookingFilters = useAgentStore((state) => state.setBookingFilters);
-  const upsertBooking = useBookingStore((state) => state.upsertBooking);
   const [records, setRecords] = React.useState<AgentBookingRecord[]>([]);
   const [status, setStatus] = React.useState<string | null>(null);
 
@@ -683,25 +865,24 @@ export function AgentBookingsWorkspace(): React.JSX.Element {
   }, [refresh]);
 
   async function cancel(record: AgentBookingRecord): Promise<void> {
-    const response = await cancelBooking({
-      bookingId: record.booking.bookingId,
-      reason: "Cancelled from agent portal.",
-    });
-    upsertBooking(response.booking);
-    setStatus(`${record.booking.bookingReference} cancelled.`);
-    await refresh();
-  }
+    if (
+      !window.confirm(
+        `Cancel ${record.booking.bookingReference}? The operator's cancellation charges apply.`,
+      )
+    ) {
+      return;
+    }
 
-  async function reschedule(record: AgentBookingRecord): Promise<void> {
-    const date = new Date();
-    date.setUTCDate(date.getUTCDate() + 14);
-    const response = await rescheduleBooking({
-      bookingId: record.booking.bookingId,
-      newJourneyDate: date.toISOString().slice(0, 10),
-    });
-    upsertBooking(response.booking);
-    setStatus(`${record.booking.bookingReference} rescheduled.`);
-    await refresh();
+    try {
+      await cancelBooking({
+        bookingId: record.booking.bookingId,
+        reason: "Cancelled from agent portal.",
+      });
+      setStatus(`${record.booking.bookingReference}: cancellation sent to the operator.`);
+      await refresh();
+    } catch (caught) {
+      setStatus(caught instanceof Error ? caught.message : "Cancellation failed.");
+    }
   }
 
   const rows = records.map((record) => ({
@@ -721,7 +902,7 @@ export function AgentBookingsWorkspace(): React.JSX.Element {
       <PageHeader
         eyebrow="Agent"
         title="Bookings"
-        description="Search, sort, filter, cancel, reschedule, email, download, and duplicate bookings."
+        description="Search, sort, filter, cancel, email, and download your bookings."
         actionHref="/agent/quick-booking"
         actionLabel="Create Booking"
       />
@@ -759,10 +940,10 @@ export function AgentBookingsWorkspace(): React.JSX.Element {
                 }
               >
                 <option value="">All status</option>
-                <option value="TICKET_GENERATED">Ticket generated</option>
-                <option value="RESCHEDULED">Rescheduled</option>
+                <option value="TICKET_GENERATED">Ticket issued</option>
+                <option value="CANCELLATION_REQUESTED">Cancellation requested</option>
                 <option value="CANCELLED">Cancelled</option>
-                <option value="PENDING_PAYMENT">Pending payment</option>
+                <option value="FAILED">Failed</option>
               </select>
             }
           />
@@ -806,15 +987,6 @@ export function AgentBookingsWorkspace(): React.JSX.Element {
                 >
                   <Mail className="h-4 w-4" aria-hidden="true" />
                   Email
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => void reschedule(record)}
-                >
-                  <RefreshCw className="h-4 w-4" aria-hidden="true" />
-                  Reschedule
                 </Button>
                 <Button
                   type="button"
@@ -984,31 +1156,64 @@ export function AgentNotificationsWorkspace(): React.JSX.Element {
 }
 
 export function AgentProfileWorkspace(): React.JSX.Element {
+  const user = useAuthStore((state) => state.user);
+
   return (
-    <AgentFormShell
-      eyebrow="Agent"
-      title="Profile"
-      description="Update name, phone, email, profile image, and password placeholders."
-      icon={UserRound}
-      fields={["Nisha Rao", "+918045678899", "agent.ops@vriddhinexus.example", "Profile image URL"]}
-    />
+    <div className="grid gap-5">
+      <PageHeader eyebrow="Agent" title="Profile" description="Your travel agent account." />
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <UserRound className="h-4 w-4" aria-hidden="true" />
+            Account
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-2">
+          <ProfileField label="Name" value={user ? `${user.firstName} ${user.lastName}` : ""} />
+          <ProfileField label="Email" value={user?.email ?? ""} />
+          <ProfileField label="Phone" value={user?.phone ?? ""} />
+          <Button asChild variant="outline" className="md:w-fit">
+            <Link href="/profile">Edit profile</Link>
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
 export function AgentSettingsWorkspace(): React.JSX.Element {
+  const [dashboard, setDashboard] = React.useState<AgentDashboardResponse | null>(null);
+
+  React.useEffect(() => {
+    void getAgentDashboard().then(setDashboard);
+  }, []);
+
+  const profile = dashboard?.profile;
+
   return (
-    <AgentFormShell
-      eyebrow="Agent"
-      title="Settings"
-      description="Agency name, address, contact details, business logo, email preferences, and notifications."
-      icon={Settings}
-      fields={[
-        "Vriddhi Nexus Partner Desk",
-        "Koramangala, Bengaluru",
-        "+918045678899",
-        "Business logo URL",
-      ]}
-    />
+    <div className="grid gap-5">
+      <PageHeader
+        eyebrow="Agent"
+        title="Settings"
+        description="Your agency details. Contact the platform admin to change them."
+      />
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="h-4 w-4" aria-hidden="true" />
+            Agency
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-2">
+          <ProfileField label="Agency" value={profile?.agencyName ?? ""} />
+          <ProfileField label="Contact" value={profile?.contactName ?? ""} />
+          <ProfileField label="Address" value={profile?.agencyAddress ?? ""} />
+          <ProfileField label="Phone" value={profile?.phone ?? ""} />
+          <ProfileField label="Status" value={profile?.status.replaceAll("_", " ") ?? ""} />
+          <ProfileField label="Commission" value={profile ? `${profile.commissionRate}%` : ""} />
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
@@ -1018,17 +1223,20 @@ export function AgentHelpWorkspace(): React.JSX.Element {
       <PageHeader
         eyebrow="Agent"
         title="Help"
-        description="Operational help for quick booking, customer lookup, reports, ticket download, and email retry workflows."
+        description="How quick booking, customers, and reports work."
       />
       <section className="grid gap-3 md:grid-cols-2">
         {[
           [
             "Quick Booking",
-            "Search route, select seats, choose customer, generate and email ticket.",
+            "Search a route, pick seats, enter each traveller, and the operator issues the ticket. It is emailed to the customer.",
           ],
-          ["Customer Management", "Use notes and tags to speed repeat bookings."],
-          ["Reports", "Download CSV/PDF exports from report tables."],
-          ["Simulated Mode", "Supplier, payment, ticket, and email flows remain simulated in M7."],
+          ["Customers", "Add the customers you book for. Each agent sees only their own."],
+          ["Reports", "Your bookings by day, week, and month. Export tables as CSV."],
+          [
+            "Real tickets",
+            "Every booking is a real ticket from the bus operator. Cancellation charges follow the operator's policy.",
+          ],
         ].map(([title, body]) => (
           <Card key={title}>
             <CardHeader>
@@ -1045,38 +1253,11 @@ export function AgentHelpWorkspace(): React.JSX.Element {
   );
 }
 
-function AgentFormShell({
-  eyebrow,
-  title,
-  description,
-  icon: Icon,
-  fields,
-}: {
-  eyebrow: string;
-  title: string;
-  description: string;
-  icon: typeof UserRound;
-  fields: string[];
-}): React.JSX.Element {
+function ProfileField({ label, value }: { label: string; value: string }): React.JSX.Element {
   return (
-    <div className="grid gap-5">
-      <PageHeader eyebrow={eyebrow} title={title} description={description} />
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Icon className="h-4 w-4" aria-hidden="true" />
-            {title}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-2">
-          {fields.map((field) => (
-            <Input key={field} aria-label={field} defaultValue={field} />
-          ))}
-          <Button type="button" className="md:w-fit">
-            Save Changes
-          </Button>
-        </CardContent>
-      </Card>
+    <div>
+      <p className="text-xs uppercase tracking-normal text-gray-500 dark:text-gray-400">{label}</p>
+      <p className="mt-1 font-medium text-gray-950 dark:text-gray-50">{value || "—"}</p>
     </div>
   );
 }
@@ -1091,16 +1272,6 @@ function MetricTile({ label, value }: { label: string; value: string }): React.J
     </Card>
   );
 }
-
-const agentTrendData = [
-  { label: "Mon", bookings: 18, revenue: 28800 },
-  { label: "Tue", bookings: 22, revenue: 34100 },
-  { label: "Wed", bookings: 19, revenue: 30400 },
-  { label: "Thu", bookings: 26, revenue: 41900 },
-  { label: "Fri", bookings: 31, revenue: 50600 },
-  { label: "Sat", bookings: 38, revenue: 64200 },
-  { label: "Sun", bookings: 24, revenue: 38900 },
-];
 
 type RouteRow = Record<string, unknown> & {
   id: string;

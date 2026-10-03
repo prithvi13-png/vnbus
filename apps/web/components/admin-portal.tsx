@@ -2,51 +2,36 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useQuery, type UseQueryResult } from "@tanstack/react-query";
+import { Download, Mail, ReceiptText, RefreshCw, Send } from "lucide-react";
+import type {
+  AdminAnalyticsResponse,
+  AdminAuditLogRecord,
+  AdminBookingListResponse,
+  AdminBookingRecord,
+  AdminChartPoint,
+  AdminCouponRecord,
+  AdminDashboardResponse,
+  AdminEmailTemplateRecord,
+  AdminFeatureFlagRecord,
+  AdminMonitoringResponse,
+  AdminNotificationCenterResponse,
+  AdminOfferRecord,
+  AdminPlatformSettingsResponse,
+  AdminQueueStatusRecord,
+  AdminReportType,
+  AdminReportsResponse,
+  AdminSystemHealthRecord,
+  CacheDashboardResponse,
+  CmsPageRecord,
+  IntegrationDashboardResponse,
+  PaymentProviderConfig,
+  QueueDashboardResponse,
+  SchedulerDashboardResponse,
+  SupplierIntegrationConfig,
+} from "@vnbus/types";
 import {
-  Activity,
-  AlertTriangle,
-  Armchair,
-  ClipboardList,
-  CreditCard,
-  Download,
-  Eye,
-  FileBarChart,
-  ListChecks,
-  Mail,
-  Megaphone,
-  Percent,
-  PlugZap,
-  RefreshCw,
-  ReceiptText,
-  ServerCog,
-  Settings,
-  ShieldCheck,
-  SlidersHorizontal,
-  Ticket,
-  UserCog,
-  Users,
-  type LucideIcon,
-} from "lucide-react";
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Legend,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip as RechartsTooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import type { SeatLayoutAdminConfig, UpdateSeatLayoutAdminConfigRequest } from "@vnbus/types";
-import {
-  Badge,
+  AnalyticsChart,
   Button,
   Card,
   CardContent,
@@ -57,39 +42,176 @@ import {
   EmptyState,
   FileUpload,
   Input,
-  Progress,
+  Skeleton,
   StatusChip,
-  Switch,
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
   Textarea,
-  cn,
   type DataTableColumn,
 } from "@vnbus/ui";
 
+import { apiClient } from "../lib/api-client";
+import { useAuthStore } from "../lib/auth-store";
 import {
   downloadBulkBookingTemplate,
   downloadInvoiceDocument,
-  type InvoiceInput,
+  invoiceInputFromBooking,
   type InvoiceRecord,
   useInvoiceStore,
 } from "../lib/invoice-store";
-import { getSeatLayoutAdminConfig, updateSeatLayoutAdminConfig } from "../lib/api-client";
-import { useAuthStore } from "../lib/auth-store";
 import { PageHeader } from "./page-header";
 
-const chartColors = ["#02553E", "#B88327", "#037A58", "#9F6F20", "#dc2626"];
+/*
+ * Every admin view reads the API. Nothing here is sample data: an empty table
+ * means the platform has no such records yet.
+ */
 
-type AdminRow = Record<string, unknown> & {
+type Tone = "success" | "warning" | "danger" | "info" | "neutral";
+
+interface UserRecord {
   id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  role: string;
   status: string;
-  metric: string;
-  owner: string;
-  context: string;
-};
+  emailVerified: boolean;
+  lastLoginAt: string | null;
+  createdAt: string;
+}
+
+interface RoleRecord {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  isSystem: boolean;
+  permissions: string[];
+}
+
+interface ActivityRecord {
+  id: string;
+  actorType: string;
+  action: string;
+  message: string;
+  entityType: string | null;
+  entityId: string | null;
+  ipAddress: string | null;
+  browser: string | null;
+  createdAt: string;
+}
+
+interface IntegrationConfigurationResponse {
+  suppliers: SupplierIntegrationConfig[];
+  paymentProviders: PaymentProviderConfig[];
+}
+
+function useAdminQuery<T>(key: string, path: string): UseQueryResult<T> {
+  return useQuery({ queryKey: ["admin", key], queryFn: () => apiClient<T>(path) });
+}
+
+export function AdminDashboardWorkspace(): React.JSX.Element {
+  const query = useAdminQuery<AdminDashboardResponse>("dashboard", "/admin/dashboard");
+
+  return (
+    <div className="grid gap-5">
+      <PageHeader
+        eyebrow="Admin"
+        title="Admin Dashboard"
+        description="Bookings, revenue, accounts, and platform health, counted from live records."
+      />
+      <QueryState query={query}>
+        {(dashboard) => (
+          <>
+            <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              {dashboard.cards.map((card) => (
+                <MetricCard
+                  key={card.label}
+                  label={card.label}
+                  value={card.value}
+                  helper={card.change}
+                />
+              ))}
+            </section>
+            <section className="grid gap-5 xl:grid-cols-[1.35fr_0.65fr]">
+              <ChartCard title="Bookings, last 7 days" points={dashboard.bookingTrends} />
+              <HealthCard components={dashboard.systemHealth} />
+            </section>
+            <section className="grid gap-5 xl:grid-cols-2">
+              <QueueCard queue={dashboard.emailQueueStatus} />
+              <QueueCard queue={dashboard.notificationQueueStatus} />
+            </section>
+            <section className="grid gap-5 xl:grid-cols-2">
+              <SimpleTable
+                title="Most Popular Routes"
+                rows={dashboard.popularRoutes.map((route) => ({
+                  id: route.route,
+                  route: route.route,
+                  bookings: route.bookings,
+                  revenue: formatInr(route.revenue.amount),
+                  cancellations: `${route.cancellationRate}%`,
+                }))}
+                columns={[
+                  { id: "route", header: "Route" },
+                  { id: "bookings", header: "Bookings", align: "right" },
+                  { id: "revenue", header: "Revenue", align: "right" },
+                  { id: "cancellations", header: "Cancelled", align: "right" },
+                ]}
+                emptyDescription="Routes appear once bookings are made."
+              />
+              <SimpleTable
+                title="Most Active Customers"
+                rows={dashboard.mostActiveCustomers.map((customer) => ({
+                  id: customer.customerId,
+                  name: customer.name,
+                  bookings: customer.bookings,
+                  revenue: formatInr(customer.revenue.amount),
+                  last: formatDateTime(customer.lastBookedAt),
+                }))}
+                columns={[
+                  { id: "name", header: "Customer" },
+                  { id: "bookings", header: "Bookings", align: "right" },
+                  { id: "revenue", header: "Spend", align: "right" },
+                  { id: "last", header: "Last booked", hideOnMobile: true },
+                ]}
+                emptyDescription="Customers appear once bookings are made."
+              />
+            </section>
+            <SimpleTable
+              title="Top Operators"
+              rows={dashboard.topOperators.map((operator) => ({
+                id: operator.operatorId,
+                operator: operator.operatorName,
+                bookings: operator.bookings,
+                revenue: formatInr(operator.revenue.amount),
+              }))}
+              columns={[
+                { id: "operator", header: "Operator" },
+                { id: "bookings", header: "Bookings", align: "right" },
+                { id: "revenue", header: "Revenue", align: "right" },
+              ]}
+              emptyDescription="Operators appear once their tickets are sold."
+            />
+            <ActivityTable
+              title="Recent Activities"
+              rows={dashboard.recentActivities.map((activity) => ({
+                id: activity.activityId,
+                actor: activity.actor,
+                action: activity.action,
+                entity: [activity.entityType, activity.entityId].filter(Boolean).join(" "),
+                ip: activity.ipAddress,
+                when: formatDateTime(activity.occurredAt),
+              }))}
+            />
+          </>
+        )}
+      </QueryState>
+    </div>
+  );
+}
 
 type BookingRow = Record<string, unknown> & {
   id: string;
@@ -104,199 +226,58 @@ type BookingRow = Record<string, unknown> & {
   amount: string;
 };
 
-type InvoiceAdminRow = Record<string, unknown> & {
-  id: string;
-  invoiceId: string;
-  invoiceNumber: string;
-  bookingReference: string;
-  customer: string;
-  route: string;
-  amount: string;
-  status: string;
-  source: string;
-  generatedAt: string;
-  action: string;
-};
-
-type RoleRow = Record<string, unknown> & {
-  id: string;
-  code: string;
-  name: string;
-  permissions: string;
-  users: number;
-  system: string;
-};
-
-type LogRow = Record<string, unknown> & {
-  id: string;
-  actor: string;
-  action: string;
-  entity: string;
-  ip: string;
-  device: string;
-  browser: string;
-  when: string;
-};
-
-export function AdminDashboardWorkspace(): React.JSX.Element {
-  return (
-    <div className="grid gap-5">
-      <PageHeader
-        eyebrow="Admin"
-        title="Admin Dashboard"
-        description="Operational control center for bookings, users, agents, revenue, queues, health, and governance."
-      />
-      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {dashboardMetrics.map((metric) => (
-          <MetricTile key={metric.label} {...metric} />
-        ))}
-      </section>
-      <section className="grid gap-5 xl:grid-cols-[1.35fr_0.65fr]">
-        <ChartCard title="Booking Trends" description="Weekly bookings and revenue">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={trendData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="label" />
-              <YAxis />
-              <RechartsTooltip />
-              <Area dataKey="bookings" stroke="#B88327" fill="#FFF8EA" strokeWidth={2} />
-              <Area dataKey="revenue" stroke="#02553E" fill="#DCEDE5" strokeWidth={2} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </ChartCard>
-        <Card>
-          <CardHeader>
-            <CardTitle>System Health</CardTitle>
-            <CardDescription>Mock service checks.</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-3">
-            {systemHealth.map((item) => (
-              <HealthLine key={item.component} {...item} />
-            ))}
-          </CardContent>
-        </Card>
-      </section>
-      <section className="grid gap-5 xl:grid-cols-3">
-        <QueueCard title="Email Queue Status" queued={28} sent={1240} failed={3} retry={7} />
-        <QueueCard title="Notification Queue" queued={41} sent={3920} failed={4} retry={9} />
-        <Card>
-          <CardHeader>
-            <CardTitle>Top Operators</CardTitle>
-            <CardDescription>Mock supplier quality view.</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-3">
-            {operatorRows.slice(0, 3).map((operator) => (
-              <div
-                key={operator.id}
-                className="flex items-center justify-between gap-3 rounded-md border border-gray-200 p-3 dark:border-gray-800"
-              >
-                <div>
-                  <p className="font-semibold text-gray-950 dark:text-gray-50">{operator.name}</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{operator.context}</p>
-                </div>
-                <StatusChip tone={operator.status === "Healthy" ? "success" : "warning"}>
-                  {operator.status}
-                </StatusChip>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </section>
-      <section className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
-        <AdminTable
-          title="Most Popular Routes"
-          description="Routes ranked by volume and cancellation rate."
-          rows={routeRows}
-          exportFileName="admin-popular-routes"
-        />
-        <AdminTable
-          title="Most Active Customers"
-          description="Customers ranked by recent bookings and lifetime value."
-          rows={customerRows}
-          exportFileName="admin-active-customers"
-        />
-      </section>
-      <ActivityFeed title="Recent Activities" rows={activityRows.slice(0, 5)} />
-    </div>
-  );
-}
-
 export function AdminBookingsWorkspace(): React.JSX.Element {
+  const query = useAdminQuery<AdminBookingListResponse>(
+    "bookings",
+    "/admin/bookings?page=1&pageSize=500",
+  );
   const invoices = useInvoiceStore((state) => state.invoices);
   const bulkBookings = useInvoiceStore((state) => state.bulkBookings);
   const uploadBatches = useInvoiceStore((state) => state.uploadBatches);
   const generateInvoiceFromInput = useInvoiceStore((state) => state.generateInvoiceFromInput);
   const uploadBulkBookingFile = useInvoiceStore((state) => state.uploadBulkBookingFile);
   const markInvoiceDownloaded = useInvoiceStore((state) => state.markInvoiceDownloaded);
-  const [invoiceStatus, setInvoiceStatus] = React.useState<string | null>(null);
+  const [status, setStatus] = React.useState<string | null>(null);
   const [uploadStatus, setUploadStatus] = React.useState<string | null>(null);
-  const invoiceRows = React.useMemo<InvoiceAdminRow[]>(
-    () => invoices.map(invoiceToAdminRow),
-    [invoices],
-  );
-  const invoiceColumns: DataTableColumn<InvoiceAdminRow>[] = [
-    { id: "invoiceNumber", header: "Invoice", sortable: true },
-    { id: "bookingReference", header: "Booking", sortable: true },
-    { id: "customer", header: "Customer", sortable: true },
-    { id: "route", header: "Route", sortable: true, hideOnMobile: true },
-    { id: "amount", header: "Amount", sortable: true, align: "right" },
-    {
-      id: "status",
-      header: "Status",
-      sortable: true,
-      cell: (row) => <StatusChip tone={statusTone(row.status)}>{row.status}</StatusChip>,
-    },
-    { id: "source", header: "Source", sortable: true, hideOnMobile: true },
-    { id: "generatedAt", header: "Generated", sortable: true, hideOnMobile: true },
-    {
-      id: "action",
-      header: "Action",
-      align: "right",
-      cell: (row) => (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => downloadInvoice(row.invoiceId)}
-        >
-          <Download className="h-4 w-4" aria-hidden="true" />
-          Download
-        </Button>
-      ),
-    },
-  ];
-  const invoiceCount = invoices.length;
+  const records = React.useMemo(() => query.data?.bookings ?? [], [query.data]);
+  const rows = React.useMemo(() => records.map(toBookingRow), [records]);
   const invoiceTotal = invoices.reduce((sum, invoice) => sum + invoice.total.amount, 0);
-  const latestBatch = uploadBatches[0];
 
-  function generateInvoice(row: BookingRow): void {
-    const invoice = generateInvoiceFromInput(
-      invoiceInputFromBookingRow(row),
-      "ADMIN_MANUAL",
-      "Admin",
+  function findRecord(bookingId: string): AdminBookingRecord | undefined {
+    return records.find((record) => record.booking.bookingId === bookingId);
+  }
+
+  function generateInvoices(selected: BookingRow[]): void {
+    const generated = selected
+      .map((row) => findRecord(row.id))
+      .filter((record): record is AdminBookingRecord => Boolean(record))
+      .map((record) =>
+        generateInvoiceFromInput(invoiceInputFromBooking(record.booking), "ADMIN_MANUAL", "Admin"),
+      );
+
+    setStatus(
+      generated.length === 1
+        ? `${generated[0]?.invoiceNumber} generated and uploaded.`
+        : `${generated.length} invoices generated.`,
     );
-    setInvoiceStatus(`${invoice.invoiceNumber} generated and uploaded.`);
   }
 
-  function generateInvoices(rows: BookingRow[]): void {
-    rows.forEach((row) => {
-      generateInvoiceFromInput(invoiceInputFromBookingRow(row), "ADMIN_MANUAL", "Admin");
-    });
-    setInvoiceStatus(`${rows.length} invoice${rows.length === 1 ? "" : "s"} generated.`);
-  }
-
-  function downloadInvoice(invoiceId: string): void {
-    const invoice = invoices.find((item) => item.invoiceId === invoiceId);
-
-    if (!invoice) {
-      setInvoiceStatus("Invoice is not available.");
-
-      return;
+  async function resendEmail(bookingId: string): Promise<void> {
+    try {
+      const response = await apiClient<{ status: string }>(
+        `/admin/bookings/${encodeURIComponent(bookingId)}/resend-email`,
+        { method: "POST" },
+      );
+      setStatus(`Ticket email ${response.status.toLowerCase()}.`);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Email failed.");
     }
+  }
 
+  function downloadInvoice(invoice: InvoiceRecord): void {
     downloadInvoiceDocument(invoice);
     markInvoiceDownloaded(invoice.invoiceId);
-    setInvoiceStatus(`${invoice.invoiceNumber} downloaded.`);
+    setStatus(`${invoice.invoiceNumber} downloaded.`);
   }
 
   async function handleBulkUpload(event: React.ChangeEvent<HTMLInputElement>): Promise<void> {
@@ -320,48 +301,121 @@ export function AdminBookingsWorkspace(): React.JSX.Element {
     }
   }
 
+  const bookingColumns: DataTableColumn<BookingRow>[] = [
+    {
+      id: "reference",
+      header: "Reference",
+      sortable: true,
+      cell: (row) => (
+        <Link
+          className="font-medium text-gold-700 dark:text-gold-200"
+          href={`/ticket?bookingId=${row.id}`}
+        >
+          {row.reference}
+        </Link>
+      ),
+    },
+    { id: "pnr", header: "PNR", sortable: true },
+    { id: "customer", header: "Customer", sortable: true },
+    { id: "agent", header: "Agent", sortable: true, hideOnMobile: true },
+    { id: "route", header: "Route", sortable: true, hideOnMobile: true },
+    { id: "operator", header: "Operator", sortable: true, hideOnMobile: true },
+    { id: "journeyDate", header: "Journey", sortable: true },
+    {
+      id: "status",
+      header: "Status",
+      sortable: true,
+      cell: (row) => (
+        <StatusChip tone={statusTone(row.status)}>{row.status.replaceAll("_", " ")}</StatusChip>
+      ),
+    },
+    { id: "amount", header: "Amount", sortable: true, align: "right" },
+    {
+      id: "actions",
+      header: "Actions",
+      align: "right",
+      cell: (row) => (
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={() => generateInvoices([row])}>
+            <ReceiptText className="h-4 w-4" aria-hidden="true" />
+            Generate Invoice
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void resendEmail(row.id)}
+          >
+            <Mail className="h-4 w-4" aria-hidden="true" />
+            Resend
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="grid gap-5">
       <PageHeader
         eyebrow="Admin"
         title="Bookings"
-        description="Search, filter, inspect ticket state, generate invoices, upload bulk bookings, and view timeline."
+        description="Every booking on the platform, with tickets, invoices, and offline booking upload."
       />
       <section className="grid gap-3 md:grid-cols-3">
-        <MetricCard label="Uploaded Invoices" value={invoiceCount} helper="Invoice repository" />
+        <MetricCard label="Bookings" value={String(query.data?.total ?? 0)} helper="All channels" />
         <MetricCard
-          label="Invoice Value"
-          value={`INR ${invoiceTotal.toLocaleString("en-IN")}`}
-          helper="INR generated from bookings"
+          label="Invoices"
+          value={String(invoices.length)}
+          helper={formatInr(invoiceTotal)}
         />
         <MetricCard
           label="Bulk Uploads"
-          value={uploadBatches.length}
-          helper={latestBatch ? latestBatch.fileName : "No sheet uploaded"}
+          value={String(uploadBatches.length)}
+          helper={uploadBatches[0]?.fileName ?? "No sheet uploaded"}
         />
       </section>
       <Card>
         <CardHeader>
-          <CardTitle>Advanced Search</CardTitle>
+          <CardTitle>Bookings List</CardTitle>
+          <CardDescription>Search, export, resend tickets, and generate invoices.</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-3 xl:grid-cols-5">
-          {["Booking ID", "PNR", "Customer", "Agent", "Journey Date"].map((label) => (
-            <Input key={label} aria-label={label} placeholder={label} />
-          ))}
-          {["Operator", "Source", "Destination", "Status"].map((label) => (
-            <Input key={label} aria-label={label} placeholder={label} />
-          ))}
-          <Button type="button">
-            <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
-            Apply Filters
-          </Button>
+        <CardContent>
+          {query.isLoading ? (
+            <Skeleton className="h-64 w-full" />
+          ) : query.isError ? (
+            <ErrorNotice error={query.error} onRetry={() => void query.refetch()} />
+          ) : (
+            <DataTable
+              columns={bookingColumns}
+              data={rows}
+              rowId={(row) => row.id}
+              pageSize={10}
+              searchable
+              exportable
+              exportFileName="admin-bookings"
+              bulkActions={(selected) => (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => generateInvoices(selected)}
+                >
+                  <ReceiptText className="h-4 w-4" aria-hidden="true" />
+                  Generate Invoices
+                </Button>
+              )}
+              emptyTitle="No bookings yet"
+              emptyDescription="Bookings appear here as travellers and agents book."
+            />
+          )}
         </CardContent>
       </Card>
+      {status ? <StatusNote>{status}</StatusNote> : null}
       <Card>
         <CardHeader>
           <CardTitle>Bulk Booking Upload</CardTitle>
           <CardDescription>
-            Upload XLSX or CSV booking rows to create invoices in one batch.
+            Upload XLSX or CSV rows for bookings made offline to create their invoices in one batch.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 lg:grid-cols-[1fr_240px]">
@@ -376,1139 +430,736 @@ export function AdminBookingsWorkspace(): React.JSX.Element {
               <Download className="h-4 w-4" aria-hidden="true" />
               Template CSV
             </Button>
-            <Button type="button" variant="outline" onClick={() => generateInvoices(bookingRows)}>
-              <ReceiptText className="h-4 w-4" aria-hidden="true" />
-              Generate All Invoices
-            </Button>
-            {uploadStatus ? (
-              <p className="rounded-md border border-gold-100 bg-gold-50 px-3 py-2 text-sm text-brand-900 dark:border-brand-900 dark:bg-gold-500/10 dark:text-gold-100">
-                {uploadStatus}
-              </p>
-            ) : null}
+            {uploadStatus ? <StatusNote>{uploadStatus}</StatusNote> : null}
           </div>
         </CardContent>
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle>Bookings List</CardTitle>
-          <CardDescription>
-            Enterprise table with bulk actions, export, ticket controls, and invoice generation.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <DataTable
-            columns={bookingColumns}
-            data={bookingRows}
-            pageSize={8}
-            exportable
-            exportFileName="admin-bookings"
-            bulkActions={(selected) => (
-              <>
-                <BulkActions count={selected.length} actions={["Cancel", "Resend Email"]} />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => generateInvoices(selected)}
-                >
-                  <ReceiptText className="h-4 w-4" aria-hidden="true" />
-                  Generate Invoices
-                </Button>
-              </>
-            )}
-          />
-        </CardContent>
-      </Card>
-      {invoiceStatus ? (
-        <p className="rounded-md border border-gold-100 bg-gold-50 px-3 py-2 text-sm text-brand-900 dark:border-brand-900 dark:bg-gold-500/10 dark:text-gold-100">
-          {invoiceStatus}
-        </p>
-      ) : null}
-      <Card>
-        <CardHeader>
           <CardTitle>Invoice Repository</CardTitle>
           <CardDescription>
-            Uploaded invoices from customer bookings, admin generation, and bulk sheets.
+            Invoices generated in this browser from bookings and bulk sheets.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {invoiceRows.length ? (
-            <DataTable
-              columns={invoiceColumns}
-              data={invoiceRows}
-              pageSize={6}
-              exportable
-              exportFileName="admin-invoices"
-              selectable={false}
-            />
-          ) : (
-            <EmptyState
-              title="No invoices generated"
-              description="Generate invoices from bookings or upload a bulk booking sheet."
-            />
-          )}
+          <SimpleTable
+            bare
+            rows={invoices.map((invoice) => ({
+              id: invoice.invoiceId,
+              invoiceNumber: invoice.invoiceNumber,
+              bookingReference: invoice.bookingReference,
+              customer: invoice.customerName,
+              amount: formatInr(invoice.total.amount),
+              status: invoice.status,
+              generatedAt: formatDateTime(invoice.uploadedAt),
+              invoice,
+            }))}
+            columns={[
+              { id: "invoiceNumber", header: "Invoice" },
+              { id: "bookingReference", header: "Booking" },
+              { id: "customer", header: "Customer" },
+              { id: "amount", header: "Amount", align: "right" },
+              { id: "status", header: "Status" },
+              { id: "generatedAt", header: "Generated", hideOnMobile: true },
+              {
+                id: "invoice",
+                header: "Action",
+                align: "right",
+                cell: (row) => (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => downloadInvoice(row.invoice)}
+                  >
+                    <Download className="h-4 w-4" aria-hidden="true" />
+                    Download
+                  </Button>
+                ),
+              },
+            ]}
+            emptyDescription="Generate invoices from bookings or upload a bulk booking sheet."
+          />
+          {bulkBookings.length ? (
+            <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">
+              {bulkBookings.length} uploaded booking{bulkBookings.length === 1 ? "" : "s"} on
+              record.
+            </p>
+          ) : null}
         </CardContent>
       </Card>
-      {bulkBookings.length ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Latest Bulk Bookings</CardTitle>
-            <CardDescription>Uploaded booking rows with linked invoice records.</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {bulkBookings.slice(0, 6).map((booking) => {
-              const invoice = invoices.find((item) => item.invoiceId === booking.invoiceId);
-
-              return (
-                <div
-                  key={booking.bookingId}
-                  className="rounded-md border border-gray-200 p-3 dark:border-gray-800"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-sm font-semibold text-gray-950 dark:text-gray-50">
-                      {booking.bookingReference}
-                    </p>
-                    <StatusChip tone="success">{booking.status}</StatusChip>
-                  </div>
-                  <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                    {booking.customerName} · {booking.route}
-                  </p>
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    Invoice {invoice?.invoiceNumber ?? "pending"}
-                  </p>
-                </div>
-              );
-            })}
-          </CardContent>
-        </Card>
-      ) : null}
-      <section className="grid gap-3 md:grid-cols-3">
-        {bookingRows.slice(0, 3).map((booking) => (
-          <Card key={booking.id}>
-            <CardHeader>
-              <CardTitle>{booking.reference}</CardTitle>
-              <CardDescription>{booking.route}</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-wrap gap-2">
-              <Button asChild variant="outline" size="sm">
-                <Link href={`/ticket?bookingId=${booking.id}`}>
-                  <Ticket className="h-4 w-4" aria-hidden="true" />
-                  View Ticket
-                </Link>
-              </Button>
-              <Button asChild variant="outline" size="sm">
-                <Link href={`/download-ticket?bookingId=${booking.id}`}>
-                  <Download className="h-4 w-4" aria-hidden="true" />
-                  Download
-                </Link>
-              </Button>
-              <Button type="button" variant="outline" size="sm">
-                <Mail className="h-4 w-4" aria-hidden="true" />
-                Resend
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => generateInvoice(booking)}
-              >
-                <ReceiptText className="h-4 w-4" aria-hidden="true" />
-                Generate Invoice
-              </Button>
-              <Button type="button" variant="outline" size="sm">
-                <RefreshCw className="h-4 w-4" aria-hidden="true" />
-                Reschedule
-              </Button>
-              <Button type="button" variant="outline" size="sm">
-                <Eye className="h-4 w-4" aria-hidden="true" />
-                Timeline
-              </Button>
-            </CardContent>
-          </Card>
-        ))}
-      </section>
     </div>
   );
 }
 
 export function AdminUsersWorkspace(): React.JSX.Element {
-  return (
-    <UserWorkspace
-      title="Users"
-      description="Customers, travel agents, and admins with create, edit, activation, reset password, force logout, activity, and booking actions."
-    />
-  );
+  return <UsersWorkspace title="Users" description="Every account on the platform." />;
 }
 
 export function AdminAgentsWorkspace(): React.JSX.Element {
   return (
-    <AdminTable
+    <UsersWorkspace
       title="Travel Agents"
-      description="Agency onboarding, verification, commission, activation, and booking ownership."
-      rows={agentRows}
-      exportFileName="admin-travel-agents"
-      actionLabel="Create Agent"
+      description="Accounts with the travel agent role."
+      roleCode="TRAVEL_AGENT"
     />
   );
 }
 
 export function AdminCustomersWorkspace(): React.JSX.Element {
   return (
-    <AdminTable
+    <UsersWorkspace
       title="Customers"
-      description="Customer accounts, bookings, retention, support state, and activity."
-      rows={customerRows}
-      exportFileName="admin-customers"
-      actionLabel="Create Customer"
+      description="Accounts with the customer role."
+      roleCode="CUSTOMER"
     />
   );
 }
 
 export function AdminRolesWorkspace(): React.JSX.Element {
+  const query = useAdminQuery<RoleRecord[]>("roles", "/roles");
+
   return (
     <div className="grid gap-5">
       <PageHeader
         eyebrow="Admin"
-        title="Role Management"
-        description="Dynamic RBAC roles, permissions, assignment, and removal without future code changes."
+        title="Roles & Permissions"
+        description="Roles and the permissions each grants."
       />
-      <section className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
-        <Card>
-          <CardHeader>
-            <CardTitle>Roles</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <DataTable
-              columns={roleColumns}
-              data={roleRows}
-              pageSize={6}
-              exportable
-              exportFileName="admin-roles"
-              bulkActions={(selected) => (
-                <BulkActions count={selected.length} actions={["Assign", "Remove"]} />
-              )}
-            />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Permissions</CardTitle>
-            <CardDescription>Grouped permission catalog.</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-3">
-            {permissionGroups.map((group) => (
-              <div
-                key={group.group}
-                className="rounded-md border border-gray-200 p-3 dark:border-gray-800"
-              >
-                <p className="font-semibold text-gray-950 dark:text-gray-50">{group.group}</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {group.permissions.join(", ")}
-                </p>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </section>
+      <QueryState query={query}>
+        {(roles) => (
+          <SimpleTable
+            title="Roles"
+            rows={roles.map((role) => ({
+              id: role.id,
+              code: role.code,
+              name: role.name,
+              system: role.isSystem ? "System" : "Custom",
+              permissions: role.permissions.length,
+            }))}
+            columns={[
+              { id: "code", header: "Code" },
+              { id: "name", header: "Name" },
+              { id: "system", header: "Type" },
+              { id: "permissions", header: "Permissions", align: "right" },
+            ]}
+            emptyDescription="No roles are defined."
+          />
+        )}
+      </QueryState>
     </div>
   );
 }
 
 export function AdminCouponsWorkspace(): React.JSX.Element {
+  const query = useAdminQuery<AdminCouponRecord[]>("coupons", "/coupons");
+
   return (
-    <AdminTable
+    <ListWorkspace
       title="Coupons"
-      description="Percentage and flat coupons with limits, expiry, minimum amount, max discount, and status."
-      rows={couponRows}
-      exportFileName="admin-coupons"
-      actionLabel="Create Coupon"
+      description="Discount codes. None is applied at checkout yet."
+      query={query}
+      columns={[
+        { id: "code", header: "Code" },
+        { id: "discount", header: "Discount" },
+        { id: "usage", header: "Used", align: "right" },
+        { id: "expires", header: "Expires", hideOnMobile: true },
+        { id: "status", header: "Status" },
+      ]}
+      toRows={(coupons) =>
+        coupons.map((coupon) => ({
+          id: coupon.couponId,
+          code: coupon.code,
+          discount:
+            coupon.type === "PERCENTAGE"
+              ? `${coupon.discountValue}%`
+              : formatInr(coupon.discountValue),
+          usage: `${coupon.usedCount} / ${coupon.usageLimit}`,
+          expires: formatDateTime(coupon.expiresAt),
+          status: coupon.status,
+        }))
+      }
+      emptyDescription="No coupons have been created."
     />
   );
 }
 
 export function AdminOffersWorkspace(): React.JSX.Element {
+  const query = useAdminQuery<AdminOfferRecord[]>("offers", "/offers");
+
   return (
-    <AdminTable
+    <ListWorkspace
       title="Offers"
-      description="Offer banners, featured routes, seasonal campaigns, home promotions, and popup offers."
-      rows={offerRows}
-      exportFileName="admin-offers"
-      actionLabel="Create Offer"
+      description="Promotional placements."
+      query={query}
+      columns={[
+        { id: "title", header: "Title" },
+        { id: "placement", header: "Placement" },
+        { id: "route", header: "Route", hideOnMobile: true },
+        { id: "window", header: "Runs", hideOnMobile: true },
+        { id: "status", header: "Status" },
+      ]}
+      toRows={(offers) =>
+        offers.map((offer) => ({
+          id: offer.offerId,
+          title: offer.title,
+          placement: offer.placement.replaceAll("_", " "),
+          route: offer.route ?? "All routes",
+          window: `${formatDateTime(offer.startsAt)} – ${formatDateTime(offer.endsAt)}`,
+          status: offer.status,
+        }))
+      }
+      emptyDescription="No offers have been created."
     />
   );
 }
 
 export function AdminCmsWorkspace(): React.JSX.Element {
+  const query = useAdminQuery<CmsPageRecord[]>("cms", "/cms/pages");
+
   return (
-    <AdminTable
-      title="CMS"
-      description="Home banner, About, Privacy, Terms, Refund Policy, FAQ, Contact, blog placeholder, and SEO pages."
-      rows={cmsRows}
-      exportFileName="admin-cms-pages"
-      actionLabel="Create Page"
+    <ListWorkspace
+      title="Content"
+      description="Pages managed through the CMS."
+      query={query}
+      columns={[
+        { id: "title", header: "Title" },
+        { id: "section", header: "Section" },
+        { id: "status", header: "Status" },
+        { id: "updated", header: "Updated", hideOnMobile: true },
+      ]}
+      toRows={(pages) =>
+        pages.map((page) => ({
+          id: page.pageId,
+          title: page.title,
+          section: page.section.replaceAll("_", " "),
+          status: page.status,
+          updated: formatDateTime(page.updatedAt),
+        }))
+      }
+      emptyDescription="No CMS pages have been created."
     />
   );
 }
 
 export function AdminNotificationsWorkspace(): React.JSX.Element {
+  const query = useAdminQuery<AdminNotificationCenterResponse>(
+    "notifications",
+    "/admin/notifications",
+  );
+  const [title, setTitle] = React.useState("");
+  const [body, setBody] = React.useState("");
+  const [status, setStatus] = React.useState<string | null>(null);
+
+  async function send(): Promise<void> {
+    try {
+      await apiClient("/admin/notifications/send", {
+        method: "POST",
+        body: JSON.stringify({ audience: "BROADCAST", title, body }),
+      });
+      setTitle("");
+      setBody("");
+      setStatus("Broadcast sent to every signed-in user.");
+      void query.refetch();
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Sending failed.");
+    }
+  }
+
   return (
     <div className="grid gap-5">
       <PageHeader
         eyebrow="Admin"
         title="Notifications"
-        description="Send customer, agent, and broadcast notifications with template history."
+        description="In-app notifications sent on the platform."
       />
       <Card>
         <CardHeader>
-          <CardTitle>Send Notification</CardTitle>
+          <CardTitle>Send a broadcast</CardTitle>
+          <CardDescription>Shown in every user&apos;s notification center.</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-3">
-          <Input aria-label="Audience" defaultValue="Broadcast" />
-          <Input aria-label="Title" defaultValue="Scheduled maintenance" />
-          <Textarea
-            className="md:col-span-3"
-            aria-label="Body"
-            defaultValue="Service window is scheduled in simulated mode."
+        <CardContent className="grid gap-3">
+          <Input
+            aria-label="Title"
+            placeholder="Title"
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
           />
-          <Button type="button" className="md:w-fit">
-            <Megaphone className="h-4 w-4" aria-hidden="true" />
+          <Textarea
+            aria-label="Message"
+            placeholder="Message"
+            value={body}
+            onChange={(event) => setBody(event.target.value)}
+          />
+          <Button
+            type="button"
+            className="w-fit"
+            disabled={!title.trim() || !body.trim()}
+            onClick={() => void send()}
+          >
+            <Send className="h-4 w-4" aria-hidden="true" />
             Send
           </Button>
+          {status ? <StatusNote>{status}</StatusNote> : null}
         </CardContent>
       </Card>
-      <AdminTable
-        title="History & Templates"
-        description="Notification history and reusable customer, agent, broadcast templates."
-        rows={notificationRows}
-        exportFileName="admin-notifications"
-      />
+      <QueryState query={query}>
+        {(center) => (
+          <>
+            <QueueCard queue={center.queue} />
+            <SimpleTable
+              title="History"
+              rows={center.history.map((notification) => ({
+                id: notification.id,
+                title: notification.title,
+                type: notification.type.replaceAll("_", " "),
+                audience: notification.userId ? "One user" : "Everyone",
+                when: formatDateTime(notification.createdAt),
+              }))}
+              columns={[
+                { id: "title", header: "Title" },
+                { id: "type", header: "Type", hideOnMobile: true },
+                { id: "audience", header: "Audience" },
+                { id: "when", header: "Sent" },
+              ]}
+              emptyDescription="No notifications have been sent since the API started."
+            />
+          </>
+        )}
+      </QueryState>
     </div>
   );
 }
 
 export function AdminEmailTemplatesWorkspace(): React.JSX.Element {
+  const query = useAdminQuery<AdminEmailTemplateRecord[]>(
+    "email-templates",
+    "/admin/email-templates",
+  );
+
   return (
-    <div className="grid gap-5">
-      <PageHeader
-        eyebrow="Admin"
-        title="Email Templates"
-        description="Visual template records, variables, previews, and version history."
-      />
-      <section className="grid gap-5 xl:grid-cols-[1fr_420px]">
-        <AdminTable
-          title="Templates"
-          description="Booking confirmation, cancellation, reschedule, password reset, welcome, and verify email."
-          rows={emailTemplateRows}
-          exportFileName="admin-email-templates"
-        />
-        <Card>
-          <CardHeader>
-            <CardTitle>Preview</CardTitle>
-            <CardDescription>Variable-bound mock rendering.</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-3">
-            <Input aria-label="Subject" defaultValue="Booking confirmed: VNB-ADM-001" />
-            <Textarea
-              aria-label="Email preview"
-              defaultValue="<p>Your ticket is ready for Bangalore to Hyderabad.</p>"
-            />
-            <Button type="button">
-              <Eye className="h-4 w-4" aria-hidden="true" />
-              Preview
-            </Button>
-          </CardContent>
-        </Card>
-      </section>
-    </div>
+    <ListWorkspace
+      title="Email Templates"
+      description="The templates outgoing email is rendered from."
+      query={query}
+      columns={[
+        { id: "key", header: "Template" },
+        { id: "subject", header: "Subject" },
+        { id: "variables", header: "Variables", hideOnMobile: true },
+        { id: "version", header: "Version", align: "right" },
+      ]}
+      toRows={(templates) =>
+        templates.map((template) => ({
+          id: template.templateId,
+          key: template.key,
+          subject: template.subject,
+          variables: template.variables.join(", "),
+          version: template.version,
+        }))
+      }
+      emptyDescription="No email templates are defined."
+    />
   );
 }
 
+const REPORT_TYPES: AdminReportType[] = ["BOOKINGS", "REVENUE", "CANCELLATION_RATE"];
+
 export function AdminReportsWorkspace(): React.JSX.Element {
+  const query = useAdminQuery<AdminReportsResponse>("reports", "/reports/admin");
+  const [status, setStatus] = React.useState<string | null>(null);
+
+  async function generate(type: AdminReportType): Promise<void> {
+    try {
+      await apiClient("/reports/admin", {
+        method: "POST",
+        body: JSON.stringify({ type, period: "DAILY" }),
+      });
+      setStatus(`${type.replaceAll("_", " ").toLowerCase()} report generated.`);
+      void query.refetch();
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Report failed.");
+    }
+  }
+
   return (
     <div className="grid gap-5">
-      <PageHeader
-        eyebrow="Admin"
-        title="Reports"
-        description="Daily, weekly, monthly, yearly reports for bookings, revenue, growth, agents, routes, and cancellations."
-      />
-      <section className="grid gap-5 xl:grid-cols-2">
-        <ChartCard title="Revenue Report" description="Revenue by day">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={trendData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="label" />
-              <YAxis />
-              <RechartsTooltip />
-              <Bar dataKey="revenue" fill="#02553E" />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-        <ChartCard title="Cancellation Rate" description="Cancellation trend">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={trendData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="label" />
-              <YAxis />
-              <RechartsTooltip />
-              <Line type="monotone" dataKey="cancellations" stroke="#dc2626" strokeWidth={2} />
-            </LineChart>
-          </ResponsiveContainer>
-        </ChartCard>
-      </section>
-      <AdminTable
-        title="Report Exports"
-        description="CSV and PDF export-ready report catalog."
-        rows={reportRows}
-        exportFileName="admin-reports"
-      />
+      <PageHeader eyebrow="Admin" title="Reports" description="Reports over real bookings." />
+      <div className="flex flex-wrap gap-2">
+        {REPORT_TYPES.map((type) => (
+          <Button key={type} type="button" variant="outline" onClick={() => void generate(type)}>
+            <RefreshCw className="h-4 w-4" aria-hidden="true" />
+            {type.replaceAll("_", " ").toLowerCase()} report
+          </Button>
+        ))}
+      </div>
+      {status ? <StatusNote>{status}</StatusNote> : null}
+      <QueryState query={query}>
+        {(reports) => (
+          <>
+            <section className="grid gap-3 md:grid-cols-2">
+              <MetricCard
+                label="Cancellation rate"
+                value={`${reports.cancellationRate}%`}
+                helper="All bookings"
+              />
+              <MetricCard
+                label="Generated reports"
+                value={String(reports.reports.length)}
+                helper="This session"
+              />
+            </section>
+            {reports.reports.map((report) => (
+              <ChartCard key={report.reportId} title={report.name} points={report.rows} />
+            ))}
+            <SimpleTable
+              title="Agent Performance"
+              rows={reports.agentPerformance.map((agent) => ({
+                id: agent.agentId,
+                agent: agent.agencyName,
+                bookings: agent.bookings,
+                revenue: formatInr(agent.revenue.amount),
+              }))}
+              columns={[
+                { id: "agent", header: "Agent" },
+                { id: "bookings", header: "Bookings", align: "right" },
+                { id: "revenue", header: "Revenue", align: "right" },
+              ]}
+              emptyDescription="Agent bookings appear here once agents book."
+            />
+          </>
+        )}
+      </QueryState>
     </div>
   );
 }
 
 export function AdminAnalyticsWorkspace(): React.JSX.Element {
+  const query = useAdminQuery<AdminAnalyticsResponse>("analytics", "/analytics/dashboard");
+
   return (
     <div className="grid gap-5">
       <PageHeader
         eyebrow="Admin"
         title="Analytics"
-        description="Revenue, bookings, users, routes, journey trends, operator trends, retention, growth, and cancellations."
+        description="Trends counted from bookings and accounts."
       />
-      <section className="grid gap-5 xl:grid-cols-2">
-        <ChartCard title="Revenue" description="Revenue">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={trendData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="label" />
-              <YAxis />
-              <RechartsTooltip />
-              <Area dataKey="revenue" stroke="#02553E" fill="#DCEDE5" strokeWidth={2} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </ChartCard>
-        <ChartCard title="Users & Bookings" description="Growth and demand">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={trendData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="label" />
-              <YAxis />
-              <RechartsTooltip />
-              <Bar dataKey="users" fill="#02553E" />
-              <Bar dataKey="bookings" fill="#B88327" />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-      </section>
-      <section className="grid gap-5 xl:grid-cols-[0.75fr_1.25fr]">
-        <ChartCard title="Retention" description="Retention cohort">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie data={retentionData} dataKey="value" nameKey="label" outerRadius={92} label>
-                {retentionData.map((item, index) => (
-                  <Cell
-                    key={item.label}
-                    fill={chartColors[index % chartColors.length] ?? "#B88327"}
-                  />
-                ))}
-              </Pie>
-              <Legend />
-              <RechartsTooltip />
-            </PieChart>
-          </ResponsiveContainer>
-        </ChartCard>
-        <AdminTable
-          title="Operator Trends"
-          description="Operator booking and rating movement."
-          rows={operatorRows}
-          exportFileName="admin-operator-trends"
-        />
-      </section>
+      <QueryState query={query}>
+        {(analytics) => (
+          <section className="grid gap-5 xl:grid-cols-2">
+            <ChartCard title="Bookings, last 7 days" points={analytics.bookings} />
+            <ChartCard
+              title="Revenue, last 7 days (INR)"
+              points={analytics.revenue}
+              metric="revenue"
+            />
+            <ChartCard title="New accounts, last 7 days" points={analytics.customerGrowth} />
+            <ChartCard title="Departures, next 7 days" points={analytics.journeyTrends} />
+          </section>
+        )}
+      </QueryState>
     </div>
   );
 }
 
 export function AdminAuditLogsWorkspace(): React.JSX.Element {
+  const query = useAdminQuery<AdminAuditLogRecord[]>("audit", "/audit/logs");
+
   return (
-    <LogWorkspace
-      title="Audit Logs"
-      description="Sensitive user login, logout, booking, profile, role, coupon, and CMS changes."
-      rows={auditRows}
-    />
+    <div className="grid gap-5">
+      <PageHeader
+        eyebrow="Admin"
+        title="Audit Logs"
+        description="Recorded changes, newest first."
+      />
+      <QueryState query={query}>
+        {(logs) => (
+          <ActivityTable
+            title="Audit trail"
+            rows={logs.map((log) => ({
+              id: log.auditId,
+              actor: log.actor,
+              action: log.action,
+              entity: [log.entityType, log.entityId].filter(Boolean).join(" "),
+              ip: log.ipAddress,
+              when: formatDateTime(log.createdAt),
+            }))}
+          />
+        )}
+      </QueryState>
+    </div>
   );
 }
 
 export function AdminActivityLogsWorkspace(): React.JSX.Element {
+  const query = useAdminQuery<ActivityRecord[]>("activity", "/activity");
+
   return (
-    <LogWorkspace
-      title="Activity Logs"
-      description="Timeline of who did what, when, from which IP, device, and browser."
-      rows={activityRows}
-    />
+    <div className="grid gap-5">
+      <PageHeader
+        eyebrow="Admin"
+        title="Activity Logs"
+        description="Request activity, newest first."
+      />
+      <QueryState query={query}>
+        {(logs) => (
+          <ActivityTable
+            title="Activity"
+            rows={logs.map((log) => ({
+              id: log.id,
+              actor: log.actorType,
+              action: log.message || log.action,
+              entity: [log.entityType, log.entityId].filter(Boolean).join(" "),
+              ip: log.ipAddress ?? "",
+              when: formatDateTime(log.createdAt),
+            }))}
+          />
+        )}
+      </QueryState>
+    </div>
   );
 }
 
 export function AdminPlatformSettingsWorkspace(): React.JSX.Element {
+  const query = useAdminQuery<AdminPlatformSettingsResponse>(
+    "platform-settings",
+    "/platform-settings",
+  );
+
   return (
-    <div className="grid gap-5">
-      <PageHeader
-        eyebrow="Admin"
-        title="Platform Settings"
-        description="General, brand, support, timezone, currency, tax, fee, and cancellation policy controls."
-      />
-      <section className="grid gap-5 xl:grid-cols-[0.85fr_1.15fr]">
-        <Card>
-          <CardHeader>
-            <CardTitle>General Settings</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-3">
-            {settingsRows.slice(0, 6).map((setting) => (
-              <Input key={setting.id} aria-label={setting.name} defaultValue={setting.metric} />
-            ))}
-            <Button type="button" className="w-fit">
-              <Settings className="h-4 w-4" aria-hidden="true" />
-              Save
-            </Button>
-          </CardContent>
-        </Card>
-        <AdminTable
-          title="Settings Registry"
-          description="Editable platform setting keys."
-          rows={settingsRows}
-          exportFileName="admin-platform-settings"
-        />
-      </section>
-      <AdminSeatLayoutSettings />
-    </div>
-  );
-}
-
-type SeatLayoutFormState = {
-  layoutName: string;
-  baseFareAmount: string;
-  windowPremiumAmount: string;
-  extraLegroomPremiumAmount: string;
-  sleeperPremiumAmount: string;
-  upperDeckPremiumAmount: string;
-  maxSelectableSeats: string;
-  lowerDeckEnabled: boolean;
-  upperDeckEnabled: boolean;
-  maleSeatNumbers: string;
-  femaleSeatNumbers: string;
-  femaleBookedSeatNumbers: string;
-  bookedSeatNumbers: string;
-  blockedSeatNumbers: string;
-  updatedBy: string;
-};
-
-function AdminSeatLayoutSettings(): React.JSX.Element {
-  const accessToken = useAuthStore((state) => state.accessToken);
-  const user = useAuthStore((state) => state.user);
-  const [config, setConfig] = React.useState<SeatLayoutAdminConfig | null>(null);
-  const [form, setForm] = React.useState<SeatLayoutFormState>(() =>
-    seatLayoutFormFromConfig(defaultSeatLayoutConfigForForm()),
-  );
-  const [status, setStatus] = React.useState<string>("Loading seat layout settings");
-  const [saving, setSaving] = React.useState(false);
-
-  React.useEffect(() => {
-    let cancelled = false;
-
-    async function loadConfig(): Promise<void> {
-      if (!accessToken) {
-        setStatus("Admin sign in required");
-
-        return;
+    <ListWorkspace
+      title="Platform Settings"
+      description="Brand, support, and policy settings."
+      query={query}
+      columns={[
+        { id: "label", header: "Setting" },
+        { id: "category", header: "Category" },
+        { id: "value", header: "Value" },
+      ]}
+      toRows={(response) =>
+        response.settings.map((setting) => ({
+          id: setting.settingId,
+          label: setting.label,
+          category: setting.category,
+          value: setting.isSecretReference ? "Stored as a secret" : setting.value,
+        }))
       }
-
-      try {
-        const loaded = await getSeatLayoutAdminConfig(accessToken);
-        if (cancelled) {
-          return;
-        }
-        setConfig(loaded);
-        setForm(seatLayoutFormFromConfig(loaded));
-        setStatus(`Loaded ${loaded.layoutName}`);
-      } catch (error) {
-        if (!cancelled) {
-          setStatus(error instanceof Error ? error.message : "Seat layout settings unavailable");
-        }
-      }
-    }
-
-    void loadConfig();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [accessToken]);
-
-  async function saveConfig(): Promise<void> {
-    if (!accessToken) {
-      setStatus("Admin sign in required");
-
-      return;
-    }
-
-    setSaving(true);
-    setStatus("Saving seat layout settings");
-
-    try {
-      const updated = await updateSeatLayoutAdminConfig(
-        seatLayoutRequestFromForm(form),
-        accessToken,
-      );
-      setConfig(updated);
-      setForm(seatLayoutFormFromConfig(updated));
-      setStatus(`${updated.layoutName} saved`);
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Seat layout settings were not saved");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  const selectedSummary = [
-    `${parseSeatNumbers(form.maleSeatNumbers).length} male`,
-    `${parseSeatNumbers(form.femaleSeatNumbers).length} female`,
-    `${parseSeatNumbers(form.bookedSeatNumbers).length} booked`,
-    `${parseSeatNumbers(form.blockedSeatNumbers).length} blocked`,
-  ].join(" · ");
-
-  return (
-    <Card>
-      <CardHeader className="gap-3">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <CardTitle>Seat Layout Pricing</CardTitle>
-            <CardDescription>
-              {config
-                ? `Updated ${formatAdminDate(config.updatedAt)} by ${config.updatedBy}`
-                : "Admin-controlled layout"}
-            </CardDescription>
-          </div>
-          <Badge variant="neutral">{selectedSummary}</Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="grid gap-5">
-        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <SeatLayoutTextField
-            label="Layout Name"
-            value={form.layoutName}
-            onChange={(value) => setForm((current) => ({ ...current, layoutName: value }))}
-          />
-          <SeatLayoutTextField
-            label="Base Fare"
-            type="number"
-            value={form.baseFareAmount}
-            onChange={(value) => setForm((current) => ({ ...current, baseFareAmount: value }))}
-          />
-          <SeatLayoutTextField
-            label="Window Premium"
-            type="number"
-            value={form.windowPremiumAmount}
-            onChange={(value) => setForm((current) => ({ ...current, windowPremiumAmount: value }))}
-          />
-          <SeatLayoutTextField
-            label="Legroom Premium"
-            type="number"
-            value={form.extraLegroomPremiumAmount}
-            onChange={(value) =>
-              setForm((current) => ({ ...current, extraLegroomPremiumAmount: value }))
-            }
-          />
-          <SeatLayoutTextField
-            label="Sleeper Premium"
-            type="number"
-            value={form.sleeperPremiumAmount}
-            onChange={(value) =>
-              setForm((current) => ({ ...current, sleeperPremiumAmount: value }))
-            }
-          />
-          <SeatLayoutTextField
-            label="Upper Deck Premium"
-            type="number"
-            value={form.upperDeckPremiumAmount}
-            onChange={(value) =>
-              setForm((current) => ({ ...current, upperDeckPremiumAmount: value }))
-            }
-          />
-          <SeatLayoutTextField
-            label="Max Seats"
-            type="number"
-            value={form.maxSelectableSeats}
-            onChange={(value) => setForm((current) => ({ ...current, maxSelectableSeats: value }))}
-          />
-          <SeatLayoutTextField
-            label="Updated By"
-            value={form.updatedBy}
-            onChange={(value) => setForm((current) => ({ ...current, updatedBy: value }))}
-          />
-        </section>
-
-        <section className="grid gap-3 sm:grid-cols-2">
-          <SeatLayoutDeckToggle
-            checked={form.lowerDeckEnabled}
-            label="Lower Deck"
-            onCheckedChange={(checked) =>
-              setForm((current) => ({ ...current, lowerDeckEnabled: checked }))
-            }
-          />
-          <SeatLayoutDeckToggle
-            checked={form.upperDeckEnabled}
-            label="Upper Deck"
-            onCheckedChange={(checked) =>
-              setForm((current) => ({ ...current, upperDeckEnabled: checked }))
-            }
-          />
-        </section>
-
-        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-          <SeatListField
-            label="For Male"
-            value={form.maleSeatNumbers}
-            onChange={(value) => setForm((current) => ({ ...current, maleSeatNumbers: value }))}
-          />
-          <SeatListField
-            label="For Female"
-            value={form.femaleSeatNumbers}
-            onChange={(value) => setForm((current) => ({ ...current, femaleSeatNumbers: value }))}
-          />
-          <SeatListField
-            label="Female Booked"
-            value={form.femaleBookedSeatNumbers}
-            onChange={(value) =>
-              setForm((current) => ({ ...current, femaleBookedSeatNumbers: value }))
-            }
-          />
-          <SeatListField
-            label="Booked"
-            value={form.bookedSeatNumbers}
-            onChange={(value) => setForm((current) => ({ ...current, bookedSeatNumbers: value }))}
-          />
-          <SeatListField
-            label="Blocked"
-            value={form.blockedSeatNumbers}
-            onChange={(value) => setForm((current) => ({ ...current, blockedSeatNumbers: value }))}
-          />
-        </section>
-
-        <div className="flex flex-col gap-3 border-t border-gray-200 pt-4 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap gap-2">
-            <SeatStatusPill label="Available" tone="available" />
-            <SeatStatusPill label="For Female" tone="female" />
-            <SeatStatusPill label="For Male" tone="male" />
-            <SeatStatusPill label="Booked" tone="booked" />
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <p className="text-sm text-gray-600 dark:text-gray-400">{user?.email ?? status}</p>
-            <Button type="button" onClick={() => void saveConfig()} disabled={saving}>
-              <Settings className="h-4 w-4" aria-hidden="true" />
-              {saving ? "Saving" : "Save Seat Layout"}
-            </Button>
-          </div>
-        </div>
-        <p className="rounded-md border border-gold-100 bg-gold-50 px-3 py-2 text-sm text-brand-900 dark:border-brand-900 dark:bg-gold-500/10 dark:text-gold-100">
-          {status}
-        </p>
-      </CardContent>
-    </Card>
+      emptyDescription="No platform settings are defined."
+    />
   );
-}
-
-function SeatLayoutTextField({
-  label,
-  onChange,
-  type = "text",
-  value,
-}: {
-  label: string;
-  onChange: (value: string) => void;
-  type?: "number" | "text";
-  value: string;
-}): React.JSX.Element {
-  return (
-    <label className="grid gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
-      {label}
-      <Input
-        min={type === "number" ? 0 : undefined}
-        type={type}
-        value={value}
-        onChange={(event) => onChange(event.currentTarget.value)}
-      />
-    </label>
-  );
-}
-
-function SeatLayoutDeckToggle({
-  checked,
-  label,
-  onCheckedChange,
-}: {
-  checked: boolean;
-  label: string;
-  onCheckedChange: (checked: boolean) => void;
-}): React.JSX.Element {
-  return (
-    <div className="flex items-center justify-between gap-3 rounded-md border border-gray-200 p-3 dark:border-gray-800">
-      <div className="flex items-center gap-3">
-        <Armchair className="h-5 w-5 text-gold-600" aria-hidden="true" />
-        <span className="text-sm font-semibold text-gray-950 dark:text-gray-50">{label}</span>
-      </div>
-      <Switch checked={checked} onCheckedChange={onCheckedChange} aria-label={label} />
-    </div>
-  );
-}
-
-function SeatListField({
-  label,
-  onChange,
-  value,
-}: {
-  label: string;
-  onChange: (value: string) => void;
-  value: string;
-}): React.JSX.Element {
-  return (
-    <label className="grid gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
-      {label}
-      <Textarea
-        className="min-h-28"
-        value={value}
-        onChange={(event) => onChange(event.currentTarget.value)}
-      />
-    </label>
-  );
-}
-
-function SeatStatusPill({
-  label,
-  tone,
-}: {
-  label: string;
-  tone: "available" | "booked" | "female" | "male";
-}): React.JSX.Element {
-  const toneClass = {
-    available: "border-gray-300 bg-white text-gray-700",
-    booked: "border-gray-300 bg-gray-200 text-gray-500",
-    female: "border-pink-400 bg-white text-pink-700",
-    male: "border-blue-400 bg-white text-blue-700",
-  }[tone];
-
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-semibold",
-        toneClass,
-      )}
-    >
-      <span className="h-4 w-4 rounded border border-current" />
-      {label}
-    </span>
-  );
-}
-
-function defaultSeatLayoutConfigForForm(): SeatLayoutAdminConfig {
-  return {
-    layoutName: "",
-    currency: "INR",
-    baseFareAmount: 1429,
-    windowPremiumAmount: 250,
-    extraLegroomPremiumAmount: 130,
-    sleeperPremiumAmount: 0,
-    upperDeckPremiumAmount: 0,
-    lowerDeckEnabled: true,
-    upperDeckEnabled: true,
-    maxSelectableSeats: 6,
-    maleSeatNumbers: [],
-    femaleSeatNumbers: [],
-    femaleBookedSeatNumbers: [],
-    bookedSeatNumbers: [],
-    blockedSeatNumbers: [],
-    updatedAt: "",
-    updatedBy: "Admin",
-  };
-}
-
-function seatLayoutFormFromConfig(config: SeatLayoutAdminConfig): SeatLayoutFormState {
-  return {
-    layoutName: config.layoutName,
-    baseFareAmount: String(config.baseFareAmount),
-    windowPremiumAmount: String(config.windowPremiumAmount),
-    extraLegroomPremiumAmount: String(config.extraLegroomPremiumAmount),
-    sleeperPremiumAmount: String(config.sleeperPremiumAmount),
-    upperDeckPremiumAmount: String(config.upperDeckPremiumAmount),
-    maxSelectableSeats: String(config.maxSelectableSeats),
-    lowerDeckEnabled: config.lowerDeckEnabled,
-    upperDeckEnabled: config.upperDeckEnabled,
-    maleSeatNumbers: config.maleSeatNumbers.join(", "),
-    femaleSeatNumbers: config.femaleSeatNumbers.join(", "),
-    femaleBookedSeatNumbers: config.femaleBookedSeatNumbers.join(", "),
-    bookedSeatNumbers: config.bookedSeatNumbers.join(", "),
-    blockedSeatNumbers: config.blockedSeatNumbers.join(", "),
-    updatedBy: config.updatedBy,
-  };
-}
-
-function seatLayoutRequestFromForm(form: SeatLayoutFormState): UpdateSeatLayoutAdminConfigRequest {
-  return {
-    layoutName: form.layoutName.trim() || "2+1 Sleeper Price Layout",
-    baseFareAmount: readAmount(form.baseFareAmount, 1429),
-    windowPremiumAmount: readAmount(form.windowPremiumAmount, 0),
-    extraLegroomPremiumAmount: readAmount(form.extraLegroomPremiumAmount, 0),
-    sleeperPremiumAmount: readAmount(form.sleeperPremiumAmount, 0),
-    upperDeckPremiumAmount: readAmount(form.upperDeckPremiumAmount, 0),
-    maxSelectableSeats: readAmount(form.maxSelectableSeats, 6),
-    lowerDeckEnabled: form.lowerDeckEnabled,
-    upperDeckEnabled: form.upperDeckEnabled,
-    maleSeatNumbers: parseSeatNumbers(form.maleSeatNumbers),
-    femaleSeatNumbers: parseSeatNumbers(form.femaleSeatNumbers),
-    femaleBookedSeatNumbers: parseSeatNumbers(form.femaleBookedSeatNumbers),
-    bookedSeatNumbers: parseSeatNumbers(form.bookedSeatNumbers),
-    blockedSeatNumbers: parseSeatNumbers(form.blockedSeatNumbers),
-    updatedBy: form.updatedBy.trim() || "Admin",
-  };
-}
-
-function readAmount(value: string, fallback: number): number {
-  const parsed = Number.parseInt(value, 10);
-
-  return Number.isFinite(parsed) ? Math.max(0, parsed) : fallback;
-}
-
-function parseSeatNumbers(value: string): string[] {
-  return [
-    ...new Set(
-      value
-        .split(/[,\s]+/u)
-        .map((seat) => seat.trim().toUpperCase())
-        .filter(Boolean),
-    ),
-  ];
 }
 
 export function AdminFeatureFlagsWorkspace(): React.JSX.Element {
+  const query = useAdminQuery<AdminFeatureFlagRecord[]>("feature-flags", "/feature-flags");
+
   return (
-    <div className="grid gap-5">
-      <PageHeader
-        eyebrow="Admin"
-        title="Feature Flags"
-        description="AI, tracking, coupons, offers, agent portal, email, and maintenance mode controls."
-      />
-      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {featureFlagRows.map((flag) => (
-          <Card key={flag.id}>
-            <CardContent className="flex items-start justify-between gap-3 p-4">
-              <div>
-                <p className="font-semibold text-gray-950 dark:text-gray-50">{flag.name}</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">{flag.context}</p>
-                <p className="mt-2 text-xs font-medium text-gray-500">{flag.metric}</p>
-              </div>
-              <Switch defaultChecked={flag.status === "Enabled"} aria-label={flag.name} />
-            </CardContent>
-          </Card>
-        ))}
-      </section>
-      <AdminTable
-        title="Flag Registry"
-        description="Rollout and owner metadata."
-        rows={featureFlagRows}
-        exportFileName="admin-feature-flags"
-      />
-    </div>
+    <ListWorkspace
+      title="Feature Flags"
+      description="Feature switches and their rollout."
+      query={query}
+      columns={[
+        { id: "name", header: "Flag" },
+        { id: "enabled", header: "State" },
+        { id: "rollout", header: "Rollout", align: "right" },
+        { id: "owner", header: "Owner", hideOnMobile: true },
+      ]}
+      toRows={(flags) =>
+        flags.map((flag) => ({
+          id: flag.flagId,
+          name: flag.name,
+          enabled: flag.enabled ? "On" : "Off",
+          rollout: `${flag.rolloutPercentage}%`,
+          owner: flag.owner,
+        }))
+      }
+      emptyDescription="No feature flags are defined."
+    />
   );
 }
 
 export function AdminSystemMonitoringWorkspace(): React.JSX.Element {
+  const monitoring = useAdminQuery<AdminMonitoringResponse>("monitoring", "/monitoring");
+  const queues = useAdminQuery<QueueDashboardResponse>("queues", "/queues");
+  const scheduler = useAdminQuery<SchedulerDashboardResponse>("scheduler", "/scheduler/jobs");
+  const cache = useAdminQuery<CacheDashboardResponse>("cache", "/cache");
+
   return (
     <div className="grid gap-5">
       <PageHeader
         eyebrow="Admin"
         title="System Monitoring"
-        description="Production probes for API, database, Redis, queues, storage, email, suppliers, payments, memory, and CPU."
+        description="Live readings from the API process and its dependencies."
       />
-      <section className="grid gap-3 md:grid-cols-4">
-        <UsageCard label="CPU" value={42} />
-        <UsageCard label="Memory" value={61} />
-        <UsageCard label="Storage" value={37} />
-        <UsageCard label="Queue Depth" value={76} />
-      </section>
-      <AdminTable
-        title="Component Health"
-        description="Monitoring snapshots and status."
-        rows={monitoringRows}
-        exportFileName="admin-monitoring"
-      />
+      <QueryState query={monitoring}>
+        {(data) => (
+          <>
+            <section className="grid gap-3 md:grid-cols-3">
+              <MetricCard
+                label="CPU load"
+                value={`${data.cpu}%`}
+                helper="One-minute load average"
+              />
+              <MetricCard label="Memory in use" value={`${data.memory}%`} helper="Host memory" />
+              <MetricCard
+                label="Queued emails"
+                value={String(data.queueDepth)}
+                helper="Waiting to send"
+              />
+            </section>
+            <HealthCard components={data.components} />
+          </>
+        )}
+      </QueryState>
+      <QueryState query={queues}>
+        {(data) => (
+          <SimpleTable
+            title="Queues"
+            rows={data.queues.map((queue) => ({
+              id: queue.queue,
+              queue: queue.queue.replaceAll("_", " "),
+              waiting: queue.waiting,
+              failed: queue.failed,
+              status: queue.status,
+            }))}
+            columns={[
+              { id: "queue", header: "Queue" },
+              { id: "waiting", header: "Waiting", align: "right" },
+              { id: "failed", header: "Failed", align: "right" },
+              { id: "status", header: "Status" },
+            ]}
+            emptyDescription="No queues are configured."
+          />
+        )}
+      </QueryState>
+      <QueryState query={scheduler}>
+        {(data) => (
+          <SimpleTable
+            title="Scheduled Jobs"
+            rows={data.jobs.map((job) => ({
+              id: job.jobId,
+              name: job.name,
+              schedule: job.schedule.replaceAll("_", " "),
+              status: job.status,
+            }))}
+            columns={[
+              { id: "name", header: "Job" },
+              { id: "schedule", header: "Schedule" },
+              { id: "status", header: "Status" },
+            ]}
+            emptyDescription="No background jobs are scheduled."
+          />
+        )}
+      </QueryState>
+      <QueryState query={cache}>
+        {(data) => (
+          <MetricCard
+            label="Cache"
+            value={data.entries.length ? `${Math.round(data.hitRate * 100)}% hits` : "No entries"}
+            helper={`${data.provider} · ${data.status}`}
+          />
+        )}
+      </QueryState>
     </div>
   );
 }
 
 export function AdminSupplierConfigurationWorkspace(): React.JSX.Element {
+  const dashboard = useAdminQuery<IntegrationDashboardResponse>(
+    "integrations",
+    "/integrations/dashboard",
+  );
+  const configuration = useAdminQuery<IntegrationConfigurationResponse>(
+    "integration-configuration",
+    "/integrations/configuration",
+  );
+
   return (
     <div className="grid gap-5">
       <PageHeader
         eyebrow="Admin"
         title="Integration Configuration"
-        description="Supplier, payment, health, failover, and webhook readiness for Milestone 10."
+        description="Bus suppliers and payment gateways, as the server environment configures them."
       />
-      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <MetricTile label="Supplier Mode" value="Simulated" tone="success" icon={PlugZap} />
-        <MetricTile label="Active Supplier" value="MOCK" tone="success" icon={ShieldCheck} />
-        <MetricTile label="Payment Provider" value="Simulated" tone="success" icon={CreditCard} />
-        <MetricTile label="Live Gateways" value="Disabled" tone="warning" icon={ServerCog} />
-      </section>
       <Tabs defaultValue="suppliers">
-        <TabsList className="w-full justify-start overflow-x-auto sm:w-auto">
+        <TabsList>
           <TabsTrigger value="suppliers">Suppliers</TabsTrigger>
           <TabsTrigger value="payments">Payments</TabsTrigger>
-          <TabsTrigger value="priority">Priority</TabsTrigger>
-          <TabsTrigger value="health">Health</TabsTrigger>
-          <TabsTrigger value="logs">Logs</TabsTrigger>
-          <TabsTrigger value="toggles">Toggles</TabsTrigger>
+          <TabsTrigger value="logs">Request Logs</TabsTrigger>
         </TabsList>
-        <TabsContent value="suppliers">
-          <Card>
-            <CardHeader>
-              <CardTitle>Supplier Management</CardTitle>
-              <CardDescription>
-                Mock is active; live suppliers remain not configured.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-4">
-              <DataTable
-                columns={adminColumns}
-                data={supplierRows}
-                pageSize={8}
-                exportable
-                exportFileName="admin-supplier-management"
-                bulkActions={(selected) => (
-                  <BulkActions
-                    count={selected.length}
-                    actions={["Enable", "Disable", "Test Connection"]}
-                  />
-                )}
+        <TabsContent value="suppliers" className="grid gap-5">
+          <QueryState query={dashboard}>
+            {(data) => (
+              <SimpleTable
+                title="Suppliers"
+                rows={data.suppliers.map((supplier) => {
+                  const health = data.health.find((item) => item.supplierCode === supplier.code);
+
+                  return {
+                    id: supplier.code,
+                    name: supplier.name,
+                    enabled: supplier.enabled ? "Enabled" : "Not configured",
+                    priority: supplier.priority,
+                    health: health?.status ?? "UNKNOWN",
+                    message: health?.message ?? "",
+                  };
+                })}
+                columns={[
+                  { id: "name", header: "Supplier" },
+                  { id: "enabled", header: "State" },
+                  { id: "priority", header: "Priority", align: "right" },
+                  { id: "health", header: "Health" },
+                  { id: "message", header: "Detail", hideOnMobile: true },
+                ]}
+                emptyDescription="No suppliers are registered."
               />
-              <div className="flex flex-wrap gap-2">
-                <Button type="button" variant="outline">
-                  <RefreshCw className="h-4 w-4" aria-hidden="true" />
-                  Test Mock
-                </Button>
-                <Button type="button" variant="outline">
-                  <ListChecks className="h-4 w-4" aria-hidden="true" />
-                  View Contract
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+            )}
+          </QueryState>
         </TabsContent>
-        <TabsContent value="payments">
-          <Card>
-            <CardHeader>
-              <CardTitle>Payment Provider Management</CardTitle>
-              <CardDescription>
-                Gateway adapters are registered without live API keys.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <DataTable
-                columns={adminColumns}
-                data={paymentProviderRows}
-                pageSize={8}
-                exportable
-                exportFileName="admin-payment-providers"
+        <TabsContent value="payments" className="grid gap-5">
+          <QueryState query={configuration}>
+            {(data) => (
+              <SimpleTable
+                title="Payment gateways"
+                description="No gateway is wired yet; bookings are confirmed without collecting payment."
+                rows={data.paymentProviders.map((provider) => ({
+                  id: provider.code,
+                  name: provider.name,
+                  enabled: provider.enabled ? "Selected" : "Not configured",
+                  currency: provider.currency,
+                }))}
+                columns={[
+                  { id: "name", header: "Gateway" },
+                  { id: "enabled", header: "State" },
+                  { id: "currency", header: "Currency" },
+                ]}
+                emptyDescription="No payment gateways are defined."
               />
-            </CardContent>
-          </Card>
+            )}
+          </QueryState>
         </TabsContent>
-        <TabsContent value="priority">
-          <Card>
-            <CardHeader>
-              <CardTitle>Supplier Priority</CardTitle>
-              <CardDescription>
-                Order is configuration-driven and ready for admin updates.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <DataTable
-                columns={adminColumns}
-                data={supplierPriorityRows}
-                pageSize={8}
-                exportable
-                exportFileName="admin-supplier-priority"
+        <TabsContent value="logs" className="grid gap-5">
+          <QueryState query={dashboard}>
+            {(data) => (
+              <SimpleTable
+                title="Recent supplier requests"
+                rows={data.requestLogs.map((log) => ({
+                  id: log.requestId,
+                  supplier: log.supplierCode,
+                  operation: log.operation.replaceAll("_", " "),
+                  result: log.success ? "OK" : (log.errorCode ?? "Failed"),
+                  duration: `${log.durationMs} ms`,
+                  when: formatDateTime(log.timestamp),
+                }))}
+                columns={[
+                  { id: "supplier", header: "Supplier" },
+                  { id: "operation", header: "Operation" },
+                  { id: "result", header: "Result" },
+                  { id: "duration", header: "Duration", align: "right" },
+                  { id: "when", header: "When", hideOnMobile: true },
+                ]}
+                emptyDescription="No supplier requests since the API started."
               />
-            </CardContent>
-          </Card>
-        </TabsContent>
-        <TabsContent value="health">
-          <section className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
-            <Card>
-              <CardHeader>
-                <CardTitle>Supplier Health</CardTitle>
-                <CardDescription>Not configured is reported without fake success.</CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-3">
-                {integrationHealthRows.map((item) => (
-                  <HealthLine
-                    key={item.component}
-                    component={item.component}
-                    latency={item.latency}
-                    status={item.status}
-                  />
-                ))}
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>Circuit Breakers</CardTitle>
-                <CardDescription>
-                  Closed, open, and half-open states for supplier routing.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <DataTable
-                  columns={adminColumns}
-                  data={circuitRows}
-                  pageSize={8}
-                  exportable
-                  exportFileName="admin-circuit-breakers"
-                />
-              </CardContent>
-            </Card>
-          </section>
-        </TabsContent>
-        <TabsContent value="logs">
-          <Card>
-            <CardHeader>
-              <CardTitle>Integration Logs</CardTitle>
-              <CardDescription>
-                Correlation IDs, durations, and redacted supplier outcomes.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <DataTable
-                columns={adminColumns}
-                data={integrationLogRows}
-                pageSize={8}
-                exportable
-                exportFileName="admin-integration-logs"
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
-        <TabsContent value="toggles">
-          <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {integrationToggleRows.map((toggle) => (
-              <Card key={toggle.id}>
-                <CardContent className="flex items-center justify-between gap-3 p-4">
-                  <div>
-                    <p className="font-semibold text-gray-950 dark:text-gray-50">{toggle.name}</p>
-                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                      {toggle.context}
-                    </p>
-                  </div>
-                  <Switch defaultChecked={toggle.status === "Enabled"} aria-label={toggle.name} />
-                </CardContent>
-              </Card>
-            ))}
-          </section>
+            )}
+          </QueryState>
         </TabsContent>
       </Tabs>
     </div>
@@ -1516,323 +1167,203 @@ export function AdminSupplierConfigurationWorkspace(): React.JSX.Element {
 }
 
 export function AdminProfileWorkspace(): React.JSX.Element {
+  const user = useAuthStore((state) => state.user);
+
   return (
     <div className="grid gap-5">
-      <PageHeader
-        eyebrow="Admin"
-        title="Profile"
-        description="Admin account details and security placeholders."
-      />
-      <Card>
-        <CardHeader>
-          <CardTitle>Admin Profile</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-2">
-          <Input aria-label="Name" defaultValue="Vriddhi Admin" />
-          <Input aria-label="Email" defaultValue="admin@vriddhinexus.com" />
-          <Input aria-label="Phone" defaultValue="+910000000001" />
-          <Input aria-label="Role" defaultValue="ADMIN" />
-          <Button type="button" className="md:w-fit">
-            <UserCog className="h-4 w-4" aria-hidden="true" />
-            Save Profile
-          </Button>
-        </CardContent>
-      </Card>
+      <PageHeader eyebrow="Admin" title="Profile" description="Your administrator account." />
+      {user ? (
+        <Card>
+          <CardContent className="grid gap-3 p-5 sm:grid-cols-2">
+            <Detail label="Name" value={`${user.firstName} ${user.lastName}`} />
+            <Detail label="Email" value={user.email} />
+            <Detail label="Phone" value={user.phone} />
+            <Detail label="Role" value={user.role} />
+          </CardContent>
+        </Card>
+      ) : (
+        <EmptyState title="Not signed in" description="Sign in to see your profile." />
+      )}
+      <Button asChild variant="outline" className="w-fit">
+        <Link href="/profile">Edit profile</Link>
+      </Button>
     </div>
   );
 }
 
-function UserWorkspace({
+function UsersWorkspace({
   description,
+  roleCode,
   title,
 }: {
   description: string;
+  roleCode?: string;
   title: string;
 }): React.JSX.Element {
+  const query = useAdminQuery<UserRecord[]>(
+    `users-${roleCode ?? "all"}`,
+    roleCode ? `/users?roleCode=${roleCode}` : "/users",
+  );
+
   return (
-    <div className="grid gap-5">
-      <PageHeader
-        eyebrow="Admin"
-        title={title}
-        description={description}
-        actionLabel="Create User"
-      />
-      <Tabs defaultValue="customers">
-        <TabsList className="w-full justify-start overflow-x-auto sm:w-auto">
-          <TabsTrigger value="customers">Customers</TabsTrigger>
-          <TabsTrigger value="agents">Travel Agents</TabsTrigger>
-          <TabsTrigger value="admins">Admins</TabsTrigger>
-          <TabsTrigger value="roles">Roles</TabsTrigger>
-        </TabsList>
-        <TabsContent value="customers">
-          <UserTable rows={userRows.filter((row) => row.owner === "Customer")} />
-        </TabsContent>
-        <TabsContent value="agents">
-          <UserTable rows={userRows.filter((row) => row.owner === "Travel Agent")} />
-        </TabsContent>
-        <TabsContent value="admins">
-          <UserTable rows={userRows.filter((row) => row.owner === "Admin")} />
-        </TabsContent>
-        <TabsContent value="roles">
-          <Card>
-            <CardHeader>
-              <CardTitle>Role Assignments</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <DataTable
-                columns={roleColumns}
-                data={roleRows}
-                exportable
-                exportFileName="admin-user-roles"
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-    </div>
+    <ListWorkspace
+      title={title}
+      description={description}
+      query={query}
+      columns={[
+        { id: "name", header: "Name" },
+        { id: "email", header: "Email" },
+        { id: "phone", header: "Phone", hideOnMobile: true },
+        { id: "role", header: "Role" },
+        { id: "status", header: "Status" },
+        { id: "joined", header: "Joined", hideOnMobile: true },
+      ]}
+      toRows={(users) =>
+        users.map((user) => ({
+          id: user.id,
+          name: `${user.firstName} ${user.lastName}`,
+          email: user.email,
+          phone: user.phone,
+          role: user.role,
+          status: user.status.replaceAll("_", " "),
+          joined: formatDateTime(user.createdAt),
+        }))
+      }
+      emptyDescription="No accounts match."
+    />
   );
 }
 
-function UserTable({ rows }: { rows: AdminRow[] }): React.JSX.Element {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>User Accounts</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <DataTable
-          columns={adminColumns}
-          data={rows}
-          pageSize={8}
-          exportable
-          exportFileName="admin-users"
-          bulkActions={(selected) => (
-            <BulkActions
-              count={selected.length}
-              actions={["Activate", "Deactivate", "Force Logout"]}
-            />
-          )}
-        />
-      </CardContent>
-    </Card>
-  );
-}
+type Row = Record<string, unknown> & { id: string };
 
-function AdminTable({
-  actionLabel,
+function ListWorkspace<T>({
+  columns,
   description,
-  exportFileName,
-  rows,
+  emptyDescription,
+  query,
   title,
+  toRows,
 }: {
-  actionLabel?: string;
+  columns: DataTableColumn<Row>[];
   description: string;
-  exportFileName: string;
-  rows: AdminRow[];
+  emptyDescription: string;
+  query: UseQueryResult<T>;
   title: string;
-}): React.JSX.Element {
-  return (
-    <div className="grid gap-5">
-      <PageHeader
-        eyebrow="Admin"
-        title={title}
-        description={description}
-        {...(actionLabel ? { actionLabel } : {})}
-      />
-      <Card>
-        <CardHeader>
-          <CardTitle>{title}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <DataTable
-            columns={adminColumns}
-            data={rows}
-            pageSize={8}
-            exportable
-            exportFileName={exportFileName}
-            bulkActions={(selected) => (
-              <BulkActions count={selected.length} actions={["Activate", "Deactivate", "Export"]} />
-            )}
-          />
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-function LogWorkspace({
-  description,
-  rows,
-  title,
-}: {
-  description: string;
-  rows: LogRow[];
-  title: string;
+  toRows: (data: T) => Row[];
 }): React.JSX.Element {
   return (
     <div className="grid gap-5">
       <PageHeader eyebrow="Admin" title={title} description={description} />
-      <Card>
-        <CardHeader>
-          <CardTitle>{title}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <DataTable
-            columns={logColumns}
-            data={rows}
-            pageSize={8}
-            exportable
-            exportFileName={`admin-${title.toLowerCase().replaceAll(" ", "-")}`}
+      <QueryState query={query}>
+        {(data) => (
+          <SimpleTable
+            bare
+            rows={toRows(data)}
+            columns={columns}
+            emptyDescription={emptyDescription}
           />
-        </CardContent>
-      </Card>
+        )}
+      </QueryState>
     </div>
   );
 }
 
-function ActivityFeed({ rows, title }: { rows: LogRow[]; title: string }): React.JSX.Element {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-      </CardHeader>
-      <CardContent className="grid gap-3">
-        {rows.map((row) => (
-          <div
-            key={row.id}
-            className="flex gap-3 rounded-md border border-gray-200 p-3 dark:border-gray-800"
-          >
-            <span className="mt-1 h-2.5 w-2.5 rounded-full bg-gold-500" aria-hidden="true" />
-            <div>
-              <p className="font-semibold text-gray-950 dark:text-gray-50">{row.action}</p>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                {row.actor} · {row.entity} · {row.when}
-              </p>
-            </div>
-          </div>
-        ))}
-      </CardContent>
-    </Card>
-  );
-}
-
-function MetricTile({
-  icon: Icon,
-  label,
-  tone,
-  value,
-}: {
-  icon: LucideIcon;
-  label: string;
-  tone: "success" | "warning" | "danger" | "neutral";
-  value: string;
-}): React.JSX.Element {
-  return (
-    <Card>
-      <CardContent className="flex items-center justify-between gap-3 p-4">
-        <div>
-          <p className="text-sm text-gray-600 dark:text-gray-400">{label}</p>
-          <p className="mt-2 text-2xl font-semibold text-gray-950 dark:text-gray-50">{value}</p>
-        </div>
-        <span className="flex h-10 w-10 items-center justify-center rounded-md bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-200">
-          <Icon className="h-5 w-5" aria-hidden="true" />
-        </span>
-        <span className="sr-only">{tone}</span>
-      </CardContent>
-    </Card>
-  );
-}
-
-function ChartCard({
+function QueryState<T>({
   children,
+  query,
+}: {
+  children: (data: T) => React.ReactNode;
+  query: UseQueryResult<T>;
+}): React.JSX.Element {
+  if (query.isLoading) {
+    return <Skeleton className="h-48 w-full" />;
+  }
+  if (query.isError || query.data === undefined) {
+    return <ErrorNotice error={query.error} onRetry={() => void query.refetch()} />;
+  }
+
+  return <>{children(query.data)}</>;
+}
+
+function ErrorNotice({
+  error,
+  onRetry,
+}: {
+  error: unknown;
+  onRetry: () => void;
+}): React.JSX.Element {
+  return (
+    <EmptyState
+      title="Could not load"
+      description={error instanceof Error ? error.message : "The API did not respond."}
+      actionLabel="Retry"
+      onAction={onRetry}
+    />
+  );
+}
+
+function SimpleTable<TRow extends Row>({
+  bare = false,
+  columns,
   description,
+  emptyDescription,
+  rows,
   title,
 }: {
-  children: React.ReactNode;
-  description: string;
+  bare?: boolean;
+  columns: DataTableColumn<TRow>[];
+  description?: string;
+  emptyDescription: string;
+  rows: TRow[];
+  title?: string;
+}): React.JSX.Element {
+  const table = (
+    <DataTable
+      columns={columns}
+      data={rows}
+      rowId={(row) => row.id}
+      pageSize={10}
+      selectable={false}
+      emptyTitle="Nothing here yet"
+      emptyDescription={emptyDescription}
+    />
+  );
+
+  if (bare) {
+    return table;
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        {title ? <CardTitle>{title}</CardTitle> : null}
+        {description ? <CardDescription>{description}</CardDescription> : null}
+      </CardHeader>
+      <CardContent>{table}</CardContent>
+    </Card>
+  );
+}
+
+function ActivityTable({
+  rows,
+  title,
+}: {
+  rows: Array<Row & { actor: string; action: string; entity: string; ip: string; when: string }>;
   title: string;
 }): React.JSX.Element {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-      <CardContent className="h-72">{children}</CardContent>
-    </Card>
-  );
-}
-
-function HealthLine({
-  component,
-  latency,
-  status,
-}: {
-  component: string;
-  latency: string;
-  status: string;
-}): React.JSX.Element {
-  return (
-    <div className="flex items-center justify-between gap-3 rounded-md border border-gray-200 p-3 dark:border-gray-800">
-      <div>
-        <p className="font-semibold text-gray-950 dark:text-gray-50">{component}</p>
-        <p className="text-sm text-gray-600 dark:text-gray-400">{latency}</p>
-      </div>
-      <StatusChip tone={status === "Healthy" ? "success" : "warning"}>{status}</StatusChip>
-    </div>
-  );
-}
-
-function QueueCard({
-  failed,
-  queued,
-  retry,
-  sent,
-  title,
-}: {
-  failed: number;
-  queued: number;
-  retry: number;
-  sent: number;
-  title: string;
-}): React.JSX.Element {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-      </CardHeader>
-      <CardContent className="grid grid-cols-2 gap-3 text-sm">
-        <QueueValue label="Queued" value={queued} />
-        <QueueValue label="Sent" value={sent} />
-        <QueueValue label="Failed" value={failed} />
-        <QueueValue label="Retry" value={retry} />
-      </CardContent>
-    </Card>
-  );
-}
-
-function QueueValue({ label, value }: { label: string; value: number }): React.JSX.Element {
-  return (
-    <div className="rounded-md border border-gray-200 p-3 dark:border-gray-800">
-      <p className="text-gray-500 dark:text-gray-400">{label}</p>
-      <p className="mt-1 text-lg font-semibold text-gray-950 dark:text-gray-50">
-        {value.toLocaleString("en-IN")}
-      </p>
-    </div>
-  );
-}
-
-function UsageCard({ label, value }: { label: string; value: number }): React.JSX.Element {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{label}</CardTitle>
-        <CardDescription>{value}%</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Progress value={value} />
-      </CardContent>
-    </Card>
+    <SimpleTable
+      title={title}
+      rows={rows}
+      columns={[
+        { id: "actor", header: "Actor" },
+        { id: "action", header: "Action" },
+        { id: "entity", header: "Entity", hideOnMobile: true },
+        { id: "ip", header: "IP", hideOnMobile: true },
+        { id: "when", header: "When" },
+      ]}
+      emptyDescription="No activity has been recorded yet."
+    />
   );
 }
 
@@ -1843,619 +1374,178 @@ function MetricCard({
 }: {
   helper: string;
   label: string;
-  value: number | string;
+  value: string;
 }): React.JSX.Element {
   return (
     <Card>
       <CardHeader className="space-y-1">
         <CardDescription>{label}</CardDescription>
-        <CardTitle>{typeof value === "number" ? value.toLocaleString("en-IN") : value}</CardTitle>
+        <CardTitle className="text-2xl">{value}</CardTitle>
         <p className="text-xs text-gray-500 dark:text-gray-400">{helper}</p>
       </CardHeader>
     </Card>
   );
 }
 
-function BulkActions({ actions, count }: { actions: string[]; count: number }): React.JSX.Element {
+function ChartCard({
+  metric = "bookings",
+  points,
+  title,
+}: {
+  metric?: "bookings" | "revenue";
+  points: AdminChartPoint[];
+  title: string;
+}): React.JSX.Element {
   return (
-    <>
-      <Badge variant="neutral">{count} selected</Badge>
-      {actions.map((action) => (
-        <Button key={action} type="button" variant="outline" size="sm">
-          {action}
-        </Button>
-      ))}
-    </>
+    <Card>
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {points.some((point) => point[metric] > 0) ? (
+          <AnalyticsChart
+            type="bar"
+            data={points.map((point) => ({ label: point.label, value: point[metric] }))}
+          />
+        ) : (
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Nothing recorded in this period.
+          </p>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
-function invoiceInputFromBookingRow(row: BookingRow): InvoiceInput {
-  const total = parseMoneyAmount(row.amount);
-  const taxes = Math.round(total * 0.05);
-  const baseFare = Math.max(total - taxes, 0);
+function HealthCard({ components }: { components: AdminSystemHealthRecord[] }): React.JSX.Element {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>System Health</CardTitle>
+        <CardDescription>Configuration checks, run on each request.</CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-3">
+        {components.map((component) => (
+          <div
+            key={component.component}
+            className="flex items-start justify-between gap-3 rounded-md border border-gray-200 p-3 dark:border-gray-800"
+          >
+            <div>
+              <p className="text-sm font-semibold text-gray-950 dark:text-gray-50">
+                {component.component}
+              </p>
+              <p className="text-xs text-gray-600 dark:text-gray-400">{component.message}</p>
+            </div>
+            <StatusChip tone={healthTone(component.status)}>{component.status}</StatusChip>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+function QueueCard({ queue }: { queue: AdminQueueStatusRecord }): React.JSX.Element {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{queue.name}</CardTitle>
+      </CardHeader>
+      <CardContent className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Detail label="Queued" value={String(queue.queued)} />
+        <Detail label="Sent" value={String(queue.sent)} />
+        <Detail label="Failed" value={String(queue.failed)} />
+        <Detail label="Retrying" value={String(queue.retryScheduled)} />
+      </CardContent>
+    </Card>
+  );
+}
+
+function Detail({ label, value }: { label: string; value: string }): React.JSX.Element {
+  return (
+    <div>
+      <p className="text-xs uppercase tracking-normal text-gray-500 dark:text-gray-400">{label}</p>
+      <p className="mt-1 font-medium text-gray-950 dark:text-gray-50">{value || "—"}</p>
+    </div>
+  );
+}
+
+function StatusNote({ children }: { children: React.ReactNode }): React.JSX.Element {
+  return (
+    <p className="rounded-md border border-gold-100 bg-gold-50 px-3 py-2 text-sm text-brand-900 dark:border-brand-900 dark:bg-gold-500/10 dark:text-gold-100">
+      {children}
+    </p>
+  );
+}
+
+function toBookingRow(record: AdminBookingRecord): BookingRow {
+  const { booking } = record;
 
   return {
-    bookingId: row.id,
-    bookingReference: row.reference,
-    customerName: row.customer,
-    customerEmail: "",
-    customerPhone: "",
-    route: row.route,
-    operatorName: row.operator,
-    journeyDate: row.journeyDate,
-    seats: ["AUTO"],
-    passengerCount: 1,
-    fare: {
-      baseFare: { amount: baseFare, currency: "INR" },
-      taxes: { amount: taxes, currency: "INR" },
-      discount: { amount: 0, currency: "INR" },
-      convenienceFee: { amount: 0, currency: "INR" },
-      grandTotal: { amount: total, currency: "INR" },
-    },
+    id: booking.bookingId,
+    reference: booking.bookingReference,
+    pnr: booking.pnr ?? "",
+    customer: record.customerName,
+    agent: record.agentName ?? "",
+    route: `${booking.trip.sourceCity} to ${booking.trip.destinationCity}`,
+    operator: booking.trip.operatorName,
+    journeyDate: formatDate(booking.trip.departureTime),
+    status: booking.status,
+    amount: formatInr(booking.fare.grandTotal.amount),
   };
 }
 
-function invoiceToAdminRow(invoice: InvoiceRecord): InvoiceAdminRow {
-  return {
-    id: invoice.invoiceId,
-    invoiceId: invoice.invoiceId,
-    invoiceNumber: invoice.invoiceNumber,
-    bookingReference: invoice.bookingReference,
-    customer: invoice.customerName,
-    route: invoice.route,
-    amount: `${invoice.total.currency} ${invoice.total.amount.toLocaleString("en-IN")}`,
-    status: invoice.status,
-    source: invoice.source.replaceAll("_", " "),
-    generatedAt: formatAdminDate(invoice.generatedAt),
-    action: "Download",
-  };
-}
-
-function parseMoneyAmount(value: string): number {
-  const amount = Number(value.replace(/[^0-9.-]/gu, ""));
-
-  return Number.isFinite(amount) ? amount : 0;
-}
-
-function formatAdminDate(value: string): string {
-  return new Intl.DateTimeFormat("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(value));
-}
-
-const adminColumns: DataTableColumn<AdminRow>[] = [
-  { id: "name", header: "Name", sortable: true },
-  {
-    id: "status",
-    header: "Status",
-    sortable: true,
-    cell: (row) => <StatusChip tone={statusTone(row.status)}>{row.status}</StatusChip>,
-  },
-  { id: "metric", header: "Metric", sortable: true },
-  { id: "owner", header: "Owner", sortable: true, hideOnMobile: true },
-  { id: "context", header: "Context", sortable: true, hideOnMobile: true },
-];
-
-const bookingColumns: DataTableColumn<BookingRow>[] = [
-  { id: "reference", header: "Booking ID", sortable: true },
-  { id: "pnr", header: "PNR", sortable: true },
-  { id: "customer", header: "Customer", sortable: true },
-  { id: "agent", header: "Agent", sortable: true, hideOnMobile: true },
-  { id: "journeyDate", header: "Journey Date", sortable: true },
-  { id: "operator", header: "Operator", sortable: true, hideOnMobile: true },
-  { id: "route", header: "Route", sortable: true },
-  {
-    id: "status",
-    header: "Status",
-    sortable: true,
-    cell: (row) => <StatusChip tone={statusTone(row.status)}>{row.status}</StatusChip>,
-  },
-  { id: "amount", header: "Amount", sortable: true, align: "right" },
-];
-
-const roleColumns: DataTableColumn<RoleRow>[] = [
-  { id: "code", header: "Role", sortable: true },
-  { id: "name", header: "Name", sortable: true },
-  { id: "permissions", header: "Permissions", sortable: true },
-  { id: "users", header: "Users", sortable: true, align: "right" },
-  { id: "system", header: "System", sortable: true },
-];
-
-const logColumns: DataTableColumn<LogRow>[] = [
-  { id: "actor", header: "Who", sortable: true },
-  { id: "action", header: "What", sortable: true },
-  { id: "entity", header: "Entity", sortable: true },
-  { id: "ip", header: "IP", sortable: true, hideOnMobile: true },
-  { id: "device", header: "Device", sortable: true, hideOnMobile: true },
-  { id: "browser", header: "Browser", sortable: true, hideOnMobile: true },
-  { id: "when", header: "When", sortable: true },
-];
-
-function statusTone(status: string): "success" | "warning" | "danger" | "info" | "neutral" {
-  if (/(active|healthy|published|ready|enabled|generated|confirmed)/iu.test(status)) {
+function statusTone(status: string): Tone {
+  if (["CONFIRMED", "TICKET_GENERATED", "UPLOADED"].includes(status)) {
     return "success";
   }
-  if (/(scheduled|pending|retry|draft|degraded)/iu.test(status)) {
+  if (["CANCELLATION_REQUESTED", "REFUND_PENDING", "SEAT_HELD"].includes(status)) {
     return "warning";
   }
-  if (/(failed|cancelled|inactive|disabled|down|suspended)/iu.test(status)) {
+  if (["CANCELLED", "FAILED", "EXPIRED"].includes(status)) {
     return "danger";
   }
 
   return "neutral";
 }
 
-const dashboardMetrics = [
-  { label: "Today's Bookings", value: "36", tone: "success" as const, icon: ClipboardList },
-  { label: "Weekly Bookings", value: "242", tone: "success" as const, icon: Activity },
-  { label: "Monthly Bookings", value: "1,128", tone: "success" as const, icon: FileBarChart },
-  { label: "Revenue", value: "INR 18.6L", tone: "neutral" as const, icon: Percent },
-  { label: "Users", value: "12,408", tone: "neutral" as const, icon: Users },
-  { label: "Travel Agents", value: "326", tone: "success" as const, icon: ShieldCheck },
-  { label: "Upcoming Journeys", value: "418", tone: "neutral" as const, icon: Ticket },
-  { label: "Cancelled Bookings", value: "19", tone: "warning" as const, icon: AlertTriangle },
-];
+function healthTone(status: AdminSystemHealthRecord["status"]): Tone {
+  if (status === "HEALTHY") {
+    return "success";
+  }
+  if (status === "DEGRADED") {
+    return "warning";
+  }
 
-const trendData = [
-  { label: "Mon", bookings: 118, revenue: 188800, users: 62, cancellations: 3 },
-  { label: "Tue", bookings: 142, revenue: 227200, users: 71, cancellations: 4 },
-  { label: "Wed", bookings: 136, revenue: 217600, users: 68, cancellations: 5 },
-  { label: "Thu", bookings: 168, revenue: 268800, users: 84, cancellations: 6 },
-  { label: "Fri", bookings: 191, revenue: 305600, users: 95, cancellations: 5 },
-  { label: "Sat", bookings: 224, revenue: 358400, users: 119, cancellations: 8 },
-  { label: "Sun", bookings: 149, revenue: 238400, users: 77, cancellations: 4 },
-];
-
-const retentionData = [
-  { label: "Repeat", value: 58 },
-  { label: "New", value: 34 },
-  { label: "Dormant", value: 8 },
-];
-
-const systemHealth = [
-  { component: "API", status: "Healthy", latency: "42 ms" },
-  { component: "Database", status: "Healthy", latency: "18 ms" },
-  { component: "Redis", status: "Degraded", latency: "96 ms" },
-  { component: "Storage", status: "Healthy", latency: "25 ms" },
-  { component: "Email", status: "Healthy", latency: "Simulated adapter" },
-  { component: "Suppliers", status: "Healthy", latency: "Simulated adapter" },
-  { component: "Payments", status: "Healthy", latency: "Simulated adapter" },
-];
-
-const routeRows: AdminRow[] = [
-  row(
-    "route-1",
-    "Bangalore to Hyderabad",
-    "Active",
-    "318 bookings",
-    "Operations",
-    "1.9% cancellation",
-  ),
-  row(
-    "route-2",
-    "Chennai to Coimbatore",
-    "Active",
-    "242 bookings",
-    "Operations",
-    "2.4% cancellation",
-  ),
-  row("route-3", "Pune to Goa", "Active", "196 bookings", "Operations", "1.5% cancellation"),
-  row("route-4", "Mumbai to Pune", "Active", "171 bookings", "Operations", "1.1% cancellation"),
-];
-
-const operatorRows: AdminRow[] = [
-  row("op-1", "Eastern Travels", "Healthy", "214 bookings", "Supplier Ops", "4.6 rating"),
-  row("op-2", "GreenLine Roadways", "Healthy", "188 bookings", "Supplier Ops", "4.4 rating"),
-  row("op-3", "Royal Express", "Degraded", "144 bookings", "Supplier Ops", "4.2 rating"),
-];
-
-const customerRows: AdminRow[] = [
-  row("cust-1", "Aarav Sharma", "Active", "14 bookings", "Customer", "INR 22,400"),
-  row("cust-2", "Meera Iyer", "VIP", "11 bookings", "Customer", "INR 17,600"),
-  row("cust-3", "Rohan Gupta", "Active", "8 bookings", "Customer", "INR 13,200"),
-];
-
-const agentRows: AdminRow[] = [
-  row(
-    "agent-1",
-    "Vriddhi Nexus Partner Desk",
-    "Active",
-    "84 bookings",
-    "Travel Agent",
-    "4.5% commission",
-  ),
-  row(
-    "agent-2",
-    "South Corridor Travels",
-    "Active",
-    "62 bookings",
-    "Travel Agent",
-    "4.2% commission",
-  ),
-  row("agent-3", "Metro Bus Desk", "Pending", "18 bookings", "Travel Agent", "KYC review"),
-];
-
-const userRows: AdminRow[] = [
-  ...customerRows,
-  ...agentRows,
-  row("admin-1", "Vriddhi Admin", "Active", "81k audit events", "Admin", "Full access"),
-  row("admin-2", "Operations Lead", "Active", "42 reviews", "Admin", "Ops access"),
-];
-
-const couponRows: AdminRow[] = [
-  row("coupon-1", "WELCOME500", "Active", "INR 500 flat", "Growth", "824 / 5,000 used"),
-  row("coupon-2", "AGENT10", "Active", "10% off", "B2B", "612 / 2,500 used"),
-  row("coupon-3", "FESTIVE15", "Scheduled", "15% off", "Growth", "Starts 1 Sep"),
-];
-
-const offerRows: AdminRow[] = [
-  row("offer-1", "Monsoon routes", "Active", "18,420 views", "Growth", "Offer banner"),
-  row("offer-2", "Featured Pune to Goa", "Active", "12,980 views", "Growth", "Featured routes"),
-  row("offer-3", "Festival travel saver", "Scheduled", "Priority 4", "Growth", "Seasonal"),
-  row("offer-4", "App install popup", "Inactive", "6,200 views", "Growth", "Popup offer"),
-];
-
-const cmsRows: AdminRow[] = [
-  row("cms-1", "Home Banner", "Published", "Updated today", "Content", "Search surface"),
-  row("cms-2", "Privacy Policy", "Published", "Version 4", "Legal", "Policy"),
-  row("cms-3", "Refund Policy", "Draft", "Version 2", "Legal", "Policy"),
-  row("cms-4", "Blog Placeholder", "Draft", "3 posts", "Content", "Blog"),
-  row("cms-5", "SEO Bangalore Hyderabad", "Draft", "Route page", "Growth", "SEO"),
-];
-
-const notificationRows: AdminRow[] = [
-  row("notif-1", "Maintenance broadcast", "Draft", "Broadcast", "Admin", "Push + In-app"),
-  row("notif-2", "Journey delay", "Active", "Customer", "Operations", "Template"),
-  row("notif-3", "Settlement ready", "Active", "Agent", "Finance", "Template"),
-];
-
-const emailTemplateRows: AdminRow[] = [
-  row("tpl-1", "Booking Confirmation", "Active", "v3", "Platform", "bookingReference, route"),
-  row("tpl-2", "Cancellation", "Active", "v2", "Platform", "refundStatus"),
-  row("tpl-3", "Reschedule", "Active", "v4", "Platform", "journeyDate"),
-  row("tpl-4", "Password Reset", "Active", "v5", "Auth", "resetUrl"),
-  row("tpl-5", "Welcome", "Active", "v3", "Auth", "firstName"),
-  row("tpl-6", "Verify Email", "Active", "v3", "Auth", "verificationUrl"),
-];
-
-const reportRows: AdminRow[] = [
-  row("rpt-1", "Daily Bookings", "Ready", "CSV/PDF", "Operations", "Daily"),
-  row("rpt-2", "Weekly Revenue", "Ready", "CSV/PDF", "Finance", "Weekly"),
-  row("rpt-3", "Monthly Customer Growth", "Ready", "CSV/PDF", "Growth", "Monthly"),
-  row("rpt-4", "Yearly Cancellation Rate", "Ready", "CSV/PDF", "Operations", "Yearly"),
-];
-
-const settingsRows: AdminRow[] = [
-  row("set-1", "Brand Name", "Active", "Vriddhi Nexus Pvt Ltd", "Platform", "Brand"),
-  row("set-2", "Support Email", "Active", "support@vriddhinexus.com", "Support", "Contact"),
-  row("set-3", "Support Phone", "Active", "+918045678899", "Support", "Contact"),
-  row("set-4", "Timezone", "Active", "Asia/Kolkata", "Platform", "General"),
-  row("set-5", "Currency", "Active", "INR", "Finance", "Commercial"),
-  row("set-6", "Tax Percentage", "Active", "5", "Finance", "Commercial"),
-  row("set-7", "Booking Fee", "Active", "INR 40", "Finance", "Commercial"),
-  row("set-8", "Cancellation Policy", "Active", "Policy", "Legal", "Policy"),
-];
-
-const featureFlagRows: AdminRow[] = [
-  row("flag-1", "Enable AI", "Enabled", "100% rollout", "Product", "enable-ai"),
-  row("flag-2", "Enable Tracking", "Enabled", "100% rollout", "Operations", "enable-tracking"),
-  row("flag-3", "Enable Coupons", "Enabled", "100% rollout", "Growth", "enable-coupons"),
-  row("flag-4", "Enable Offers", "Enabled", "100% rollout", "Growth", "enable-offers"),
-  row("flag-5", "Enable Agent Portal", "Enabled", "100% rollout", "B2B", "enable-agent-portal"),
-  row("flag-6", "Enable Email", "Enabled", "100% rollout", "Platform", "enable-email"),
-  row(
-    "flag-7",
-    "Enable Maintenance Mode",
-    "Disabled",
-    "0% rollout",
-    "SRE",
-    "enable-maintenance-mode",
-  ),
-];
-
-const supplierRows: AdminRow[] = [
-  row(
-    "sup-0",
-    "Simulated Supplier",
-    "Healthy",
-    "Priority 1",
-    "Supplier Ops",
-    "Active in simulated mode",
-  ),
-  row("sup-1", "BCI", "Disabled", "Priority 2", "Supplier Ops", "Not configured"),
-  row("sup-2", "AbhiBus", "Disabled", "Priority 3", "Supplier Ops", "Not configured"),
-  row("sup-3", "RedBus", "Disabled", "Priority 4", "Supplier Ops", "Not configured"),
-  row("sup-4", "TBO", "Disabled", "Priority 5", "Supplier Ops", "Not configured"),
-  row("sup-5", "Custom Bus API", "Disabled", "Priority 6", "Supplier Ops", "Not configured"),
-];
-
-const paymentProviderRows: AdminRow[] = [
-  row("pay-0", "Simulated Payment", "Healthy", "INR", "Payments", "Active in simulated capture"),
-  row("pay-1", "Razorpay", "Disabled", "INR", "Payments", "Secret reference pending"),
-  row("pay-2", "Cashfree", "Disabled", "INR", "Payments", "Secret reference pending"),
-  row("pay-3", "PhonePe", "Disabled", "INR", "Payments", "Secret reference pending"),
-  row("pay-4", "Stripe", "Disabled", "USD-ready", "Payments", "Secret reference pending"),
-  row("pay-5", "Custom Payment API", "Disabled", "INR", "Payments", "Secret reference pending"),
-];
-
-const supplierPriorityRows: AdminRow[] = [
-  row("prio-1", "MOCK", "Enabled", "Priority 1", "Routing", "Current supplier mode"),
-  row("prio-2", "BCI", "Disabled", "Priority 2", "Routing", "Future production mode"),
-  row("prio-3", "AbhiBus", "Disabled", "Priority 3", "Routing", "Future production mode"),
-  row("prio-4", "RedBus", "Disabled", "Priority 4", "Routing", "Future production mode"),
-  row("prio-5", "TBO", "Disabled", "Priority 5", "Routing", "Future production mode"),
-  row("prio-6", "Custom", "Disabled", "Priority 6", "Routing", "Future production mode"),
-];
-
-const integrationHealthRows = [
-  { component: "Simulated Supplier", status: "Healthy", latency: "8 ms" },
-  { component: "BCI", status: "Disabled", latency: "Not configured" },
-  { component: "AbhiBus", status: "Disabled", latency: "Not configured" },
-  { component: "RedBus", status: "Disabled", latency: "Not configured" },
-  { component: "TBO", status: "Disabled", latency: "Not configured" },
-  { component: "Simulated Payment", status: "Healthy", latency: "6 ms" },
-  { component: "Live Payment", status: "Disabled", latency: "Not configured" },
-];
-
-const circuitRows: AdminRow[] = [
-  row("circuit-1", "MOCK", "Closed", "0 failures", "Circuit Breaker", "Ready"),
-  row("circuit-2", "BCI", "Closed", "0 failures", "Circuit Breaker", "Idle"),
-  row("circuit-3", "AbhiBus", "Closed", "0 failures", "Circuit Breaker", "Idle"),
-  row("circuit-4", "RedBus", "Closed", "0 failures", "Circuit Breaker", "Idle"),
-  row("circuit-5", "TBO", "Closed", "0 failures", "Circuit Breaker", "Idle"),
-];
-
-const integrationLogRows: AdminRow[] = [
-  row("ilog-1", "SEARCH_TRIPS", "Ready", "requestId + traceId", "MOCK", "Redacted metadata"),
-  row("ilog-2", "HOLD_SEATS", "Ready", "idempotency + lock", "MOCK", "No PII stored"),
-  row("ilog-3", "PAYMENT_WEBHOOK", "Ready", "duplicate protection", "Payments", "Signature hook"),
-  row("ilog-4", "HEALTH_CHECK", "Ready", "not configured", "Suppliers", "No fake success"),
-];
-
-const integrationToggleRows: AdminRow[] = [
-  row("toggle-1", "Simulated Supplier Mode", "Enabled", "SUPPLIER_MODE", "Configuration", "mock"),
-  row(
-    "toggle-2",
-    "Production Suppliers",
-    "Disabled",
-    "SUPPLIER_MODE",
-    "Configuration",
-    "production",
-  ),
-  row("toggle-3", "Simulated Payment", "Enabled", "PAYMENT_PROVIDER", "Configuration", "MOCK"),
-  row("toggle-4", "Payment Webhooks", "Enabled", "Webhook", "Payments", "Signature interface"),
-  row("toggle-5", "Circuit Breakers", "Enabled", "Routing", "Suppliers", "Failure threshold"),
-  row(
-    "toggle-6",
-    "Distributed Locks",
-    "Enabled",
-    "Redis-ready",
-    "Critical operations",
-    "TTL expiry",
-  ),
-];
-
-const monitoringRows: AdminRow[] = [
-  row("mon-1", "API Status", "Healthy", "42 ms", "SRE", "99.98%"),
-  row("mon-2", "Database", "Healthy", "18 ms", "SRE", "99.99%"),
-  row("mon-3", "Redis", "Degraded", "96 ms", "SRE", "98.70%"),
-  row("mon-4", "Queue", "Healthy", "55 ms", "SRE", "99.91%"),
-  row("mon-5", "Email Queue", "Degraded", "88 ms", "SRE", "99.20%"),
-  row("mon-6", "Storage", "Healthy", "25 ms", "SRE", "99.96%"),
-  row("mon-7", "Memory", "Healthy", "61%", "SRE", "Below alert"),
-  row("mon-8", "CPU", "Healthy", "42%", "SRE", "Below alert"),
-];
-
-const bookingRows: BookingRow[] = [
-  booking(
-    "BKG-ADM-001",
-    "VNB-ADM-001",
-    "PNRADM001",
-    "Aarav Sharma",
-    "Direct",
-    "Bangalore to Hyderabad",
-    "Eastern Travels",
-    "20 Aug 2026",
-    "TICKET_GENERATED",
-    "INR 1,710",
-  ),
-  booking(
-    "BKG-ADM-002",
-    "VNB-ADM-002",
-    "PNRADM002",
-    "Meera Iyer",
-    "Vriddhi Nexus Partner Desk",
-    "Bangalore to Hyderabad",
-    "Eastern Travels",
-    "20 Aug 2026",
-    "PENDING_PAYMENT",
-    "INR 1,660",
-  ),
-  booking(
-    "BKG-ADM-003",
-    "VNB-ADM-003",
-    "PNRADM003",
-    "Rohan Gupta",
-    "South Corridor Travels",
-    "Chennai to Coimbatore",
-    "GreenLine Roadways",
-    "22 Aug 2026",
-    "RESCHEDULED",
-    "INR 1,240",
-  ),
-  booking(
-    "BKG-ADM-004",
-    "VNB-ADM-004",
-    "PNRADM004",
-    "Ananya Rao",
-    "Direct",
-    "Pune to Goa",
-    "Royal Express",
-    "24 Aug 2026",
-    "CANCELLED",
-    "INR 1,450",
-  ),
-];
-
-const roleRows: RoleRow[] = [
-  role("role-1", "ADMIN", "Admin", "18 permissions", 48, "Yes"),
-  role("role-2", "TRAVEL_AGENT", "Travel Agent", "9 permissions", 326, "Yes"),
-  role("role-3", "CUSTOMER", "Customer", "7 permissions", 12034, "Yes"),
-  role("role-4", "SUPPORT_MANAGER", "Support Manager", "5 permissions", 12, "No"),
-];
-
-const permissionGroups = [
-  { group: "Users", permissions: ["users.view", "users.create", "users.edit", "users.delete"] },
-  { group: "Roles", permissions: ["roles.view", "roles.manage", "permissions.view"] },
-  { group: "Bookings", permissions: ["bookings.view", "bookings.create", "bookings.update"] },
-  { group: "Platform", permissions: ["admin.dashboard", "settings.manage", "activity.view"] },
-];
-
-const auditRows: LogRow[] = [
-  log(
-    "audit-1",
-    "admin@vriddhinexus.com",
-    "user.login",
-    "user:USR-001",
-    "103.21.244.12",
-    "Desktop",
-    "Chrome",
-    "09:00",
-  ),
-  log(
-    "audit-2",
-    "admin@vriddhinexus.com",
-    "booking.cancelled",
-    "booking:VNB-ADM-004",
-    "103.21.244.12",
-    "Desktop",
-    "Chrome",
-    "08:42",
-  ),
-  log(
-    "audit-3",
-    "ops@vriddhinexus.com",
-    "role.permission_assigned",
-    "role:ADMIN",
-    "103.21.244.13",
-    "Desktop",
-    "Edge",
-    "08:25",
-  ),
-  log(
-    "audit-4",
-    "content@vriddhinexus.com",
-    "cms.page_published",
-    "cms:FAQ",
-    "103.21.244.14",
-    "Tablet",
-    "Safari",
-    "08:15",
-  ),
-];
-
-const activityRows: LogRow[] = [
-  log(
-    "act-1",
-    "admin@vriddhinexus.com",
-    "booking.resend_email",
-    "booking:VNB-ADM-001",
-    "103.21.244.12",
-    "Desktop",
-    "Chrome",
-    "09:05",
-  ),
-  log(
-    "act-2",
-    "ops@vriddhinexus.com",
-    "feature_flag.updated",
-    "flag:enable-agent-portal",
-    "103.21.244.13",
-    "Desktop",
-    "Edge",
-    "08:35",
-  ),
-  log(
-    "act-3",
-    "growth@vriddhinexus.com",
-    "coupon.updated",
-    "coupon:WELCOME500",
-    "103.21.244.15",
-    "Desktop",
-    "Firefox",
-    "08:10",
-  ),
-  log(
-    "act-4",
-    "support@vriddhinexus.com",
-    "user.force_logout",
-    "user:CUS-001",
-    "103.21.244.16",
-    "Mobile",
-    "Chrome",
-    "07:55",
-  ),
-  log(
-    "act-5",
-    "finance@vriddhinexus.com",
-    "report.generated",
-    "report:RPT-WEEKLY",
-    "103.21.244.17",
-    "Desktop",
-    "Chrome",
-    "07:30",
-  ),
-];
-
-function row(
-  id: string,
-  name: string,
-  status: string,
-  metric: string,
-  owner: string,
-  context: string,
-): AdminRow {
-  return { id, name, status, metric, owner, context };
+  return status === "DOWN" ? "danger" : "neutral";
 }
 
-function booking(
-  id: string,
-  reference: string,
-  pnr: string,
-  customer: string,
-  agent: string,
-  route: string,
-  operator: string,
-  journeyDate: string,
-  status: string,
-  amount: string,
-): BookingRow {
-  return { id, reference, pnr, customer, agent, route, operator, journeyDate, status, amount };
+function formatInr(amount: number): string {
+  return `INR ${amount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 }
 
-function role(
-  id: string,
-  code: string,
-  name: string,
-  permissions: string,
-  users: number,
-  system: string,
-): RoleRow {
-  return { id, code, name, permissions, users, system };
+function formatDate(iso: string): string {
+  const date = new Date(iso);
+
+  return Number.isNaN(date.getTime())
+    ? iso
+    : new Intl.DateTimeFormat("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        timeZone: "Asia/Kolkata",
+      }).format(date);
 }
 
-function log(
-  id: string,
-  actor: string,
-  action: string,
-  entity: string,
-  ip: string,
-  device: string,
-  browser: string,
-  when: string,
-): LogRow {
-  return { id, actor, action, entity, ip, device, browser, when };
+function formatDateTime(iso: string): string {
+  const date = new Date(iso);
+
+  return Number.isNaN(date.getTime())
+    ? iso
+    : new Intl.DateTimeFormat("en-IN", {
+        day: "2-digit",
+        hour: "numeric",
+        minute: "2-digit",
+        month: "short",
+        timeZone: "Asia/Kolkata",
+      }).format(date);
 }

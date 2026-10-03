@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { SUPPLIER_CODES } from "@vnbus/supplier-sdk";
 import type { BusAmenity, BusSearchResult, Money, SupplierCode } from "@vnbus/types";
 
 const AMENITY_ALIASES = new Map<string, BusAmenity>([
@@ -59,14 +60,17 @@ export class NormalizationService {
     return AMENITY_ALIASES.get(amenity.toLowerCase()) ?? amenity;
   }
 
+  /**
+   * Every registered supplier keeps its own code. The list comes from the SDK
+   * so a new supplier cannot be silently relabelled CUSTOM — which is what
+   * happened to SRDV, sending its seat maps and bookings to the wrong adapter.
+   */
   normalizeSupplierCode(code: string): SupplierCode {
     const normalized = code.trim().toUpperCase();
 
-    if (["MOCK", "BCI", "REDBUS", "ABHIBUS", "TBO", "CUSTOM"].includes(normalized)) {
-      return normalized as SupplierCode;
-    }
-
-    return "CUSTOM";
+    return (SUPPLIER_CODES as readonly string[]).includes(normalized)
+      ? (normalized as SupplierCode)
+      : "CUSTOM";
   }
 }
 

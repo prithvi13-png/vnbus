@@ -1,70 +1,47 @@
+import { cpus, freemem, loadavg, totalmem } from "node:os";
+
 import { Injectable } from "@nestjs/common";
 import type { AdminMonitoringResponse, AdminSystemHealthRecord } from "@vnbus/types";
 
+import { EmailLoggerService } from "../../../shared/email/email-logger.service";
+import { HealthService } from "../../health/services/health.service";
 import type { MonitoringQueryDto } from "../dto/monitoring-query.dto";
 
+/** Live readings from this API process and its host, taken on each request. */
 @Injectable()
 export class MonitoringRepository {
+  constructor(
+    private readonly health: HealthService,
+    private readonly emailLogger: EmailLoggerService,
+  ) {}
+
   getDashboard(query: MonitoringQueryDto = {}): AdminMonitoringResponse {
-    const sampledAt = "2026-08-08T09:00:00.000Z";
-    const components = seedComponents(sampledAt).filter(
-      (component) =>
-        !query.component ||
-        component.component.toLowerCase().includes(query.component.toLowerCase()),
-    );
+    const report = this.health.getHealth();
+    const components = report.components
+      .map((component): AdminSystemHealthRecord => ({
+        component: component.component,
+        status: component.status,
+        latencyMs: component.latencyMs,
+        // No uptime history is collected, so none is claimed.
+        uptimePercentage: 0,
+        message: component.message,
+        sampledAt: report.checkedAt,
+      }))
+      .filter(
+        (component) =>
+          !query.component ||
+          component.component.toLowerCase().includes(query.component.toLowerCase()),
+      );
 
     return {
       components,
-      cpu: 42,
-      memory: 61,
-      storage: 37,
-      queueDepth: 76,
-      sampledAt,
+      // One-minute load average across all cores, as a percentage.
+      cpu: Math.min(100, Math.round(((loadavg()[0] ?? 0) / Math.max(cpus().length, 1)) * 100)),
+      memory: Math.round((1 - freemem() / totalmem()) * 100),
+      // Disk usage is not measured.
+      storage: 0,
+      queueDepth: this.emailLogger.list().filter((log) => log.status === "QUEUED").length,
+      sampledAt: report.checkedAt,
     };
   }
-}
-
-function seedComponents(sampledAt: string): AdminSystemHealthRecord[] {
-  return [
-    component(
-      "API Status",
-      "HEALTHY",
-      42,
-      99.98,
-      "REST controllers responding normally.",
-      sampledAt,
-    ),
-    component("Database", "HEALTHY", 18, 99.99, "Postgres readiness healthy.", sampledAt),
-    component("Redis", "DEGRADED", 96, 98.7, "Queue latency elevated in this snapshot.", sampledAt),
-    component("Queue", "HEALTHY", 55, 99.91, "Background jobs are draining.", sampledAt),
-    component("Email Queue", "DEGRADED", 88, 99.2, "Retry backlog is above target.", sampledAt),
-    component("Storage", "HEALTHY", 25, 99.96, "Ticket artifacts placeholder healthy.", sampledAt),
-    component(
-      "Memory",
-      "HEALTHY",
-      0,
-      99.95,
-      "Memory utilization below alert threshold.",
-      sampledAt,
-    ),
-    component("CPU", "HEALTHY", 0, 99.94, "CPU utilization below alert threshold.", sampledAt),
-  ];
-}
-
-function component(
-  name: string,
-  status: AdminSystemHealthRecord["status"],
-  latencyMs: number,
-  uptimePercentage: number,
-  message: string,
-  sampledAt: string,
-): AdminSystemHealthRecord {
-  return {
-    component: name,
-    status,
-    latencyMs,
-    uptimePercentage,
-    message,
-    sampledAt,
-  };
 }

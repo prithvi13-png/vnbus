@@ -1,9 +1,11 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { createMockTicketPdf } from "@vnbus/shared";
+import { Injectable } from "@nestjs/common";
+import { createTicketPdf } from "@vnbus/shared";
 import type { TicketEmailResponse, TicketPdfResponse, TicketRecord } from "@vnbus/types";
 
 import { EmailQueueService } from "../../../shared/email/email-queue.service";
-import { BookingService } from "../../booking/services/booking.service";
+import { buildTicketEmail } from "../../../shared/email/ticket-email";
+import type { JwtPrincipal } from "../../../shared/security/interfaces/jwt-principal.interface";
+import { BookingService, SUPPORT_EMAIL } from "../../booking/services/booking.service";
 import { NotificationService } from "../../notification/services/notification.service";
 import { TimelineService } from "../../timeline/services/timeline.service";
 import { TicketSummaryDto } from "../dto/ticket-summary.dto";
@@ -32,93 +34,68 @@ export class TicketService implements TicketModulePort {
     return new TicketSummaryDto(summary);
   }
 
-  getTicket(id: string): TicketRecord {
-    const existing = this.repository.findById(id);
-    if (existing) {
-      this.validator.ensureTicket(existing);
-
-      return existing;
-    }
-
-    const booking = this.bookingService.getBooking(id);
+  /** The ticket for one of the user's bookings, looked up by booking id. */
+  async getTicket(bookingId: string, principal: JwtPrincipal): Promise<TicketRecord> {
+    const booking = await this.bookingService.getBookingForUser(bookingId, principal);
     this.validator.ensureTicketable(booking);
 
-    return this.repository.save(this.mapper.fromBooking(booking));
+    return this.mapper.fromBooking(booking, this.repository.findActivity(booking.bookingId));
   }
 
-  downloadTicketPdf(id: string): TicketPdfResponse {
-    const ticket = this.getTicket(id);
-    const booking = this.bookingService.getBooking(ticket.bookingId);
-    if (!booking) {
-      throw new NotFoundException("Booking not found");
-    }
+  async downloadTicketPdf(bookingId: string, principal: JwtPrincipal): Promise<TicketPdfResponse> {
+    const booking = await this.bookingService.getBookingForUser(bookingId, principal);
     this.validator.ensureTicketable(booking);
     const downloadedAt = new Date().toISOString();
-    const pdf = {
-      ...createMockTicketPdf(booking),
-      ticketId: ticket.ticketId,
-      downloadStatus: "DOWNLOADED" as const,
-      downloadedAt,
-    };
-    const updatedTicket: TicketRecord = {
-      ...ticket,
-      status: "DOWNLOADED",
-      lastDownloadedAt: downloadedAt,
-    };
+    const pdf = createTicketPdf(booking, { supportEmail: SUPPORT_EMAIL });
 
-    this.repository.save(updatedTicket);
-    this.repository.recordDownload(ticket.ticketId, pdf);
-    this.timelineService.append({
+    this.repository.recordActivity(booking.bookingId, { lastDownloadedAt: downloadedAt });
+    await this.timelineService.append({
       bookingId: booking.bookingId,
       type: "TICKET_DOWNLOADED",
       title: "Ticket downloaded",
-      description: `PDF ${pdf.fileName} downloaded from the ticket service.`,
+      description: `${pdf.fileName} downloaded.`,
       occurredAt: downloadedAt,
       tone: "info",
     });
 
-    return pdf;
+    return { ...pdf, downloadStatus: "DOWNLOADED", downloadedAt };
   }
 
-  async emailTicket(dto: TicketEmailDto): Promise<TicketEmailResponse> {
-    const ticket = this.getTicket(dto.bookingId);
-    const booking = this.bookingService.getBooking(ticket.bookingId);
-    if (!booking) {
-      throw new BadRequestException("Booking not found for ticket");
-    }
+  async emailTicket(dto: TicketEmailDto, principal: JwtPrincipal): Promise<TicketEmailResponse> {
+    const ticket = await this.getTicket(dto.bookingId, principal);
+    const to = dto.to ?? ticket.passengers[0]?.email ?? "";
+    const email = buildTicketEmail(ticket, SUPPORT_EMAIL);
     const emailLog = await this.emailService.queue({
-      to: dto.to ?? booking.passengers[0]?.email ?? "traveller@example.com",
+      to,
       templateKey: "booking-confirmation",
       variables: {
-        bookingReference: booking.bookingReference,
-        route: `${booking.trip.sourceCity} to ${booking.trip.destinationCity}`,
-        attachmentFileName: `${booking.bookingReference}.pdf`,
+        subject: email.subject,
+        ticketHtml: email.ticketHtml,
+        ticketText: email.ticketText,
       },
     });
     const emailedAt = emailLog.sentAt ?? emailLog.queuedAt;
-    this.repository.save({
-      ...ticket,
-      status: "EMAIL_SENT",
-      lastEmailedAt: emailedAt,
-    });
-    this.timelineService.append({
-      bookingId: booking.bookingId,
+
+    this.repository.recordActivity(ticket.bookingId, { lastEmailedAt: emailedAt });
+    await this.timelineService.append({
+      bookingId: ticket.bookingId,
       type: "EMAIL_SENT",
       title: "Ticket emailed",
-      description: `Ticket email sent using email log ${emailLog.id}.`,
+      description: `Ticket email to ${emailLog.to}: ${emailLog.status.toLowerCase()}.`,
       occurredAt: emailedAt,
       tone: "info",
     });
     this.notificationService.create({
+      userId: principal.sub,
       type: "EMAIL_HISTORY",
       title: "Ticket email sent",
       body: `Ticket ${ticket.ticketNumber} was emailed to ${emailLog.to}.`,
-      bookingId: booking.bookingId,
+      bookingId: ticket.bookingId,
       emailLogId: emailLog.id,
     });
 
     return {
-      bookingId: booking.bookingId,
+      bookingId: ticket.bookingId,
       ticketId: ticket.ticketId,
       queued: true,
       emailLogId: emailLog.id,

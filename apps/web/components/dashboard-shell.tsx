@@ -4,6 +4,7 @@ import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import {
   BarChart3,
   Bell,
@@ -28,12 +29,9 @@ import {
   SquareActivity,
   ReceiptText,
   RotateCcw,
-  Star,
   Ticket,
   UserCog,
-  UserRound,
   Users,
-  WalletCards,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -59,6 +57,7 @@ import {
   type SidebarItem,
 } from "@vnbus/ui";
 
+import { listNotifications, markAllNotificationsRead } from "../lib/api-client";
 import { useAuthStore } from "../lib/auth-store";
 import { getDashboardPathForUser } from "../lib/role-routes";
 import { useUiStore } from "../lib/ui-store";
@@ -89,7 +88,6 @@ const adminNavigation: NavItem[] = [
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/agents", label: "Travel Agents", icon: ShieldCheck },
   { href: "/admin/customers", label: "Customers", icon: Users },
-  { href: "/admin/trust-signals", label: "Trust Signals", icon: Star },
   { href: "/admin/roles", label: "Roles", icon: UserCog },
   { href: "/admin/coupons", label: "Coupons", icon: Percent },
   { href: "/admin/offers", label: "Offers", icon: CircleDollarSign },
@@ -112,8 +110,6 @@ const customerNavigation: NavItem[] = [
   { href: "/customer/bookings", label: "Bookings", icon: ClipboardList },
   { href: "/customer/tracking", label: "Track Bus", icon: MapPinned },
   { href: "/customer/invoices", label: "Invoices", icon: ReceiptText },
-  { href: "/customer/rewards", label: "Wallet & Rewards", icon: WalletCards },
-  { href: "/customer/travellers", label: "Saved Travellers", icon: UserRound },
   { href: "/customer/profile", label: "Profile", icon: UserCog },
   { href: "/customer/notifications", label: "Notifications", icon: Bell },
   { href: "/customer/support", label: "Support", icon: Headphones },
@@ -170,12 +166,19 @@ export function DashboardShell({
   }, [area, hasHydrated, user]);
   const mobileNavOpen = useUiStore((state) => state.mobileNavOpen);
   const commandOpen = useUiStore((state) => state.commandOpen);
-  const notifications = useUiStore((state) => state.notifications);
   const setMobileNavOpen = useUiStore((state) => state.setMobileNavOpen);
   const setCommandOpen = useUiStore((state) => state.setCommandOpen);
-  const markNotificationsRead = useUiStore((state) => state.markNotificationsRead);
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const notificationsQuery = useQuery({
+    queryKey: ["notifications"],
+    queryFn: listNotifications,
+    enabled: Boolean(accessToken),
+  });
+  const notifications = (notificationsQuery.data ?? []).slice(0, 6);
   const { notify } = useToast();
-  const unreadCount = notifications.filter((notification) => notification.unread).length;
+  const unreadCount = (notificationsQuery.data ?? []).filter(
+    (notification) => notification.readStatus === "UNREAD",
+  ).length;
   const sidebarItems: SidebarItem[] = navigation.map((item) => ({
     ...item,
     active: pathname === item.href || (item.label === "Dashboard" && pathname === "/dashboard"),
@@ -273,30 +276,40 @@ export function DashboardShell({
                       {unreadCount ? <Badge variant="warning">{unreadCount} unread</Badge> : null}
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                    {notifications.map((notification) => (
-                      <DropdownMenuItem key={notification.id} className="items-start gap-3 py-2">
-                        <span
-                          className={cn(
-                            "mt-1 h-2 w-2 rounded-full",
-                            notification.unread ? "bg-gold-500" : "bg-gray-300 dark:bg-gray-700",
-                          )}
-                          aria-hidden="true"
-                        />
-                        <span className="grid gap-0.5">
-                          <span className="text-sm font-medium">{notification.title}</span>
-                          <span className="text-xs text-gray-500">{notification.description}</span>
-                        </span>
-                      </DropdownMenuItem>
-                    ))}
+                    {notifications.length ? (
+                      notifications.map((notification) => (
+                        <DropdownMenuItem key={notification.id} className="items-start gap-3 py-2">
+                          <span
+                            className={cn(
+                              "mt-1 h-2 w-2 rounded-full",
+                              notification.readStatus === "UNREAD"
+                                ? "bg-gold-500"
+                                : "bg-gray-300 dark:bg-gray-700",
+                            )}
+                            aria-hidden="true"
+                          />
+                          <span className="grid gap-0.5">
+                            <span className="text-sm font-medium">{notification.title}</span>
+                            <span className="text-xs text-gray-500">{notification.body}</span>
+                          </span>
+                        </DropdownMenuItem>
+                      ))
+                    ) : (
+                      <p className="px-2 py-3 text-sm text-gray-500">No notifications yet.</p>
+                    )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
+                      disabled={!unreadCount}
                       onClick={() => {
-                        markNotificationsRead();
-                        notify({
-                          title: "Notifications updated",
-                          description: "All dashboard notifications are marked read.",
-                          tone: "success",
-                        });
+                        void markAllNotificationsRead()
+                          .then(() => notificationsQuery.refetch())
+                          .then(() =>
+                            notify({
+                              title: "Notifications updated",
+                              description: "All notifications are marked read.",
+                              tone: "success",
+                            }),
+                          );
                       }}
                     >
                       Mark all as read

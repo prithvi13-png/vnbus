@@ -29,9 +29,7 @@ const summary = {
 
 @Injectable()
 export class OffersRepository {
-  private readonly offers = new Map<string, AdminOfferRecord>(
-    seedOffers().map((offer) => [offer.offerId, offer]),
-  );
+  private readonly offers = new Map<string, AdminOfferRecord>();
 
   findSummary(): ModuleSummary {
     return summary;
@@ -90,65 +88,4 @@ export class OffersRepository {
   findOffer(offerId: string): AdminOfferRecord | null {
     return this.offers.get(offerId) ?? null;
   }
-}
-
-function seedOffers(): AdminOfferRecord[] {
-  return [
-    offer(
-      "OFR-BANNER-001",
-      "Monsoon routes",
-      "OFFER_BANNER",
-      "Bangalore to Hyderabad",
-      "ACTIVE",
-      1,
-      18420,
-      842,
-    ),
-    offer(
-      "OFR-FEATURED-001",
-      "Featured Pune to Goa",
-      "FEATURED_ROUTES",
-      "Pune to Goa",
-      "ACTIVE",
-      2,
-      12980,
-      514,
-    ),
-    offer("OFR-SEASONAL-001", "Festival travel saver", "SEASONAL", null, "SCHEDULED", 4, 0, 0),
-    offer(
-      "OFR-HOME-001",
-      "Home promotion",
-      "HOME_PROMOTION",
-      "Chennai to Coimbatore",
-      "DRAFT",
-      8,
-      0,
-      0,
-    ),
-    offer("OFR-POPUP-001", "App install popup", "POPUP", null, "INACTIVE", 12, 6200, 91),
-  ];
-}
-
-function offer(
-  offerId: string,
-  title: string,
-  placement: AdminOfferRecord["placement"],
-  route: string | null,
-  status: AdminOfferRecord["status"],
-  priority: number,
-  impressions: number,
-  conversions: number,
-): AdminOfferRecord {
-  return {
-    offerId,
-    title,
-    placement,
-    route,
-    status,
-    startsAt: "2026-08-08T00:00:00.000Z",
-    endsAt: "2026-09-30T18:29:59.000Z",
-    priority,
-    impressions,
-    conversions,
-  };
 }

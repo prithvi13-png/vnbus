@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query } from "@nestjs/common";
+import { Body, Controller, Get, Post, Query, Req } from "@nestjs/common";
 import { ApiBearerAuth, ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import type {
   AgentBookingListResponse,
@@ -6,7 +6,9 @@ import type {
   TicketEmailResponse,
 } from "@vnbus/types";
 
-import { Public } from "../../../shared/security/decorators/public.decorator";
+import { Roles } from "../../../shared/security/decorators/roles.decorator";
+import type { AuthenticatedRequest } from "../../../shared/security/interfaces/authenticated-request.interface";
+import { requirePrincipal } from "../../../shared/security/require-user";
 import {
   AgentBookingListQueryDto,
   AgentEmailTicketDto,
@@ -20,26 +22,37 @@ import { AgentBookingService } from "../services/agent-booking.service";
 export class AgentBookingController {
   constructor(private readonly service: AgentBookingService) {}
 
-  @Public()
+  // Agents only: these routes sell real seats on the platform's supplier
+  // account and list the agent's customers' bookings.
+  @Roles("TRAVEL_AGENT")
   @Get()
   @ApiOkResponse({
     description: "Agent booking list with search, filters, sorting, and pagination",
   })
-  listBookings(@Query() query: AgentBookingListQueryDto): AgentBookingListResponse {
-    return this.service.listBookings(query);
+  listBookings(
+    @Query() query: AgentBookingListQueryDto,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<AgentBookingListResponse> {
+    return this.service.listBookings(requirePrincipal(request), query);
   }
 
-  @Public()
+  @Roles("TRAVEL_AGENT")
   @Post()
-  @ApiOkResponse({ description: "Create an agent-owned booking using the shared booking engine" })
-  createBooking(@Body() dto: CreateAgentBookingDto): Promise<CreateAgentBookingResponse> {
-    return this.service.createBooking(dto);
+  @ApiOkResponse({ description: "Book seats with the supplier for one of the agent's customers" })
+  createBooking(
+    @Body() dto: CreateAgentBookingDto,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<CreateAgentBookingResponse> {
+    return this.service.createBooking(requirePrincipal(request), dto);
   }
 
-  @Public()
+  @Roles("TRAVEL_AGENT")
   @Post("email-ticket")
   @ApiOkResponse({ description: "Email a generated ticket from the agent workspace" })
-  emailTicket(@Body() dto: AgentEmailTicketDto): Promise<TicketEmailResponse> {
-    return this.service.emailTicket(dto);
+  emailTicket(
+    @Body() dto: AgentEmailTicketDto,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<TicketEmailResponse> {
+    return this.service.emailTicket(requirePrincipal(request), dto);
   }
 }

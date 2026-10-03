@@ -38,7 +38,7 @@ export function ProfileMenu(): React.JSX.Element {
             {user ? `${user.firstName} ${user.lastName}` : "Vriddhi Nexus"}
           </span>
           <span className="block truncate text-xs font-normal text-gray-500">
-            {user?.email ?? "workspace@example.com"}
+            {user?.email ?? ""}
           </span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />

@@ -77,15 +77,8 @@ export interface TripSearchQuery {
   passengerCount: number;
 }
 
-export type BusType =
-  | "AC Sleeper"
-  | "Non AC Sleeper"
-  | "Seater"
-  | "Semi Sleeper"
-  | "Volvo"
-  | "Mercedes"
-  | "Luxury"
-  | "Electric";
+/** Free-form, as the supplier names it ("Volvo A/C Seater (2+2)"). */
+export type BusType = string;
 
 export type BusAmenity =
   | "WiFi"
@@ -204,6 +197,12 @@ export interface ReviewSummary {
   positiveTags: string[];
 }
 
+/** A city the bus supplier can search from or to. */
+export interface CitySuggestion {
+  name: string;
+  state: string;
+}
+
 export interface TripSummary {
   supplierCode: string;
   tripId: string;
@@ -239,6 +238,8 @@ export interface BusSearchResult extends TripSummary {
 
 export interface BusSearchResponse {
   success: boolean;
+  /** Why a search found nothing, when a supplier said why: an unknown city, an outage. */
+  notice?: string;
   totalResults: number;
   buses: BusSearchResult[];
   filters: SearchFilterMetadata;
@@ -269,7 +270,10 @@ export interface SeatMapSeat {
   column: number;
   kind: SeatKind;
   status: SeatStatus;
+  /** What the passenger pays for this seat, GST included. */
   fare: Money;
+  /** The GST already inside `fare`, as the supplier states it. */
+  tax: Money;
   isWindow: boolean;
   isEmergencyExit: boolean;
   hasExtraLegroom: boolean;
@@ -308,44 +312,6 @@ export interface SeatLayoutDetails {
   boardingPoints: BoardingDroppingPoint[];
   droppingPoints: BoardingDroppingPoint[];
   decks: SeatDeckLayout[];
-}
-
-export interface SeatLayoutAdminConfig {
-  layoutName: string;
-  currency: Money["currency"];
-  baseFareAmount: number;
-  windowPremiumAmount: number;
-  extraLegroomPremiumAmount: number;
-  sleeperPremiumAmount: number;
-  upperDeckPremiumAmount: number;
-  lowerDeckEnabled: boolean;
-  upperDeckEnabled: boolean;
-  maxSelectableSeats: number;
-  maleSeatNumbers: string[];
-  femaleSeatNumbers: string[];
-  femaleBookedSeatNumbers: string[];
-  bookedSeatNumbers: string[];
-  blockedSeatNumbers: string[];
-  updatedAt: string;
-  updatedBy: string;
-}
-
-export interface UpdateSeatLayoutAdminConfigRequest {
-  layoutName?: string;
-  baseFareAmount?: number;
-  windowPremiumAmount?: number;
-  extraLegroomPremiumAmount?: number;
-  sleeperPremiumAmount?: number;
-  upperDeckPremiumAmount?: number;
-  lowerDeckEnabled?: boolean;
-  upperDeckEnabled?: boolean;
-  maxSelectableSeats?: number;
-  maleSeatNumbers?: string[];
-  femaleSeatNumbers?: string[];
-  femaleBookedSeatNumbers?: string[];
-  bookedSeatNumbers?: string[];
-  blockedSeatNumbers?: string[];
-  updatedBy?: string;
 }
 
 export interface SeatHoldRequest {
@@ -394,7 +360,6 @@ export interface BookingFareSummary {
 }
 
 export interface CreateBookingRequest {
-  reservationId: string;
   supplierCode: string;
   tripId: string;
   journeyDate: string;
@@ -432,11 +397,6 @@ export interface BookingRecord {
   emailPrepared: boolean;
 }
 
-export interface ConfirmBookingRequest {
-  bookingId: string;
-  paymentReference: string;
-}
-
 export interface BookingConfirmationResponse {
   booking: BookingRecord;
   ticket: TicketRecord;
@@ -452,7 +412,6 @@ export interface TicketRecord {
   journeyDate: string;
   operatorName: string;
   busType: string;
-  busNumber: string;
   route: string;
   departureTime: string;
   arrivalTime: string;
@@ -464,8 +423,6 @@ export interface TicketRecord {
   fare: BookingFareSummary;
   bookingDate: string;
   bookingStatus: BookingStatus;
-  qrCode: TicketQrCode;
-  qrPayload: string;
   trackingStatus: "COMING_SOON";
   terms: string[];
   emergencyContact: string;
@@ -484,25 +441,8 @@ export interface TicketPdfResponse {
   downloadedAt?: string;
 }
 
-export interface TicketQrPayload {
-  bookingId: string;
-  pnr: string;
-  journeyDate: string;
-  passengerCount: number;
-  verificationUrl: string;
-}
-
-export interface TicketQrCode {
-  payload: TicketQrPayload;
-  data: string;
-  svg: string;
-  dataUrl: string;
-}
-
 export interface TicketSupportContact {
-  phone: string;
   email: string;
-  hours: string;
 }
 
 export interface TicketEmailRequest {
@@ -544,20 +484,10 @@ export interface CancelBookingResponse {
   refundStatus: "REFUND_PENDING";
 }
 
-export interface RescheduleBookingRequest {
-  bookingId: string;
-  newJourneyDate: string;
-  newTripId?: string;
-}
-
-export interface RescheduleBookingResponse {
-  booking: BookingRecord;
-  timeline: BookingTimelineEvent[];
-  status: "RESCHEDULED";
-}
-
 export interface NotificationRecord {
   id: string;
+  /** The user it is for; absent on an admin broadcast, which everyone sees. */
+  userId?: string;
   type: NotificationType;
   readStatus: NotificationReadStatus;
   title: string;
@@ -1280,9 +1210,9 @@ export interface UpdateAdminPlatformSettingRequest {
   value: string;
 }
 
-export type SupplierCode = "MOCK" | "BCI" | "REDBUS" | "ABHIBUS" | "TBO" | "SRDV" | "CUSTOM";
+export type SupplierCode = "BCI" | "REDBUS" | "ABHIBUS" | "TBO" | "SRDV" | "CUSTOM";
 
-export type SupplierEnvironment = "MOCK" | "SANDBOX_PLACEHOLDER" | "PRODUCTION_PLACEHOLDER";
+export type SupplierEnvironment = "SANDBOX_PLACEHOLDER" | "PRODUCTION_PLACEHOLDER";
 
 export type SupplierHealthStatus = "AVAILABLE" | "UNAVAILABLE" | "DEGRADED" | "UNKNOWN";
 
@@ -1484,7 +1414,6 @@ export interface SupplierCircuitStateRecord {
 }
 
 export interface IntegrationDashboardResponse {
-  supplierMode: "mock" | "production";
   suppliers: SupplierIntegrationConfig[];
   health: SupplierHealth[];
   requestLogs: SupplierRequestLogRecord[];
@@ -1497,8 +1426,7 @@ export interface IntegrationDashboardResponse {
   };
 }
 
-export type PaymentProviderCode =
-  "MOCK" | "RAZORPAY" | "CASHFREE" | "PHONEPE" | "STRIPE" | "CUSTOM";
+export type PaymentProviderCode = "RAZORPAY" | "CASHFREE" | "PHONEPE" | "STRIPE" | "CUSTOM";
 
 export type PaymentStatus =
   | "CREATED"
@@ -1517,7 +1445,7 @@ export interface PaymentProviderConfig {
   code: PaymentProviderCode;
   name: string;
   enabled: boolean;
-  environment: "MOCK" | "SANDBOX_PLACEHOLDER" | "PRODUCTION_PLACEHOLDER";
+  environment: "SANDBOX_PLACEHOLDER" | "PRODUCTION_PLACEHOLDER";
   currency: "INR" | "USD";
   credentialReference: string | null;
   configuration: Record<string, string | number | boolean | null>;
@@ -1659,7 +1587,7 @@ export interface TripRecommendationRecord {
 }
 
 export interface RecommendationEngineResponse {
-  engine: "MOCK_RULES" | "LLM_READY";
+  engine: "RULES" | "LLM_READY";
   generatedAt: string;
   recommendations: TripRecommendationRecord[];
   recentlyViewed: TripRecommendationRecord[];

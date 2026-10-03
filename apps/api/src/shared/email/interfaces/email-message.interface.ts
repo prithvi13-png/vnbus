@@ -6,8 +6,7 @@ export type EmailTemplateKey =
   | "forgot-password"
   | "password-changed"
   | "booking-confirmation"
-  | "booking-cancelled"
-  | "booking-rescheduled";
+  | "booking-cancelled";
 
 export interface EmailMessage {
   to: string;

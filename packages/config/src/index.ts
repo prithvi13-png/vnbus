@@ -48,7 +48,7 @@ export const serverEnvSchema = z.object({
   CORS_ORIGIN: z.string().min(1),
   COOKIE_SECURE: envBooleanSchema.default(false),
   COOKIE_DOMAIN: z.string().optional(),
-  EMAIL_PROVIDER: z.string().default("mock"),
+  EMAIL_PROVIDER: z.string().default("resend"),
   EMAIL_FROM: z.string().email().default("no-reply@vriddhinexus.example"),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: optionalPositiveIntSchema,
@@ -61,8 +61,7 @@ export const serverEnvSchema = z.object({
   S3_SECRET_ACCESS_KEY: z.string().optional(),
   CLOUDFLARE_ZONE_ID: z.string().optional(),
   CLOUDFLARE_API_TOKEN: z.string().optional(),
-  SUPPLIER_MODE: z.enum(["mock", "production"]).default("mock"),
-  SUPPLIER_PRIORITY: z.string().default("MOCK,BCI,ABHIBUS,REDBUS,TBO,CUSTOM"),
+  SUPPLIER_PRIORITY: z.string().default("SRDV,BCI,ABHIBUS,REDBUS,TBO,CUSTOM"),
   SUPPLIER_CONNECTION_TIMEOUT_MS: z.coerce.number().int().positive().default(1500),
   SUPPLIER_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(3000),
   SUPPLIER_RETRY_COUNT: z.coerce.number().int().min(0).default(1),
@@ -77,8 +76,8 @@ export const serverEnvSchema = z.object({
   ABHIBUS_API_KEY: z.string().optional(),
   TBO_API_URL: z.string().optional(),
   TBO_API_KEY: z.string().optional(),
-  // SRDV. All optional: absent credentials leave the supplier unregistered and
-  // mock development untouched. SRDV_API_TOKEN is the credential the supplier
+  // SRDV. All optional: absent credentials leave the supplier unregistered, so
+  // searches return no buses rather than failing. SRDV_API_TOKEN is the credential the supplier
   // actually authenticates on, taking the place of the _API_KEY the other
   // suppliers use.
   SRDV_API_URL: z.string().optional(),
@@ -100,11 +99,11 @@ export const serverEnvSchema = z.object({
    */
   SRDV_REST_PATH_PREFIX: z.string().default("v9/rest"),
   /**
-   * SRDV addresses cities by numeric code, and no city-list endpoint has been
-   * supplied, so the mapping is configuration: "bangalore:19402,hyderabad:8875".
-   * Codes must come from SRDV — never inferred from a sample response, where an
-   * example pairing proves nothing about which city a code denotes.
-   * Unmapped cities are reported as errors rather than guessed.
+   * SRDV addresses cities by numeric code. Its own city list ships with the
+   * supplier SDK; this overlays it as "kochi:938,vizag:27" to add or correct a
+   * city without a release. Codes must come from SRDV — never inferred from a
+   * sample response, where an example pairing proves nothing about which city
+   * a code denotes. Unmapped cities are reported as errors rather than guessed.
    */
   SRDV_CITY_CODES: z.string().optional(),
   /**
@@ -116,7 +115,7 @@ export const serverEnvSchema = z.object({
   SRDV_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(20_000),
   CUSTOM_BUS_API_URL: z.string().optional(),
   CUSTOM_BUS_API_KEY: z.string().optional(),
-  PAYMENT_PROVIDER: z.string().default("MOCK"),
+  PAYMENT_PROVIDER: z.string().optional(),
   PAYMENT_API_KEY: z.string().optional(),
   PAYMENT_WEBHOOK_SECRET: z.string().optional(),
   RAZORPAY_API_URL: z.string().optional(),

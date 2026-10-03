@@ -1,141 +1,94 @@
-import { EmailLoggerService } from "../../../shared/email/email-logger.service";
-import { EmailQueueService } from "../../../shared/email/email-queue.service";
-import { EmailRetryStrategy } from "../../../shared/email/email-retry.strategy";
-import { EmailTemplateService } from "../../../shared/email/email-template.service";
-import { MockEmailSender } from "../../../shared/email/senders/mock-email.sender";
-import { BookingRepository } from "../../booking/repositories/booking.repository";
-import { BookingService } from "../../booking/services/booking.service";
-import { BookingModuleValidator } from "../../booking/validators/booking.validator";
-import { DistributedLockService } from "../../integration/services/distributed-lock.service";
-import { IdempotencyService } from "../../integration/services/idempotency.service";
-import { createTestSupplierManager } from "../../integration/tests/integration-test-helpers";
-import { NotificationRepository } from "../../notification/repositories/notification.repository";
-import { NotificationService } from "../../notification/services/notification.service";
-import { NotificationModuleValidator } from "../../notification/validators/notification.validator";
-import { SeatRepository } from "../../seat/repositories/seat.repository";
-import { SeatService } from "../../seat/services/seat.service";
-import { SeatModuleValidator } from "../../seat/validators/seat.validator";
-import { TimelineRepository } from "../../timeline/repositories/timeline.repository";
-import { TimelineService } from "../../timeline/services/timeline.service";
-import { TimelineModuleValidator } from "../../timeline/validators/timeline.validator";
-import { TicketMapper } from "../mappers/ticket.mapper";
-import { TicketRepository } from "../repositories/ticket.repository";
-import { TicketService } from "../services/ticket.service";
-import { TicketModuleValidator } from "../validators/ticket.validator";
+import { BadRequestException, NotFoundException } from "@nestjs/common";
+
+import {
+  bookingRequest,
+  createBookingHarness,
+  futureDate,
+  principal,
+  searchTrip,
+} from "../../../shared/tests/booking-harness";
+
+async function bookedTicket() {
+  const harness = createBookingHarness();
+  const journeyDate = futureDate();
+  const trip = await searchTrip(harness.supplierManager, journeyDate);
+  const confirmation = await harness.bookingService.createBooking(
+    bookingRequest(trip, journeyDate),
+    principal(),
+  );
+
+  return { ...harness, booking: confirmation.booking };
+}
 
 describe("TicketService", () => {
-  const createServices = (): {
-    bookingService: BookingService;
-    seatService: SeatService;
-    ticketService: TicketService;
-  } => {
-    const seatService = new SeatService(
-      new SeatRepository(),
-      new SeatModuleValidator(),
-      createTestSupplierManager(),
-      new IdempotencyService(),
-      new DistributedLockService(),
-    );
-    const emailService = new EmailQueueService(
-      new EmailTemplateService(new MockEmailSender()),
-      new EmailLoggerService(),
-      new EmailRetryStrategy(),
-    );
-    const timelineService = new TimelineService(
-      new TimelineRepository(),
-      new TimelineModuleValidator(),
-    );
-    const notificationService = new NotificationService(
-      new NotificationRepository(),
-      new NotificationModuleValidator(),
-    );
-    const bookingService = new BookingService(
-      new BookingRepository(),
-      new BookingModuleValidator(),
-      seatService,
-      emailService,
-      timelineService,
-      notificationService,
-    );
-    const ticketService = new TicketService(
-      new TicketRepository(),
-      new TicketModuleValidator(),
-      bookingService,
-      new TicketMapper(),
-      emailService,
-      timelineService,
-      notificationService,
-    );
-
-    return { bookingService, seatService, ticketService };
-  };
-
   it("returns module readiness and capabilities", () => {
-    const { ticketService } = createServices();
+    const { ticketService } = createBookingHarness();
     const summary = ticketService.getSummary();
 
     expect(summary.module).toBe("ticket");
-    expect(summary.status).toBe("READY_FOR_INTEGRATION");
     expect(summary.capabilities.length).toBeGreaterThan(0);
   });
 
-  it("generates a ticket and mock PDF for a confirmed booking", async () => {
-    const { bookingService, seatService, ticketService } = createServices();
-    const journeyDate = tomorrowIsoDate();
-    const layout = await seatService.getSeatLayout("vn-route-001-1", journeyDate);
-    const seat = layout.decks
-      .flatMap((deck) => deck.seats)
-      .find((item) => item.status === "AVAILABLE");
-    const seatNumber = seat?.seatNumber ?? "1A";
-    const hold = await seatService.holdSeats({
-      supplierCode: "MOCK",
-      tripId: layout.tripId,
-      journeyDate,
-      seatNumbers: [seatNumber],
-    });
-    const booking = await bookingService.createBooking({
-      reservationId: hold.reservationId,
-      supplierCode: "MOCK",
-      tripId: layout.tripId,
-      journeyDate,
-      selectedSeats: [seatNumber],
-      boardingPointId: layout.boardingPoints[0]?.id ?? "",
-      droppingPointId: layout.droppingPoints[0]?.id ?? "",
-      passengers: [
-        {
-          seatNumber,
-          firstName: "Meera",
-          lastName: "Rao",
-          age: 29,
-          gender: "FEMALE",
-          phone: "+919876543211",
-          email: "meera@example.com",
-        },
-      ],
-    });
-    const confirmation = await bookingService.confirmBooking({
-      bookingId: booking.bookingId,
-      paymentReference: "MOCK-PAYMENT-SUCCESS",
-    });
+  it("builds the ticket from the supplier's PNR and ticket number", async () => {
+    const { booking, ticketService } = await bookedTicket();
 
-    const ticket = ticketService.getTicket(confirmation.booking.bookingId);
-    const pdf = ticketService.downloadTicketPdf(confirmation.booking.bookingId);
-    const email = await ticketService.emailTicket({ bookingId: confirmation.booking.bookingId });
+    const ticket = await ticketService.getTicket(booking.bookingId, principal());
 
-    expect(ticket.ticketId).toBeTruthy();
-    expect(ticket.ticketNumber).toBeTruthy();
-    expect(ticket.busNumber).toMatch(/^KA-/);
-    expect(ticket.qrCode.payload.passengerCount).toBe(1);
+    expect(ticket.pnr).toBe("PNR-TEST-1");
+    expect(ticket.ticketNumber).toBe("TKT-TEST-1");
+    expect(ticket.supportContact.email).toContain("@");
+    expect(ticket.route).toBe("Bangalore to Hyderabad");
+  });
+
+  it("downloads a PDF and records it on the timeline", async () => {
+    const { booking, ticketService, timelineService } = await bookedTicket();
+
+    const pdf = await ticketService.downloadTicketPdf(booking.bookingId, principal());
+    const decoded = Buffer.from(pdf.base64, "base64").toString("binary");
+
     expect(pdf.mimeType).toBe("application/pdf");
-    expect(pdf.downloadStatus).toBe("DOWNLOADED");
-    expect(pdf.base64.length).toBeGreaterThan(100);
-    expect(email.status).toBe("SENT");
+    expect(decoded.startsWith("%PDF-1.4")).toBe(true);
+    expect(decoded).toContain("PNR: PNR-TEST-1");
+    expect(
+      (await timelineService.listForBookings([booking.bookingId])).map((event) => event.type),
+    ).toContain("TICKET_DOWNLOADED");
+    expect((await ticketService.getTicket(booking.bookingId, principal())).status).toBe(
+      "DOWNLOADED",
+    );
+  });
+
+  it("emails the ticket to the lead passenger by default", async () => {
+    const { booking, ticketService } = await bookedTicket();
+
+    const response = await ticketService.emailTicket({ bookingId: booking.bookingId }, principal());
+
+    expect(response.queued).toBe(true);
+    expect(response.bookingId).toBe(booking.bookingId);
+  });
+
+  it("does not show another user's ticket", async () => {
+    const { booking, ticketService } = await bookedTicket();
+
+    await expect(
+      ticketService.getTicket(
+        booking.bookingId,
+        principal({ sub: "00000000-0000-4000-8000-000000000009" }),
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it("has no ticket for a booking the supplier did not sell", async () => {
+    const harness = createBookingHarness();
+    const journeyDate = futureDate();
+    const trip = await searchTrip(harness.supplierManager, journeyDate);
+    harness.supplier.failBook = new Error("SRDV unavailable");
+    await harness.bookingService
+      .createBooking(bookingRequest(trip, journeyDate), principal())
+      .catch(() => undefined);
+    const [failed] = await harness.bookingService.listBookings(principal());
+
+    await expect(
+      harness.ticketService.getTicket(failed!.bookingId, principal()),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });
-
-function tomorrowIsoDate(): string {
-  const date = new Date();
-  date.setUTCDate(date.getUTCDate() + 1);
-
-  return date.toISOString().slice(0, 10);
-}

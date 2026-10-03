@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import type { AdminAnalyticsResponse } from "@vnbus/types";
 
+import { BookingService } from "../../booking/services/booking.service";
 import { AnalyticsSummaryDto } from "../dto/analytics-summary.dto";
 import type { AnalyticsModulePort } from "../interfaces/analytics.interface";
 import { AnalyticsRepository } from "../repositories/analytics.repository";
@@ -11,6 +12,7 @@ export class AnalyticsService implements AnalyticsModulePort {
   constructor(
     private readonly repository: AnalyticsRepository,
     private readonly validator: AnalyticsModuleValidator,
+    private readonly bookingService: BookingService,
   ) {}
 
   getSummary(): AnalyticsSummaryDto {
@@ -20,7 +22,7 @@ export class AnalyticsService implements AnalyticsModulePort {
     return new AnalyticsSummaryDto(summary);
   }
 
-  getAdminAnalytics(): AdminAnalyticsResponse {
-    return this.repository.getAdminAnalytics();
+  async getAdminAnalytics(): Promise<AdminAnalyticsResponse> {
+    return this.repository.getAdminAnalytics(await this.bookingService.listAllBookings());
   }
 }

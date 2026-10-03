@@ -5,6 +5,6 @@ describe("SupplierRegistryService", () => {
     const registry = new SupplierRegistryService();
     const codes = registry.listAdapters().map((adapter) => adapter.code);
 
-    expect(codes).toEqual(["MOCK", "BCI", "REDBUS", "ABHIBUS", "TBO", "CUSTOM"]);
+    expect(codes).toEqual(["BCI", "REDBUS", "ABHIBUS", "TBO", "CUSTOM"]);
   });
 });

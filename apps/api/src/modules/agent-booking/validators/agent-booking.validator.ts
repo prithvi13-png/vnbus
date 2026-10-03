@@ -17,7 +17,7 @@ export class AgentBookingValidator {
 
   ensureCanEmailTicket(booking: BookingRecord | null): asserts booking is BookingRecord {
     this.ensureBookingFound(booking);
-    if (!["CONFIRMED", "TICKET_GENERATED", "RESCHEDULED"].includes(booking.status)) {
+    if (!["CONFIRMED", "TICKET_GENERATED"].includes(booking.status)) {
       throw new BadRequestException("Email failed: ticket is not generated");
     }
   }

@@ -2,22 +2,16 @@
 
 import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeftRight, CalendarDays, MapPin, MapPinned, Search } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { ArrowLeftRight, CalendarDays, History, MapPin, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Controller, useForm } from "react-hook-form";
 import { Autocomplete, Button, Input, cn, type AutocompleteOption } from "@vnbus/ui";
-import { buildSearchParams, getPopularRoutes, normalizeCity, POPULAR_CITIES } from "@vnbus/shared";
+import { buildSearchParams, normalizeCity } from "@vnbus/shared";
 
+import { searchCities } from "../lib/api-client";
 import { searchSchema, type SearchFormValues } from "../lib/search-schema";
 import { useSearchStore } from "../lib/search-store";
-
-const cityOptions: AutocompleteOption[] = POPULAR_CITIES.map((city) => ({
-  label: city,
-  value: city,
-  description: "Popular city",
-}));
-
-const popularRoutes = getPopularRoutes(6);
 
 export function SearchPanel({
   className,
@@ -30,6 +24,7 @@ export function SearchPanel({
 }): React.JSX.Element {
   const router = useRouter();
   const lastSearch = useSearchStore((state) => state.lastSearch);
+  const recentSearches = useSearchStore((state) => state.recentSearches);
   const addRecentSearch = useSearchStore((state) => state.addRecentSearch);
   const setLastSearch = useSearchStore((state) => state.setLastSearch);
   const form = useForm<SearchFormValues>({
@@ -94,7 +89,7 @@ export function SearchPanel({
             render={({ field }) => (
               <CityAutocomplete
                 value={field.value}
-                placeholder="Bangalore"
+                placeholder="Leaving from"
                 onChange={field.onChange}
               />
             )}
@@ -124,7 +119,7 @@ export function SearchPanel({
             render={({ field }) => (
               <CityAutocomplete
                 value={field.value}
-                placeholder="Hyderabad"
+                placeholder="Going to"
                 onChange={field.onChange}
               />
             )}
@@ -147,12 +142,15 @@ export function SearchPanel({
         </Button>
       </form>
 
-      {!compact ? <QuickRoutes routes={popularRoutes} onSelect={applyRoute} /> : null}
+      {!compact && recentSearches.length ? (
+        <RecentRoutes routes={recentSearches} onSelect={applyRoute} />
+      ) : null}
     </div>
   );
 }
 
-function CityAutocomplete({
+/** City type-ahead over the bus supplier's own city list. */
+export function CityAutocomplete({
   onChange,
   placeholder,
   value,
@@ -161,22 +159,27 @@ function CityAutocomplete({
   placeholder: string;
   value: string;
 }): React.JSX.Element {
-  const debouncedValue = useDebouncedValue(value, 120);
-  const options = React.useMemo(
+  const query = useDebouncedValue(value, 200).trim();
+  const cities = useQuery({
+    queryKey: ["cities", query.toLowerCase()],
+    queryFn: () => searchCities(query),
+    enabled: query.length >= 2,
+    staleTime: 5 * 60 * 1000,
+  });
+  // The supplier's own city list: picking from it guarantees a name the
+  // supplier can search, which free typing does not.
+  const options = React.useMemo<AutocompleteOption[]>(
     () =>
-      cityOptions.filter((option) =>
-        option.label.toLowerCase().includes(debouncedValue.trim().toLowerCase()),
-      ),
-    [debouncedValue],
+      (cities.data ?? []).map((city) => ({
+        label: city.name,
+        value: city.name,
+        ...(city.state ? { description: city.state } : {}),
+      })),
+    [cities.data],
   );
 
   return (
-    <Autocomplete
-      options={options.length ? options : cityOptions}
-      value={value}
-      placeholder={placeholder}
-      onChange={onChange}
-    />
+    <Autocomplete options={options} value={value} placeholder={placeholder} onChange={onChange} />
   );
 }
 
@@ -203,26 +206,27 @@ function Field({
   );
 }
 
-function QuickRoutes({
+/** This browser's own recent searches, newest first. */
+function RecentRoutes({
   onSelect,
   routes,
 }: {
   onSelect: (source: string, destination: string) => void;
-  routes: typeof popularRoutes;
+  routes: SearchFormValues[];
 }): React.JSX.Element {
   return (
     <section className="rounded-lg border border-gold-100 bg-white p-3 shadow-sm dark:border-brand-900 dark:bg-brand-950">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-sm font-semibold text-brand-900 dark:text-white">Popular routes</h2>
+        <h2 className="text-sm font-semibold text-brand-900 dark:text-white">Recent searches</h2>
         <div className="flex flex-wrap gap-2">
           {routes.map((route) => (
             <button
-              key={route.id}
+              key={`${route.sourceCity}-${route.destinationCity}-${route.journeyDate}`}
               type="button"
               className="inline-flex items-center gap-2 rounded-md border border-gold-100 bg-white px-3 py-2 text-left text-xs font-semibold text-brand-800 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gold-300 hover:bg-gold-50 dark:border-brand-800 dark:bg-brand-950 dark:text-brand-100 dark:hover:border-gold-500"
               onClick={() => onSelect(route.sourceCity, route.destinationCity)}
             >
-              <MapPinned
+              <History
                 className="h-3.5 w-3.5 text-gold-600 dark:text-gold-100"
                 aria-hidden="true"
               />

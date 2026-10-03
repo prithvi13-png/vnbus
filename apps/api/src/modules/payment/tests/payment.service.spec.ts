@@ -1,62 +1,48 @@
-import type { CreatePaymentIntentRequest } from "@vnbus/types";
+import { BadRequestException } from "@nestjs/common";
 
+import { testConfig } from "../../../shared/tests/booking-harness";
 import { IdempotencyService } from "../../integration/services/idempotency.service";
 import { IntegrationConfigurationService } from "../../integration/services/integration-configuration.service";
 import { PaymentRepository } from "../repositories/payment.repository";
 import { PaymentProviderUnavailableError, PaymentService } from "../services/payment.service";
 
 describe("PaymentService", () => {
-  const createService = (): PaymentService =>
+  const createService = (settings: Record<string, string> = {}): PaymentService =>
     new PaymentService(
       new PaymentRepository(),
-      new IntegrationConfigurationService(),
+      new IntegrationConfigurationService(testConfig(settings)),
       new IdempotencyService(),
     );
 
-  it("creates and captures a mock payment intent idempotently", async () => {
+  it("refuses to take payment when no gateway is configured", async () => {
     const service = createService();
-    const request: CreatePaymentIntentRequest = {
-      bookingId: "BKG-1",
-      amount: { amount: 1710, currency: "INR" },
-      idempotencyKey: "pay-key-1",
-    };
-    const first = await service.createIntent(request);
-    const second = await service.createIntent(request);
 
-    expect(first.paymentIntentId).toBe(second.paymentIntentId);
-
-    const result = await service.capturePayment({
-      paymentIntentId: first.paymentIntentId,
-      idempotencyKey: "capture-key-1",
-    });
-
-    expect(result.status).toBe("CAPTURED");
-    expect(service.listTransactions()).toHaveLength(1);
+    expect(service.listProviders().every((provider) => !provider.enabled)).toBe(true);
+    await expect(
+      service.createIntent({ bookingId: "booking-1", amount: { amount: 1200, currency: "INR" } }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it("keeps real payment adapters unavailable until configured", async () => {
-    const service = createService();
+  it("keeps placeholder gateways unavailable even when one is selected", async () => {
+    const service = createService({ PAYMENT_PROVIDER: "RAZORPAY" });
 
+    expect(service.listProviders().find((provider) => provider.code === "RAZORPAY")?.enabled).toBe(
+      true,
+    );
     await expect(
       service.createIntent({
-        bookingId: "BKG-2",
+        bookingId: "booking-2",
         amount: { amount: 1200, currency: "INR" },
         providerCode: "RAZORPAY",
       }),
     ).rejects.toBeInstanceOf(PaymentProviderUnavailableError);
   });
 
-  it("verifies mock webhooks and rejects duplicates", async () => {
+  it("rejects webhooks no gateway can verify", async () => {
     const service = createService();
-    const payload = {
-      eventId: "evt_1",
-      eventType: "payment.captured",
-      status: "CAPTURED",
-    };
-    const first = await service.handleWebhook("MOCK", payload, "mock-signature");
-    const second = await service.handleWebhook("MOCK", payload, "mock-signature");
 
-    expect(first).toMatchObject({ accepted: true, duplicate: false, status: "PROCESSED" });
-    expect(second).toMatchObject({ accepted: true, duplicate: true, status: "DUPLICATE" });
+    await expect(
+      service.handleWebhook("RAZORPAY", { eventId: "evt_1" }, "signature"),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

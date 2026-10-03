@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
 import {
   Badge,
   Card,
@@ -11,8 +12,7 @@ import {
   type DataTableColumn,
 } from "@vnbus/ui";
 
-import { bookings } from "../lib/mock-data";
-import { useBookingStore } from "../lib/booking-store";
+import { getBookingHistory } from "../lib/api-client";
 
 const statusVariant = {
   CONFIRMED: "success",
@@ -64,22 +64,19 @@ const columns: DataTableColumn<BookingRow>[] = [
   { id: "amount", header: "Amount", sortable: true, align: "right" },
 ];
 
+/** The signed-in user's bookings, newest first. */
 export function BookingList(): React.JSX.Element {
-  const history = useBookingStore((state) => state.history);
-  const rows: BookingRow[] = [
-    ...history.map((booking) => ({
-      reference: booking.bookingReference,
-      route: `${booking.trip.sourceCity} to ${booking.trip.destinationCity}`,
-      date: booking.trip.departureTime.slice(0, 10),
-      status: booking.status,
-      amount: `INR ${booking.fare.grandTotal.amount.toLocaleString("en-IN")}`,
-      detailsHref: `/booking-history/${booking.bookingId}`,
-    })),
-    ...bookings.map((booking) => ({
-      ...booking,
-      status: booking.status,
-    })),
-  ];
+  const query = useQuery({ queryKey: ["booking-history"], queryFn: getBookingHistory });
+  const rows: BookingRow[] = (query.data?.bookings ?? []).map((booking) => ({
+    reference: booking.bookingReference,
+    route: `${booking.trip.sourceCity} to ${booking.trip.destinationCity}`,
+    date: new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(
+      new Date(booking.trip.departureTime),
+    ),
+    status: booking.status,
+    amount: `INR ${booking.fare.grandTotal.amount.toLocaleString("en-IN")}`,
+    detailsHref: `/booking-history/${booking.bookingId}`,
+  }));
 
   return (
     <Card>
@@ -93,7 +90,7 @@ export function BookingList(): React.JSX.Element {
           rowId={(booking) => booking.reference}
           pageSize={5}
           emptyTitle="No bookings"
-          emptyDescription="Recent platform bookings will appear here."
+          emptyDescription="Your bookings will appear here."
         />
       </CardContent>
     </Card>

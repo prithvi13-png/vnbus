@@ -9,9 +9,10 @@ export class CacheValidator {
     }
   }
 
+  /** No entries is a valid answer: nothing has been cached yet. */
   ensureDashboard(response: CacheDashboardResponse): void {
-    if (response.entries.length === 0) {
-      throw new BadRequestException("Cache dashboard has no entries.");
+    if (!Array.isArray(response.entries)) {
+      throw new BadRequestException("Cache dashboard is malformed.");
     }
   }
 }

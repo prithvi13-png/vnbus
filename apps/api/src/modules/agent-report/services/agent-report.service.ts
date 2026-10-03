@@ -7,6 +7,7 @@ import type {
   BookingRecord,
 } from "@vnbus/types";
 
+import type { JwtPrincipal } from "../../../shared/security/interfaces/jwt-principal.interface";
 import { BookingService } from "../../booking/services/booking.service";
 import { CustomerService } from "../../customer/services/customer.service";
 import { AgentReportMapper } from "../mappers/agent-report.mapper";
@@ -23,19 +24,12 @@ export class AgentReportService {
     private readonly mapper: AgentReportMapper,
   ) {}
 
-  getReports(): AgentReportsResponse {
+  /** Reports over the signed-in agent's own bookings, counted as they are. */
+  async getReports(principal: JwtPrincipal): Promise<AgentReportsResponse> {
     this.validator.ensureReady(this.repository.findSummary());
-    const bookings = this.bookingService.listBookings();
+    const bookings = await this.bookingService.listBookings(principal);
     const generatedAt = new Date().toISOString();
-    const bookingTrends = trendRows(bookings);
-    const revenueTrends = bookingTrends.map((row) => ({
-      ...row,
-      revenue: row.revenue,
-    }));
-    const cancellationTrends = bookingTrends.map((row, index) => ({
-      ...row,
-      cancellations: index % 3 === 0 ? 1 : (row.cancellations ?? 0),
-    }));
+    const bookingTrends = dailyRows(bookings, new Date());
     const response: AgentReportsResponse = {
       dailyBookings: makeReport(
         "AGT-RPT-DAILY",
@@ -49,18 +43,18 @@ export class AgentReportService {
         "Weekly Bookings",
         "WEEKLY",
         generatedAt,
-        weeklyRows(bookings),
+        weeklyRows(bookings, new Date()),
       ),
       monthlyBookings: makeReport(
         "AGT-RPT-MONTHLY",
         "Monthly Bookings",
         "MONTHLY",
         generatedAt,
-        monthlyRows(bookings),
+        monthlyRows(bookings, new Date()),
       ),
       topRoutes: routeMetrics(bookings),
       topCustomers: this.customerService
-        .listCustomers({ pageSize: 100 })
+        .listCustomers(principal, { pageSize: 100 })
         .customers.sort((left, right) => right.lifetimeValue.amount - left.lifetimeValue.amount)
         .slice(0, 5)
         .map((customer) => ({
@@ -70,8 +64,8 @@ export class AgentReportService {
           revenue: customer.lifetimeValue,
         })),
       bookingTrends,
-      revenueTrends,
-      cancellationTrends,
+      revenueTrends: bookingTrends,
+      cancellationTrends: bookingTrends,
       journeyDistribution: journeyDistribution(bookings),
       exports: {
         csvFileName: "agent-booking-report.csv",
@@ -101,75 +95,81 @@ function makeReport(
   };
 }
 
-function trendRows(bookings: BookingRecord[]): AgentReportPoint[] {
-  const seed = [
-    { label: "Mon", bookings: 18, revenue: 28800, cancellations: 1 },
-    { label: "Tue", bookings: 22, revenue: 34100, cancellations: 2 },
-    { label: "Wed", bookings: 19, revenue: 30400, cancellations: 1 },
-    { label: "Thu", bookings: 26, revenue: 41900, cancellations: 2 },
-    { label: "Fri", bookings: 31, revenue: 50600, cancellations: 1 },
-    { label: "Sat", bookings: 38, revenue: 64200, cancellations: 3 },
-    { label: "Sun", bookings: 24, revenue: 38900, cancellations: 1 },
-  ];
+const SOLD_STATUSES = new Set(["CONFIRMED", "TICKET_GENERATED"]);
+const CANCELLED_STATUSES = new Set(["CANCELLATION_REQUESTED", "CANCELLED", "REFUND_PENDING"]);
+const DAY_MS = 24 * 60 * 60 * 1000;
+/** India has one zone, UTC+05:30, with no daylight saving. */
+const IST_OFFSET_MS = 330 * 60 * 1000;
 
-  if (!bookings.length) {
-    return seed;
-  }
+function point(label: string, bookings: BookingRecord[]): AgentReportPoint {
+  return {
+    label,
+    bookings: bookings.length,
+    revenue: sumRevenue(bookings),
+    cancellations: bookings.filter((booking) => CANCELLED_STATUSES.has(booking.status)).length,
+  };
+}
 
-  const grouped = new Map<string, AgentReportPoint>();
-  bookings.forEach((booking) => {
-    const label = new Date(booking.createdAt).toLocaleDateString("en-IN", { weekday: "short" });
-    const current = grouped.get(label) ?? { label, bookings: 0, revenue: 0, cancellations: 0 };
-    grouped.set(label, {
-      ...current,
-      bookings: current.bookings + 1,
-      revenue: current.revenue + booking.fare.grandTotal.amount,
-      cancellations: (current.cancellations ?? 0) + (booking.status === "CANCELLED" ? 1 : 0),
-    });
+function createdBetween(bookings: BookingRecord[], start: number, end: number): BookingRecord[] {
+  return bookings.filter((booking) => {
+    const createdAt = Date.parse(booking.createdAt);
+
+    return createdAt >= start && createdAt < end;
   });
-
-  return [...grouped.values()];
 }
 
-function weeklyRows(bookings: BookingRecord[]): AgentReportPoint[] {
-  if (!bookings.length) {
-    return [
-      { label: "Week 1", bookings: 64, revenue: 98200 },
-      { label: "Week 2", bookings: 71, revenue: 114300 },
-      { label: "Week 3", bookings: 83, revenue: 132800 },
-      { label: "Week 4", bookings: 76, revenue: 120700 },
-    ];
-  }
+/** Midnight in India for the day `now` falls on, as a UTC timestamp. */
+function istDayStart(now: Date): number {
+  const ist = now.getTime() + IST_OFFSET_MS;
 
-  return [{ label: "Current Week", bookings: bookings.length, revenue: sumRevenue(bookings) }];
+  return ist - (ist % DAY_MS) - IST_OFFSET_MS;
 }
 
-function monthlyRows(bookings: BookingRecord[]): AgentReportPoint[] {
-  if (!bookings.length) {
-    return [
-      { label: "Jun", bookings: 224, revenue: 348000 },
-      { label: "Jul", bookings: 268, revenue: 421000 },
-      { label: "Aug", bookings: 294, revenue: 466000 },
-    ];
-  }
+/** The last seven days, oldest first. */
+function dailyRows(bookings: BookingRecord[], now: Date): AgentReportPoint[] {
+  const today = istDayStart(now);
 
-  return [{ label: "Aug", bookings: bookings.length, revenue: sumRevenue(bookings) }];
+  return Array.from({ length: 7 }, (_, index) => {
+    const start = today - (6 - index) * DAY_MS;
+    const label = new Date(start + IST_OFFSET_MS).toLocaleDateString("en-IN", {
+      weekday: "short",
+      timeZone: "UTC",
+    });
+
+    return point(label, createdBetween(bookings, start, start + DAY_MS));
+  });
+}
+
+/** The last four weeks, oldest first. */
+function weeklyRows(bookings: BookingRecord[], now: Date): AgentReportPoint[] {
+  const end = istDayStart(now) + DAY_MS;
+
+  return Array.from({ length: 4 }, (_, index) => {
+    const weekEnd = end - (3 - index) * 7 * DAY_MS;
+
+    return point(
+      index === 3 ? "This week" : `${3 - index} wk ago`,
+      createdBetween(bookings, weekEnd - 7 * DAY_MS, weekEnd),
+    );
+  });
+}
+
+/** The last three calendar months in India, oldest first. */
+function monthlyRows(bookings: BookingRecord[], now: Date): AgentReportPoint[] {
+  const ist = new Date(now.getTime() + IST_OFFSET_MS);
+
+  return Array.from({ length: 3 }, (_, index) => {
+    const month = new Date(Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth() - (2 - index), 1));
+    const next = new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth() + 1, 1));
+
+    return point(
+      month.toLocaleDateString("en-IN", { month: "short", timeZone: "UTC" }),
+      createdBetween(bookings, month.getTime() - IST_OFFSET_MS, next.getTime() - IST_OFFSET_MS),
+    );
+  });
 }
 
 function routeMetrics(bookings: BookingRecord[]): AgentRouteMetric[] {
-  if (!bookings.length) {
-    return [
-      {
-        route: "Bangalore to Hyderabad",
-        bookings: 42,
-        revenue: { amount: 67200, currency: "INR" },
-      },
-      { route: "Chennai to Coimbatore", bookings: 31, revenue: { amount: 37200, currency: "INR" } },
-      { route: "Pune to Goa", bookings: 24, revenue: { amount: 34800, currency: "INR" } },
-      { route: "Mumbai to Pune", bookings: 19, revenue: { amount: 17100, currency: "INR" } },
-    ];
-  }
-
   return Object.values(
     bookings.reduce<Record<string, AgentRouteMetric>>((routes, booking) => {
       const route = `${booking.trip.sourceCity} to ${booking.trip.destinationCity}`;
@@ -182,7 +182,9 @@ function routeMetrics(bookings: BookingRecord[]): AgentRouteMetric[] {
         ...current,
         bookings: current.bookings + 1,
         revenue: {
-          amount: current.revenue.amount + booking.fare.grandTotal.amount,
+          amount:
+            current.revenue.amount +
+            (SOLD_STATUSES.has(booking.status) ? booking.fare.grandTotal.amount : 0),
           currency: "INR",
         },
       };
@@ -192,26 +194,31 @@ function routeMetrics(bookings: BookingRecord[]): AgentRouteMetric[] {
   ).sort((left, right) => right.bookings - left.bookings);
 }
 
+/** Bookings by the time of day the bus departs, in India. */
 function journeyDistribution(bookings: BookingRecord[]): AgentReportPoint[] {
-  if (!bookings.length) {
-    return [
-      { label: "Morning", bookings: 38, revenue: 58400 },
-      { label: "Afternoon", bookings: 26, revenue: 39800 },
-      { label: "Evening", bookings: 54, revenue: 87200 },
-      { label: "Night", bookings: 71, revenue: 113600 },
-    ];
-  }
-
-  return [
-    { label: "Scheduled", bookings: bookings.length, revenue: sumRevenue(bookings) },
-    {
-      label: "Cancelled",
-      bookings: bookings.filter((booking) => booking.status === "CANCELLED").length,
-      revenue: 0,
-    },
+  const slots: Array<[string, number, number]> = [
+    ["Morning", 6, 12],
+    ["Afternoon", 12, 18],
+    ["Evening", 18, 22],
+    ["Night", 22, 30],
   ];
+
+  return slots.map(([label, from, to]) =>
+    point(
+      label,
+      bookings.filter((booking) => {
+        const hour = new Date(Date.parse(booking.trip.departureTime) + IST_OFFSET_MS).getUTCHours();
+        const shifted = hour < 6 ? hour + 24 : hour;
+
+        return shifted >= from && shifted < to;
+      }),
+    ),
+  );
 }
 
+/** Ticket value of what was actually sold. */
 function sumRevenue(bookings: BookingRecord[]): number {
-  return bookings.reduce((total, booking) => total + booking.fare.grandTotal.amount, 0);
+  return bookings
+    .filter((booking) => SOLD_STATUSES.has(booking.status))
+    .reduce((total, booking) => total + booking.fare.grandTotal.amount, 0);
 }

@@ -4,18 +4,19 @@ import type { PreparedEmail } from "../interfaces/email-message.interface";
 import type { EmailSender, EmailSendResult } from "../interfaces/email-sender.interface";
 
 /**
- * Records the message and stops there. Used when EMAIL_PROVIDER is unset or
- * `mock`, so local and CI runs never depend on an outbound mail provider.
+ * Used when no mail provider is configured. Nothing is delivered, and every
+ * message says so in the log rather than pretending it went out.
  */
 @Injectable()
-export class MockEmailSender implements EmailSender {
-  readonly provider = "mock";
-  private readonly logger = new Logger(MockEmailSender.name);
+export class UnconfiguredEmailSender implements EmailSender {
+  readonly provider = "none";
+  private readonly logger = new Logger(UnconfiguredEmailSender.name);
 
   send(email: PreparedEmail): Promise<EmailSendResult> {
-    this.logger.log(
+    this.logger.warn(
       JSON.stringify({
-        event: "email.mock.recorded",
+        event: "email.not_delivered",
+        reason: "No email provider is configured (set EMAIL_PROVIDER=resend and RESEND_API_KEY).",
         templateKey: email.templateKey,
         subject: email.subject,
       }),

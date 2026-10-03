@@ -176,7 +176,7 @@ GET /api/v1/supplier/adapters
 
 ## Enterprise Admin API
 
-Milestone 8 admin APIs are protected by `ADMIN` roles or management permissions. They are mock-backed unless they intentionally reuse existing booking, ticket, notification, email, activity, or RBAC services. No supplier APIs, payment gateways, SMTP providers, analytics warehouses, monitoring vendors, or storage providers are integrated.
+Milestone 8 admin APIs are protected by `ADMIN` roles or management permissions. Dashboard, analytics, reports, and booking views are counted from real bookings and accounts; audit logs read the activity log. Coupons, offers, CMS pages, and generated reports start empty and are kept in memory. No payment gateways, analytics warehouses, monitoring vendors, or storage providers are integrated.
 
 ```text
 GET  /api/v1/admin/dashboard
@@ -265,7 +265,7 @@ Supplier configuration records are placeholders only. They store enablement, pri
 
 ## Milestone 9 Performance And Operations API
 
-Milestone 9 APIs are mock-backed and architecture-first. Redis and BullMQ are modeled as first-class platform boundaries, but no supplier, payment, SMTP, SMS, WhatsApp, push, OpenAI/LLM, monitoring vendor, or storage provider is integrated.
+Milestone 9 APIs are architecture-first. Redis and BullMQ are modeled as platform boundaries, but no job is processed through them yet, so queues report empty and the scheduler lists no jobs. Monitoring reports live CPU and memory readings and the real health checks. No payment, SMS, WhatsApp, push, OpenAI/LLM, monitoring vendor, or storage provider is integrated.
 
 Public health endpoints intentionally sit outside the versioned prefix:
 
@@ -308,15 +308,15 @@ GET /api/v1/seo/metadata
 GET /api/v1/seo/sitemap
 ```
 
-AI recommendation response includes `engine: "MOCK_RULES"` and an explicit architecture block showing `modelProvider: "NONE"` and the future provider port. Cache responses identify `provider: "REDIS"`. Queue responses identify `driver: "BULLMQ"` and include retry/dead-letter state.
+AI recommendation response includes `engine: "RULES"` — the cheapest and fastest bus from a recent real search — and an explicit architecture block showing `modelProvider: "NONE"` and the future provider port. Cache responses identify `provider: "REDIS"`. Queue responses identify `driver: "BULLMQ"` and include retry/dead-letter state.
 
 ## Search API
 
-The Milestone 4 bus search API is public and backed by the local mock supplier adapter. It does not call BCI, RedBus, AbhiBus, TBO, or any other third-party inventory API.
+Search is public and runs through `SupplierManagerService`, which fans out to every configured supplier — today SRDV (Bus API v9). With no supplier configured, a search returns no buses and a `notice` saying search is unavailable.
 
 ```text
 POST /api/v1/search
-GET  /api/v1/search/mock-dataset
+GET  /api/v1/search/cities?q=bang
 ```
 
 Example request:
@@ -325,14 +325,12 @@ Example request:
 {
   "sourceCity": "Bangalore",
   "destinationCity": "Hyderabad",
-  "journeyDate": "2026-09-10",
+  "journeyDate": "2026-11-02",
   "passengerCount": 1,
-  "busTypes": ["AC Sleeper"],
-  "amenities": ["WiFi", "Charging Point"],
+  "busTypes": ["Volvo A/C Sleeper (2+1)"],
+  "ac": true,
   "minPrice": 700,
   "maxPrice": 2500,
-  "minRating": 4,
-  "liveTracking": true,
   "sortBy": "PRICE_ASC",
   "page": 1,
   "pageSize": 12
@@ -366,39 +364,82 @@ Response shape:
 }
 ```
 
-Supported sort values are `PRICE_ASC`, `PRICE_DESC`, `DEPARTURE_ASC`, `ARRIVAL_ASC`, `FASTEST`, `DURATION_ASC`, `RATING_DESC`, and `POPULARITY_DESC`.
+When a search finds nothing because a supplier said why — a city SRDV has no code for, or an outage — the response carries a traveller-facing `notice`.
+
+- Bus type and amenity filter options are built from the buses returned, since suppliers name bus types freely.
+- Departure and arrival windows are by the hour in India (IST).
+- `ratings` stays empty: SRDV reports no ratings, so the rating filter is not offered.
+- The default sort is `DEPARTURE_ASC`. `PRICE_ASC`, `PRICE_DESC`, `ARRIVAL_ASC`, `FASTEST`, and `DURATION_ASC` are also supported.
+
+`GET /search/cities` returns up to 10 `{ name, state }` matches from SRDV's city list plus any `SRDV_CITY_CODES` additions, best match first.
 
 ## Seat, Booking, Ticket, And History API
 
-The Milestone 6 booking and ticket API is public and backed by `MockSupplierAdapter` plus internal mock ticket/email/notification services. It does not call BCI, RedBus, AbhiBus, TBO, payment gateways, external email providers, live tracking providers, or S3.
+Every route except the seat map requires a signed-in user, and each user sees only their own bookings (admins see all). Seat maps, blocks, bookings, and cancellations go to the trip's supplier. A trip must come from a search in the last 30 minutes; an older one answers `410 Gone` with a message asking to search again.
 
 ```text
-GET  /api/v1/seats/:tripId?date=2026-09-10
-POST /api/v1/seats/hold
-POST /api/v1/seats/release
+GET  /api/v1/seats/:tripId?date=2026-11-02
 GET  /api/v1/bookings
 GET  /api/v1/bookings/history
 GET  /api/v1/bookings/upcoming
 GET  /api/v1/bookings/past
 GET  /api/v1/bookings/cancelled
 GET  /api/v1/bookings/:id
+GET  /api/v1/bookings/:id/timeline
 POST /api/v1/bookings/create
-POST /api/v1/bookings/confirm
 POST /api/v1/bookings/cancel
-POST /api/v1/bookings/reschedule
-GET  /api/v1/bookings/:bookingId/timeline
-GET  /api/v1/tickets/:id
-GET  /api/v1/tickets/:id/pdf
-GET  /api/v1/tickets/:id/download
+GET  /api/v1/tickets/:bookingId
+GET  /api/v1/tickets/:bookingId/pdf
 POST /api/v1/tickets/email
 GET  /api/v1/notifications
 POST /api/v1/notifications/:id/read
+POST /api/v1/notifications/mark-all-read
 ```
+
+Create booking request. This one call blocks the seats with the supplier, saves the booking, books it, and returns the booking with the ticket the supplier issued:
+
+```json
+{
+  "supplierCode": "SRDV",
+  "tripId": "<tripId from the search result>",
+  "journeyDate": "2026-11-02",
+  "selectedSeats": ["L1"],
+  "boardingPointId": "<boarding point id from the seat map>",
+  "droppingPointId": "<dropping point id from the seat map>",
+  "passengers": [
+    {
+      "seatNumber": "L1",
+      "firstName": "Asha",
+      "lastName": "Rao",
+      "age": 31,
+      "gender": "FEMALE",
+      "phone": "+919000000001",
+      "email": "asha@example.com"
+    }
+  ]
+}
+```
+
+- Seats are checked against the supplier's live seat map first: a seat sold since the map was opened answers `409`, and a women-only seat booked for a man answers `400`.
+- No payment is collected; there is no payment gateway yet.
+- A booking the supplier refuses is saved as `FAILED`.
+
+Cancel booking request. The supplier cancels seat by seat and accepts before it settles, so the booking moves to `CANCELLATION_REQUESTED` with the refund pending:
+
+```json
+{
+  "bookingId": "<booking id>",
+  "reason": "Traveller requested cancellation"
+}
+```
+
+Reschedule is not offered: SRDV has no reschedule operation.
+
+Ticket download returns a JSON envelope with `ticketId`, `fileName`, `mimeType: "application/pdf"`, `downloadStatus`, `downloadedAt`, and the base64 PDF, built from the booking and the PNR and ticket number the supplier issued.
 
 ## B2B Travel Agent API
 
-Milestone 7 agent APIs are mock-backed and reuse the existing search, seat, booking, ticket,
-email, notification, and history services. No supplier APIs are integrated.
+Agent routes require the `TRAVEL_AGENT` role. Agents book through the same supplier flow as travellers; their bookings are stored against their own account, and each agent sees only their own bookings and customers.
 
 ```text
 GET    /api/v1/agent/dashboard
@@ -417,50 +458,7 @@ GET    /api/v1/agent/reports
 GET    /api/v1/agent/notifications
 ```
 
-Agent customer create request:
-
-```json
-{
-  "name": "Aarav Sharma",
-  "email": "aarav.sharma@example.com",
-  "phone": "+919876543210",
-  "gender": "MALE",
-  "dateOfBirth": "1992-04-12",
-  "emergencyContact": "+919800000001",
-  "preferredRoutes": ["Bangalore to Hyderabad"],
-  "notes": "Prefers lower sleeper seats.",
-  "tags": ["VIP", "Corporate"]
-}
-```
-
-Agent booking create request extends the normal booking request with `customerId`,
-`paymentReference`, and `emailTicket`:
-
-```json
-{
-  "customerId": "CUS-AGT-001",
-  "reservationId": "RES-00ABC123",
-  "supplierCode": "MOCK",
-  "tripId": "mock-route-001-1",
-  "journeyDate": "2026-09-10",
-  "selectedSeats": ["L1B"],
-  "boardingPointId": "boarding-route-001-1",
-  "droppingPointId": "dropping-route-001-1",
-  "passengers": [
-    {
-      "seatNumber": "L1B",
-      "firstName": "Aarav",
-      "lastName": "Sharma",
-      "age": 32,
-      "gender": "MALE",
-      "phone": "+919876543210",
-      "email": "aarav.sharma@example.com"
-    }
-  ],
-  "paymentReference": "AGENT-MOCK-PAYMENT",
-  "emailTicket": true
-}
-```
+Agent booking create request: the normal booking request plus `customerId` (one of the agent's customers) and `emailTicket`. Each passenger's name and age are entered per seat; the customer's phone and email are the contact details.
 
 Agent booking filters:
 
@@ -478,82 +476,6 @@ sortBy
 sortDirection
 page
 pageSize
-```
-
-Seat hold request:
-
-```json
-{
-  "supplierCode": "MOCK",
-  "tripId": "mock-route-001-1",
-  "journeyDate": "2026-09-10",
-  "seatNumbers": ["1A", "1B"]
-}
-```
-
-Create booking request:
-
-```json
-{
-  "reservationId": "RES-00ABC123",
-  "supplierCode": "MOCK",
-  "tripId": "mock-route-001-1",
-  "journeyDate": "2026-09-10",
-  "selectedSeats": ["1A"],
-  "boardingPointId": "boarding-route-001-1",
-  "droppingPointId": "dropping-route-001-1",
-  "passengers": [
-    {
-      "seatNumber": "1A",
-      "firstName": "Aarav",
-      "lastName": "Sharma",
-      "age": 32,
-      "gender": "MALE",
-      "phone": "+919876543210",
-      "email": "traveller@example.com",
-      "emergencyContact": "+919800000000"
-    }
-  ]
-}
-```
-
-Confirm booking request:
-
-```json
-{
-  "bookingId": "BKG-00ABC123",
-  "paymentReference": "MOCK-PAYMENT-SUCCESS"
-}
-```
-
-Ticket download returns a JSON envelope with `ticketId`, `fileName`, `mimeType: "application/pdf"`, `downloadStatus`, `downloadedAt`, and a base64-encoded mock PDF. The web app converts that payload into a downloadable file and records download status in persisted state.
-
-Cancel booking request:
-
-```json
-{
-  "bookingId": "BKG-00ABC123",
-  "reason": "Traveller requested cancellation"
-}
-```
-
-Reschedule booking request:
-
-```json
-{
-  "bookingId": "BKG-00ABC123",
-  "newJourneyDate": "2026-09-14",
-  "newTripId": "mock-route-001-2"
-}
-```
-
-Email ticket request:
-
-```json
-{
-  "bookingId": "BKG-00ABC123",
-  "to": "traveller@example.com"
-}
 ```
 
 ## Future API Expansion

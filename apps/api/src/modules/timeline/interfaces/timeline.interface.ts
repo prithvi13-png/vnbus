@@ -10,6 +10,6 @@ export interface CreateTimelineEventInput {
 }
 
 export interface TimelineModulePort {
-  append(input: CreateTimelineEventInput): BookingTimelineEvent;
-  listForBooking(bookingId: string): BookingTimelineEvent[];
+  append(input: CreateTimelineEventInput): Promise<BookingTimelineEvent>;
+  listForBookings(bookingIds: string[]): Promise<BookingTimelineEvent[]>;
 }

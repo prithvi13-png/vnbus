@@ -3,22 +3,11 @@ import type {
   BusSearchRequest,
   BusSearchResponse,
   BusSearchResult,
-  BusType,
   SearchFilterMetadata,
   SearchFilterOption,
   SearchSortOption,
   SearchTimeWindow,
 } from "@vnbus/types";
-
-import {
-  AMENITIES,
-  BUS_TYPES,
-  getMockSupplierTrips,
-  getPopularRoutes,
-  mockSearchDatabase,
-  normalizeCity,
-  POPULAR_CITIES,
-} from "./mock-search-data.js";
 
 export const SEARCH_SORT_LABELS: Record<SearchSortOption, string> = {
   PRICE_ASC: "Price Low to High",
@@ -38,28 +27,15 @@ export const TIME_WINDOW_LABELS: Record<SearchTimeWindow, string> = {
   EVENING: "After 6 PM",
 };
 
-export interface SearchDatasetSummary {
-  popularCities: string[];
-  popularRoutes: Array<{
-    id: string;
-    sourceCity: string;
-    destinationCity: string;
-    distanceKm: number;
-    durationMinutes: number;
-  }>;
-  counts: {
-    buses: number;
-    operators: number;
-    routes: number;
-    boardingPoints: number;
-    droppingPoints: number;
-  };
-}
+/** Suppliers report no popularity or rating, so departure order is the honest default. */
+export const DEFAULT_SEARCH_SORT: SearchSortOption = "DEPARTURE_ASC";
 
-export function searchMockTrips(request: BusSearchRequest): BusSearchResponse {
-  const baseTrips = getMockSupplierTrips(request);
-
-  return filterSortPaginateTrips(baseTrips, request);
+/**
+ * Tidies a city name for display and lookup. The supplier matches names
+ * case-insensitively, so only stray whitespace is removed here.
+ */
+export function normalizeCity(value: string): string {
+  return value.trim().replace(/\s+/g, " ");
 }
 
 export function filterSortPaginateTrips(
@@ -69,7 +45,7 @@ export function filterSortPaginateTrips(
   const page = clampInt(request.page ?? 1, 1, 10_000);
   const pageSize = clampInt(request.pageSize ?? 12, 1, 50);
   const filtered = applyFilters(trips, request);
-  const sorted = sortTrips(filtered, request.sortBy ?? "POPULARITY_DESC");
+  const sorted = sortTrips(filtered, request.sortBy ?? DEFAULT_SEARCH_SORT);
   const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
   const safePage = Math.min(page, totalPages);
   const start = (safePage - 1) * pageSize;
@@ -90,29 +66,9 @@ export function filterSortPaginateTrips(
   };
 }
 
-export function getSearchDatasetSummary(): SearchDatasetSummary {
-  return {
-    popularCities: [...POPULAR_CITIES],
-    popularRoutes: getPopularRoutes(12).map((route) => ({
-      id: route.id,
-      sourceCity: route.sourceCity,
-      destinationCity: route.destinationCity,
-      distanceKm: route.distanceKm,
-      durationMinutes: route.durationMinutes,
-    })),
-    counts: {
-      buses: mockSearchDatabase.buses.length,
-      operators: mockSearchDatabase.operators.length,
-      routes: mockSearchDatabase.routes.length,
-      boardingPoints: mockSearchDatabase.boardingPoints.length,
-      droppingPoints: mockSearchDatabase.droppingPoints.length,
-    },
-  };
-}
-
 export function buildSearchRequestFromParams(params: URLSearchParams): BusSearchRequest {
-  const sourceCity = params.get("from") ?? params.get("sourceCity") ?? "Bangalore";
-  const destinationCity = params.get("to") ?? params.get("destinationCity") ?? "Hyderabad";
+  const sourceCity = params.get("from") ?? params.get("sourceCity") ?? "";
+  const destinationCity = params.get("to") ?? params.get("destinationCity") ?? "";
   const journeyDate = params.get("date") ?? params.get("journeyDate") ?? todayIsoDate();
   const request: BusSearchRequest = {
     sourceCity: normalizeCity(sourceCity),
@@ -135,9 +91,9 @@ export function buildSearchRequestFromParams(params: URLSearchParams): BusSearch
     "arrivalWindows",
     parseList<SearchTimeWindow>(params.get("arrival"), isTimeWindow),
   );
-  assignList(request, "busTypes", parseList<BusType>(params.get("busTypes"), isBusType));
+  assignList(request, "busTypes", parseList(params.get("busTypes")));
   assignList(request, "operators", parseList(params.get("operators")));
-  assignList(request, "amenities", parseList<BusAmenity>(params.get("amenities"), isAmenity));
+  assignList(request, "amenities", parseList<BusAmenity>(params.get("amenities")));
   assignBoolean(request, "ac", parseBoolean(params.get("ac")));
   assignBoolean(request, "nonAc", parseBoolean(params.get("nonAc")));
   assignBoolean(request, "sleeper", parseBoolean(params.get("sleeper")));
@@ -172,7 +128,7 @@ export function buildSearchParams(request: BusSearchRequest): URLSearchParams {
   appendNumber(params, "seats", request.minAvailableSeats);
   appendNumber(params, "rating", request.minRating);
   appendBoolean(params, "liveTracking", request.liveTracking);
-  if (request.sortBy && request.sortBy !== "POPULARITY_DESC") {
+  if (request.sortBy && request.sortBy !== DEFAULT_SEARCH_SORT) {
     params.set("sort", request.sortBy);
   }
   appendNumber(params, "page", request.page, 1);
@@ -205,7 +161,7 @@ function applyFilters(trips: BusSearchResult[], request: BusSearchRequest): BusS
     ) {
       return false;
     }
-    if (request.busTypes?.length && !request.busTypes.includes(trip.busType as BusType)) {
+    if (request.busTypes?.length && !request.busTypes.includes(trip.busType)) {
       return false;
     }
     if (request.operators?.length && !request.operators.includes(trip.operatorName)) {
@@ -217,16 +173,17 @@ function applyFilters(trips: BusSearchResult[], request: BusSearchRequest): BusS
     ) {
       return false;
     }
-    if (request.ac === true && trip.busType.toLowerCase().includes("non ac")) {
+    const busType = describeBusType(trip.busType);
+    if (request.ac === true && !busType.ac) {
       return false;
     }
-    if (request.nonAc === true && !trip.busType.toLowerCase().includes("non ac")) {
+    if (request.nonAc === true && busType.ac) {
       return false;
     }
-    if (request.sleeper === true && !trip.busType.toLowerCase().includes("sleeper")) {
+    if (request.sleeper === true && !busType.sleeper) {
       return false;
     }
-    if (request.seater === true && !trip.busType.toLowerCase().includes("seater")) {
+    if (request.seater === true && !busType.seater) {
       return false;
     }
     if (
@@ -281,20 +238,23 @@ function createFilterMetadata(trips: BusSearchResult[]): SearchFilterMetadata {
     },
     departureWindows: createWindowOptions(trips, "departureTime"),
     arrivalWindows: createWindowOptions(trips, "arrivalTime"),
-    busTypes: createStaticOptions(BUS_TYPES, trips, (trip, busType) => trip.busType === busType),
+    // Built from the trips actually returned: suppliers name bus types freely
+    // ("Volvo A/C Seater (2+2)"), so a fixed list would match nothing.
+    busTypes: createDynamicOptions(trips.map((trip) => trip.busType)),
     operators: createDynamicOptions(trips.map((trip) => trip.operatorName)),
-    amenities: createStaticOptions(AMENITIES, trips, (trip, amenity) =>
-      trip.amenities.includes(amenity),
-    ),
+    amenities: createDynamicOptions(trips.flatMap((trip) => trip.amenities)),
     availableSeats: {
       min: Math.min(...seats, 0),
       max: Math.max(...seats, 0),
     },
-    ratings: [4.5, 4, 3.5, 3].map((rating) => ({
-      label: `${rating}+ stars`,
-      value: String(rating),
-      count: trips.filter((trip) => trip.rating >= rating).length,
-    })),
+    // Only offered once a supplier actually reports ratings.
+    ratings: trips.some((trip) => trip.rating > 0)
+      ? [4.5, 4, 3.5, 3].map((rating) => ({
+          label: `${rating}+ stars`,
+          value: String(rating),
+          count: trips.filter((trip) => trip.rating >= rating).length,
+        }))
+      : [],
   };
 }
 
@@ -309,18 +269,6 @@ function createWindowOptions(
   }));
 }
 
-function createStaticOptions<TValue extends string>(
-  values: readonly TValue[],
-  trips: BusSearchResult[],
-  matches: (trip: BusSearchResult, value: TValue) => boolean,
-): SearchFilterOption[] {
-  return values.map((value) => ({
-    label: value,
-    value,
-    count: trips.filter((trip) => matches(trip, value)).length,
-  }));
-}
-
 function createDynamicOptions(values: string[]): SearchFilterOption[] {
   const counts = new Map<string, number>();
   values.forEach((value) => {
@@ -332,8 +280,16 @@ function createDynamicOptions(values: string[]): SearchFilterOption[] {
     .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label));
 }
 
+/** India has one zone, UTC+05:30, with no daylight saving. */
+const IST_OFFSET_MS = 330 * 60 * 1000;
+
+/**
+ * Buckets a departure by its hour in India. Trip times are stored as UTC
+ * instants, so reading the UTC hour would file a 06:00 IST bus under
+ * "before 6 AM".
+ */
 function getTimeWindow(iso: string): SearchTimeWindow {
-  const hour = new Date(iso).getUTCHours();
+  const hour = new Date(Date.parse(iso) + IST_OFFSET_MS).getUTCHours();
   if (hour < 6) {
     return "BEFORE_6";
   }
@@ -363,12 +319,23 @@ function isTimeWindow(value: string): value is SearchTimeWindow {
   return value in TIME_WINDOW_LABELS;
 }
 
-function isBusType(value: string): value is BusType {
-  return (BUS_TYPES as string[]).includes(value);
-}
+/**
+ * Reads the coach class out of a supplier's bus-type text. "A/C" loses its
+ * slash so it reads "ac", and other punctuation becomes a space so "Non-AC",
+ * "Non A/C" and "NON AC" all read "non ac".
+ */
+function describeBusType(busType: string): { ac: boolean; sleeper: boolean; seater: boolean } {
+  const text = busType
+    .toLowerCase()
+    .replace(/\//g, "")
+    .replace(/[^a-z]+/g, " ");
+  const nonAc = /\bnon ac\b/.test(text);
 
-function isAmenity(value: string): value is BusAmenity {
-  return (AMENITIES as string[]).includes(value);
+  return {
+    ac: !nonAc && /\bac\b/.test(text),
+    sleeper: text.includes("sleeper"),
+    seater: text.includes("seater"),
+  };
 }
 
 function parseList<TValue extends string>(

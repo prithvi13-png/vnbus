@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
 import { Bell, CheckCircle2, Download, Search, Ticket } from "lucide-react";
 import type { BookingRecord } from "@vnbus/types";
 import {
@@ -13,11 +14,11 @@ import {
   CardHeader,
   CardTitle,
   EmptyState,
+  Skeleton,
   StatusChip,
 } from "@vnbus/ui";
 
-import { markNotificationRead } from "../lib/api-client";
-import { useBookingStore } from "../lib/booking-store";
+import { getBookingHistory, listNotifications, markNotificationRead } from "../lib/api-client";
 import { useInvoiceStore } from "../lib/invoice-store";
 import { InvoiceDownloadButton } from "./invoice-download-button";
 
@@ -28,9 +29,25 @@ export function BookingHistoryCenter({
 }: {
   filter?: HistoryFilter;
 }): React.JSX.Element {
-  const history = useBookingStore((state) => state.history);
+  const query = useQuery({ queryKey: ["booking-history"], queryFn: getBookingHistory });
+  const history = query.data?.bookings ?? [];
   const bookings = filterBookings(history, filter);
   const stats = getBookingStats(history);
+
+  if (query.isLoading) {
+    return <Skeleton className="h-64 w-full" />;
+  }
+
+  if (query.isError) {
+    return (
+      <EmptyState
+        title="Bookings could not be loaded"
+        description={query.error instanceof Error ? query.error.message : "Try again shortly."}
+        actionLabel="Retry"
+        onAction={() => void query.refetch()}
+      />
+    );
+  }
 
   return (
     <div className="grid gap-5">
@@ -74,11 +91,19 @@ export function BookingHistoryCenter({
   );
 }
 
+/** One entry per booking the operator has issued a ticket for. */
 export function TicketListCenter(): React.JSX.Element {
-  const tickets = useBookingStore((state) => state.tickets);
-  const history = useBookingStore((state) => state.history);
+  const query = useQuery({ queryKey: ["booking-history"], queryFn: getBookingHistory });
+  const ticketed = (query.data?.bookings ?? []).filter(
+    (booking) =>
+      ["CONFIRMED", "TICKET_GENERATED"].includes(booking.status) && Boolean(booking.ticketNumber),
+  );
 
-  if (!tickets.length) {
+  if (query.isLoading) {
+    return <Skeleton className="h-48 w-full" />;
+  }
+
+  if (!ticketed.length) {
     return (
       <EmptyState
         title="No issued tickets"
@@ -93,43 +118,36 @@ export function TicketListCenter(): React.JSX.Element {
 
   return (
     <section className="grid gap-3">
-      {tickets.map((ticket) => {
-        const booking = history.find((item) => item.bookingId === ticket.bookingId);
-
-        return (
-          <Card key={ticket.ticketId}>
-            <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <CardTitle className="text-base">{ticket.ticketNumber}</CardTitle>
-                  <StatusChip tone={ticket.status === "CANCELLED" ? "danger" : "success"}>
-                    {ticket.status.replaceAll("_", " ")}
-                  </StatusChip>
-                </div>
-                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                  {ticket.route} · {ticket.seatNumbers.join(", ")}
-                </p>
+      {ticketed.map((booking) => (
+        <Card key={booking.bookingId}>
+          <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <CardTitle className="text-base">{booking.ticketNumber}</CardTitle>
+                <StatusChip tone="success">PNR {booking.pnr ?? "pending"}</StatusChip>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <Button asChild variant="outline" size="sm">
-                  <Link href={`/ticket?bookingId=${ticket.bookingId}`}>
-                    <Ticket className="h-4 w-4" aria-hidden="true" />
-                    View
-                  </Link>
-                </Button>
-                {booking ? (
-                  <Button asChild size="sm">
-                    <Link href={`/download-ticket?bookingId=${booking.bookingId}`}>
-                      <Download className="h-4 w-4" aria-hidden="true" />
-                      Download
-                    </Link>
-                  </Button>
-                ) : null}
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })}
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                {booking.trip.sourceCity} to {booking.trip.destinationCity} ·{" "}
+                {booking.selectedSeats.join(", ")}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button asChild variant="outline" size="sm">
+                <Link href={`/ticket?bookingId=${booking.bookingId}`}>
+                  <Ticket className="h-4 w-4" aria-hidden="true" />
+                  View
+                </Link>
+              </Button>
+              <Button asChild size="sm">
+                <Link href={`/download-ticket?bookingId=${booking.bookingId}`}>
+                  <Download className="h-4 w-4" aria-hidden="true" />
+                  Download
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
     </section>
   );
 }
@@ -176,23 +194,23 @@ export function InvoiceListCenter(): React.JSX.Element {
 }
 
 export function NotificationCenter(): React.JSX.Element {
-  const notifications = useBookingStore((state) => state.notifications);
-  const markRead = useBookingStore((state) => state.markNotificationRead);
+  const query = useQuery({ queryKey: ["notifications"], queryFn: listNotifications });
+  const notifications = query.data ?? [];
 
   async function read(notificationId: string): Promise<void> {
-    markRead(notificationId);
-    try {
-      await markNotificationRead(notificationId);
-    } catch {
-      // Local persisted state remains the source of truth when no API process is running.
-    }
+    await markNotificationRead(notificationId);
+    await query.refetch();
+  }
+
+  if (query.isLoading) {
+    return <Skeleton className="h-48 w-full" />;
   }
 
   if (!notifications.length) {
     return (
       <EmptyState
         title="No notifications"
-        description="Booking updates, cancellation updates, reschedule updates, and email history will appear here."
+        description="Booking updates, cancellation updates, and email history will appear here."
         actionLabel="View bookings"
         onAction={() => {
           window.location.href = "/booking-history";
@@ -322,7 +340,7 @@ function filterBookings(bookings: BookingRecord[], filter: HistoryFilter): Booki
       return Date.parse(booking.trip.departureTime) < now;
     }
     if (filter === "cancelled") {
-      return booking.status === "CANCELLED" || booking.status === "REFUND_PENDING";
+      return ["CANCELLATION_REQUESTED", "CANCELLED", "REFUND_PENDING"].includes(booking.status);
     }
 
     return true;
@@ -339,7 +357,10 @@ function getBookingStats(bookings: BookingRecord[]): {
     upcoming: filterBookings(bookings, "upcoming").length,
     past: filterBookings(bookings, "past").length,
     cancelled: filterBookings(bookings, "cancelled").length,
-    total: bookings.reduce((sum, booking) => sum + booking.fare.grandTotal.amount, 0),
+    // What was actually sold; failed and cancelled bookings cost nothing.
+    total: bookings
+      .filter((booking) => ["CONFIRMED", "TICKET_GENERATED"].includes(booking.status))
+      .reduce((sum, booking) => sum + booking.fare.grandTotal.amount, 0),
   };
 }
 
@@ -367,7 +388,7 @@ function formatDate(iso: string): string {
     day: "2-digit",
     month: "short",
     year: "numeric",
-    timeZone: "UTC",
+    timeZone: "Asia/Kolkata",
   }).format(new Date(iso));
 }
 
@@ -378,6 +399,6 @@ function formatDateTime(iso: string): string {
     hour12: true,
     minute: "2-digit",
     month: "short",
-    timeZone: "UTC",
+    timeZone: "Asia/Kolkata",
   }).format(new Date(iso));
 }

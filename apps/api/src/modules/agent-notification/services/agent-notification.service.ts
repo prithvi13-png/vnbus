@@ -16,14 +16,11 @@ export class AgentNotificationService implements AgentNotificationModulePort {
     private readonly mapper: AgentNotificationMapper,
   ) {}
 
-  listNotifications(readStatus?: NotificationReadStatus): NotificationRecord[] {
+  listNotifications(userId: string, readStatus?: NotificationReadStatus): NotificationRecord[] {
     this.validator.ensureReady(this.repository.findSummary());
-    const merged = [
-      ...this.notificationService.listNotifications(),
-      ...this.repository.listSeed(),
-    ].sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt));
 
-    return merged
+    return this.notificationService
+      .listNotifications(userId)
       .filter((notification) => !readStatus || notification.readStatus === readStatus)
       .map((notification) => this.mapper.toEntity(notification));
   }

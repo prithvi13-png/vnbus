@@ -5,29 +5,15 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
-import {
-  Armchair,
-  CalendarClock,
-  CheckCircle2,
-  Download,
-  Mail,
-  QrCode,
-  RefreshCw,
-  Ticket,
-  Timer,
-  XCircle,
-} from "lucide-react";
+import { Armchair, CheckCircle2, Download, Mail, RefreshCw, Ticket, XCircle } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import type {
   BoardingDroppingPoint,
   BookingRecord,
-  BookingTimelineEvent,
-  BusSearchResult,
   SeatDeckLayout,
   SeatLayoutDetails,
   SeatMapSeat,
-  TicketRecord,
 } from "@vnbus/types";
 import {
   Alert,
@@ -48,7 +34,7 @@ import {
   Timeline,
   cn,
 } from "@vnbus/ui";
-import { todayIsoDate } from "@vnbus/shared";
+import { summarizeSeatFare } from "@vnbus/shared";
 
 import { useAuthStore } from "../lib/auth-store";
 
@@ -57,12 +43,10 @@ import {
   createBooking,
   downloadTicketPdf,
   emailTicket,
+  getBooking,
+  getBookingTimeline,
   getTicket,
   getSeatLayout,
-  holdSeats,
-  releaseSeats,
-  rescheduleBooking,
-  searchBuses,
 } from "../lib/api-client";
 import { useBookingStore } from "../lib/booking-store";
 import { InvoiceDownloadButton } from "./invoice-download-button";
@@ -94,38 +78,34 @@ const passengerSchema = z.object({
 
 type PassengerFormValues = z.infer<typeof passengerSchema>;
 
-type BookingStepId = "search" | "seats" | "details" | "review" | "payment" | "ticket";
+type BookingStepId = "search" | "seats" | "details" | "review" | "ticket";
 
 const bookingSteps: Array<{ id: BookingStepId; label: string }> = [
   { id: "search", label: "Search" },
   { id: "seats", label: "Seats" },
   { id: "details", label: "Details" },
   { id: "review", label: "Review" },
-  { id: "payment", label: "Payment" },
   { id: "ticket", label: "Ticket" },
 ];
 
 export function SeatSelectionFlow(): React.JSX.Element {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const tripId = searchParams?.get("tripId") ?? "vn-route-001-1";
-  const journeyDate = searchParams?.get("date") ?? todayIsoDate();
+  const tripId = searchParams?.get("tripId") ?? "";
+  const journeyDate = searchParams?.get("date") ?? "";
   const selectedSeats = useBookingStore((state) => state.selectedSeats);
   const setLayout = useBookingStore((state) => state.setLayout);
-  const layout = useBookingStore((state) => state.layout);
   const toggleSeat = useBookingStore((state) => state.toggleSeat);
   const boardingPoint = useBookingStore((state) => state.boardingPoint);
   const droppingPoint = useBookingStore((state) => state.droppingPoint);
   const setBoardingPoint = useBookingStore((state) => state.setBoardingPoint);
   const setDroppingPoint = useBookingStore((state) => state.setDroppingPoint);
-  const setHold = useBookingStore((state) => state.setHold);
-  const clearHold = useBookingStore((state) => state.clearHold);
-  const hold = useBookingStore((state) => state.hold);
-  const secondsLeft = useSeatHoldTimer();
   const [error, setError] = React.useState<string | null>(null);
   const query = useQuery({
     queryKey: ["seat-layout", tripId, journeyDate],
     queryFn: () => getSeatLayout(tripId, journeyDate),
+    enabled: Boolean(tripId && journeyDate),
+    retry: false,
   });
 
   React.useEffect(() => {
@@ -134,13 +114,13 @@ export function SeatSelectionFlow(): React.JSX.Element {
     }
   }, [query.data, setLayout]);
 
-  const activeLayout = query.data ?? layout;
+  const activeLayout = query.data ?? null;
   const selectedSeatModels = React.useMemo(
     () => getSelectedSeatModels(activeLayout, selectedSeats),
     [activeLayout, selectedSeats],
   );
-  const selectedFare = selectedSeatModels.reduce((total, seat) => total + seat.fare.amount, 0);
-  const canContinue = selectedSeats.length > 0 && Boolean(boardingPoint && droppingPoint);
+  const selectedFare = summarizeSeatFare(selectedSeatModels).grandTotal.amount;
+  const canContinue = selectedSeatModels.length > 0 && Boolean(boardingPoint && droppingPoint);
 
   React.useEffect(() => {
     if (!activeLayout) {
@@ -168,38 +148,46 @@ export function SeatSelectionFlow(): React.JSX.Element {
     }
   }, [activeLayout, boardingPoint, droppingPoint, setBoardingPoint, setDroppingPoint]);
 
-  async function continueToPassengers(): Promise<void> {
-    if (!activeLayout || !boardingPoint || !droppingPoint) {
-      setError("Select a seat to continue");
-
-      return;
-    }
-    if (!selectedSeats.length) {
+  function continueToPassengers(): void {
+    if (!activeLayout || !boardingPoint || !droppingPoint || !selectedSeatModels.length) {
       setError("Select a seat to continue");
 
       return;
     }
 
-    try {
-      setError(null);
-      const response = await holdSeats({
-        supplierCode: activeLayout.supplierCode,
-        tripId: activeLayout.tripId,
-        journeyDate: activeLayout.journeyDate,
-        seatNumbers: selectedSeats,
-      });
-      setHold(response);
-      // Booking requires an account. Send anyone signed out to login first and
-      // bring them back here, rather than letting them fill in passenger
-      // details and hit a 401 at the end.
-      if (!useAuthStore.getState().accessToken) {
-        router.push(`/login?redirect=${encodeURIComponent("/passenger-details")}`);
-        return;
-      }
-      router.push("/passenger-details");
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Seat hold failed");
+    setError(null);
+    // Booking requires an account. Send anyone signed out to login first and
+    // bring them back here, rather than letting them fill in passenger
+    // details and hit a 401 at the end.
+    if (!useAuthStore.getState().accessToken) {
+      router.push(`/login?redirect=${encodeURIComponent("/passenger-details")}`);
+      return;
     }
+    router.push("/passenger-details");
+  }
+
+  if (!tripId || !journeyDate) {
+    return (
+      <EmptyState
+        title="Choose a bus first"
+        description="Search for buses and pick one to see its seats."
+        actionLabel="Search buses"
+        onAction={() => router.push("/search")}
+      />
+    );
+  }
+
+  if (query.isError) {
+    return (
+      <EmptyState
+        title="Seats are not available"
+        description={
+          query.error instanceof Error ? query.error.message : "The seat map could not be loaded."
+        }
+        actionLabel="Search again"
+        onAction={() => router.push("/search")}
+      />
+    );
   }
 
   if (query.isLoading || !activeLayout) {
@@ -210,7 +198,7 @@ export function SeatSelectionFlow(): React.JSX.Element {
     <div className="grid gap-6 pb-24 lg:pb-0">
       <BookingStepHeader
         activeStep="seats"
-        description="Pick a seat. Boarding and dropping points are already selected for the fastest booking."
+        description="Pick your seats. The first boarding and dropping points are selected for you."
         layout={activeLayout}
         title="Choose seats and points"
       />
@@ -219,7 +207,7 @@ export function SeatSelectionFlow(): React.JSX.Element {
         <section className="grid gap-5">
           {error ? (
             <Alert variant="danger">
-              <AlertTitle>Seat hold failed</AlertTitle>
+              <AlertTitle>Seat selection</AlertTitle>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           ) : null}
@@ -230,7 +218,7 @@ export function SeatSelectionFlow(): React.JSX.Element {
                 <div>
                   <CardTitle>Select seats</CardTitle>
                   <CardDescription>
-                    {activeLayout.vehicleLayout} · {activeLayout.axleType}
+                    {activeLayout.operatorName} · {activeLayout.busType}
                   </CardDescription>
                 </div>
                 <SeatLegend />
@@ -272,10 +260,7 @@ export function SeatSelectionFlow(): React.JSX.Element {
         </section>
 
         <aside className="hidden h-max rounded-lg border border-gold-100 bg-white/95 p-5 shadow-premium dark:border-brand-800 dark:bg-brand-950/90 lg:sticky lg:top-24 lg:block">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold text-brand-950 dark:text-white">Your ticket</h2>
-            {hold ? <HoldTimer secondsLeft={secondsLeft} /> : null}
-          </div>
+          <h2 className="text-lg font-semibold text-brand-950 dark:text-white">Your ticket</h2>
           <div className="mt-4 rounded-lg border border-gold-100 bg-pearl-50 p-3 text-sm text-brand-950 dark:border-brand-800 dark:bg-white/5 dark:text-brand-50">
             <p className="font-semibold">
               {activeLayout.sourceCity} to {activeLayout.destinationCity}
@@ -287,28 +272,15 @@ export function SeatSelectionFlow(): React.JSX.Element {
           </div>
           <div className="mt-4 grid gap-3 text-sm">
             <SummaryRow label="Seats" value={selectedSeats.join(", ") || "Select seat"} />
-            <SummaryRow label="Boarding" value={boardingPoint?.name ?? "Auto selected"} />
-            <SummaryRow label="Dropping" value={droppingPoint?.name ?? "Auto selected"} />
-            <SummaryRow label="Fare" value={`INR ${selectedFare.toLocaleString("en-IN")}`} />
+            <SummaryRow label="Boarding" value={boardingPoint?.name ?? "Select a point"} />
+            <SummaryRow label="Dropping" value={droppingPoint?.name ?? "Select a point"} />
+            <SummaryRow label="Fare" value={formatInr(selectedFare)} />
           </div>
-          {hold ? (
-            <Button
-              type="button"
-              variant="outline"
-              className="mt-4 w-full"
-              onClick={() => {
-                void releaseSeats({ reservationId: hold.reservationId });
-                clearHold();
-              }}
-            >
-              Release held seats
-            </Button>
-          ) : null}
           <Button
             type="button"
             className="mt-4 w-full"
             disabled={!canContinue}
-            onClick={() => void continueToPassengers()}
+            onClick={continueToPassengers}
           >
             <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
             Continue
@@ -323,15 +295,14 @@ export function SeatSelectionFlow(): React.JSX.Element {
               {selectedSeats.length ? `Seat ${selectedSeats.join(", ")}` : "Select a seat"}
             </p>
             <p className="truncate text-xs text-gray-600 dark:text-gray-400">
-              INR {selectedFare.toLocaleString("en-IN")} ·{" "}
-              {boardingPoint?.name ?? "Boarding selected"}
+              {formatInr(selectedFare)} · {boardingPoint?.name ?? "Select boarding point"}
             </p>
           </div>
           <Button
             type="button"
             className="shrink-0"
             disabled={!canContinue}
-            onClick={() => void continueToPassengers()}
+            onClick={continueToPassengers}
           >
             Continue
           </Button>
@@ -347,7 +318,6 @@ export function PassengerDetailsFlow(): React.JSX.Element {
   const selectedSeats = useBookingStore((state) => state.selectedSeats);
   const passengers = useBookingStore((state) => state.passengers);
   const setPassengers = useBookingStore((state) => state.setPassengers);
-  const secondsLeft = useSeatHoldTimer();
   const form = useForm<PassengerFormValues>({
     resolver: zodResolver(passengerSchema),
     defaultValues: {
@@ -402,7 +372,6 @@ export function PassengerDetailsFlow(): React.JSX.Element {
         activeStep="details"
         description={`${selectedSeats.length} seat${selectedSeats.length === 1 ? "" : "s"} selected. Add traveller details to continue.`}
         layout={layout}
-        meta={<HoldTimer secondsLeft={secondsLeft} />}
         title="Passenger Details"
       />
 
@@ -491,21 +460,18 @@ export function PassengerDetailsFlow(): React.JSX.Element {
 export function BookingReviewFlow(): React.JSX.Element {
   const router = useRouter();
   const layout = useBookingStore((state) => state.layout);
-  const hold = useBookingStore((state) => state.hold);
-  const booking = useBookingStore((state) => state.booking);
   const selectedSeats = useBookingStore((state) => state.selectedSeats);
   const boardingPoint = useBookingStore((state) => state.boardingPoint);
   const droppingPoint = useBookingStore((state) => state.droppingPoint);
   const passengers = useBookingStore((state) => state.passengers);
-  const setBooking = useBookingStore((state) => state.setBooking);
-  const secondsLeft = useSeatHoldTimer();
+  const setConfirmation = useBookingStore((state) => state.setConfirmation);
   const [error, setError] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
-  const fare = booking?.fare ?? hold?.fare;
+  const fare = summarizeSeatFare(getSelectedSeatModels(layout, selectedSeats));
 
   async function confirm(): Promise<void> {
-    if (!layout || !hold || !boardingPoint || !droppingPoint || !passengers.length) {
-      setError("Booking session is incomplete or expired");
+    if (!layout || !boardingPoint || !droppingPoint || !passengers.length) {
+      setError("Your booking details are incomplete. Select your seats again.");
 
       return;
     }
@@ -513,38 +479,33 @@ export function BookingReviewFlow(): React.JSX.Element {
     try {
       setSubmitting(true);
       setError(null);
-      const bookingRecord =
-        booking ??
-        (await createBooking({
-          reservationId: hold.reservationId,
-          supplierCode: layout.supplierCode,
-          tripId: layout.tripId,
-          journeyDate: layout.journeyDate,
-          selectedSeats,
-          boardingPointId: boardingPoint.id,
-          droppingPointId: droppingPoint.id,
-          passengers,
-        }));
-      setBooking(bookingRecord);
-      // The booking is reserved here but deliberately left unconfirmed —
-      // /payment owns the confirm call so the fare, GST and payment method are
-      // shown before anything is treated as paid.
-      router.push("/payment");
+      const confirmation = await createBooking({
+        supplierCode: layout.supplierCode,
+        tripId: layout.tripId,
+        journeyDate: layout.journeyDate,
+        selectedSeats,
+        boardingPointId: boardingPoint.id,
+        droppingPointId: droppingPoint.id,
+        passengers,
+      });
+      setConfirmation(confirmation);
+      router.push(`/booking-confirmation?bookingId=${confirmation.booking.bookingId}`);
     } catch (caught) {
+      // The operator's reason (a seat sold, a search expired) is worth
+      // showing here; the traveller can act on it without leaving the page.
       setError(caught instanceof Error ? caught.message : "Booking failed");
-      router.push("/booking-failed");
     } finally {
       setSubmitting(false);
     }
   }
 
-  if (!layout || !hold || !fare) {
+  if (!layout || !selectedSeats.length || !passengers.length) {
     return (
       <EmptyState
-        title="Booking session expired"
-        description="Please select seats again to restart the hold timer."
-        actionLabel="Select seats"
-        onAction={() => router.push("/seat-layout")}
+        title="Nothing to review"
+        description="Select your seats and add traveller details first."
+        actionLabel="Search buses"
+        onAction={() => router.push("/search")}
       />
     );
   }
@@ -555,7 +516,6 @@ export function BookingReviewFlow(): React.JSX.Element {
         activeStep="review"
         description="Check the trip, passenger names, and fare before confirming."
         layout={layout}
-        meta={<HoldTimer secondsLeft={secondsLeft} />}
         title="Booking Review"
       />
 
@@ -579,11 +539,15 @@ export function BookingReviewFlow(): React.JSX.Element {
               <SummaryTile label="Passengers" value={`${passengers.length}`} />
               <SummaryTile
                 label="Boarding"
-                value={`${boardingPoint?.time} · ${boardingPoint?.name}`}
+                value={
+                  boardingPoint ? `${formatTime(boardingPoint.time)} · ${boardingPoint.name}` : ""
+                }
               />
               <SummaryTile
                 label="Dropping"
-                value={`${droppingPoint?.time} · ${droppingPoint?.name}`}
+                value={
+                  droppingPoint ? `${formatTime(droppingPoint.time)} · ${droppingPoint.name}` : ""
+                }
               />
               <SummaryTile label="Operator" value={layout.operatorName} />
               <SummaryTile label="Bus Type" value={layout.busType} />
@@ -611,24 +575,23 @@ export function BookingReviewFlow(): React.JSX.Element {
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>Policies and delivery</CardTitle>
-              <CardDescription>
-                Mock cancellation, refund, and notification details shown before confirmation.
-              </CardDescription>
+              <CardTitle>Before you confirm</CardTitle>
             </CardHeader>
-            <CardContent className="grid gap-3 sm:grid-cols-3">
-              <SummaryTile label="Cancellation" value="Policy visible before booking" />
-              <SummaryTile label="Refund" value="Original mode, wallet, or UPI placeholder" />
-              <SummaryTile label="Delivery" value="Email, SMS, WhatsApp, and in-app ready" />
+            <CardContent className="grid gap-3 sm:grid-cols-2">
+              <SummaryTile
+                label="Ticket"
+                value="Issued by the operator as soon as you confirm, and emailed to the first passenger."
+              />
+              <SummaryTile
+                label="Cancellation"
+                value="Charges follow the operator's cancellation policy for this bus."
+              />
             </CardContent>
           </Card>
         </section>
 
         <aside className="h-max rounded-lg border border-gold-100 bg-white p-5 shadow-sm dark:border-brand-900 dark:bg-brand-950 lg:sticky lg:top-24">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-brand-900 dark:text-white">Fare Summary</h2>
-            <HoldTimer secondsLeft={secondsLeft} />
-          </div>
+          <h2 className="text-lg font-semibold text-brand-900 dark:text-white">Fare Summary</h2>
           <FareSummary fare={fare} />
           <Button
             type="button"
@@ -641,7 +604,7 @@ export function BookingReviewFlow(): React.JSX.Element {
             ) : (
               <Ticket className="h-4 w-4" aria-hidden="true" />
             )}
-            Continue to Payment
+            Confirm Booking
           </Button>
         </aside>
       </div>
@@ -668,36 +631,31 @@ export function BookingSuccessFlow(): React.JSX.Element {
 
   return (
     <Card>
-      <CardContent className="grid gap-6 p-6 lg:grid-cols-[1fr_260px]">
-        <div className="grid gap-4">
-          <StatusChip tone="success">Booking Confirmed</StatusChip>
-          <h2 className="text-2xl font-semibold text-gray-950 dark:text-gray-50">
-            {booking.bookingReference}
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <SummaryTile label="PNR" value={ticket.pnr} />
-            <SummaryTile label="Ticket" value={ticket.ticketNumber} />
-            <SummaryTile
-              label="Route"
-              value={`${booking.trip.sourceCity} to ${booking.trip.destinationCity}`}
-            />
-            <SummaryTile label="Seats" value={booking.selectedSeats.join(", ")} />
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <Button asChild>
-              <Link href={`/ticket?bookingId=${booking.bookingId}`}>
-                <Ticket className="h-4 w-4" aria-hidden="true" />
-                View ticket
-              </Link>
-            </Button>
-            <InvoiceDownloadButton booking={booking} />
-            <Button asChild variant="outline">
-              <Link href={`/booking-history/${booking.bookingId}`}>Booking details</Link>
-            </Button>
-          </div>
+      <CardContent className="grid gap-4 p-6">
+        <StatusChip tone="success">Booking Confirmed</StatusChip>
+        <h2 className="text-2xl font-semibold text-gray-950 dark:text-gray-50">
+          {booking.bookingReference}
+        </h2>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <SummaryTile label="PNR" value={ticket.pnr} />
+          <SummaryTile label="Ticket" value={ticket.ticketNumber} />
+          <SummaryTile
+            label="Route"
+            value={`${booking.trip.sourceCity} to ${booking.trip.destinationCity}`}
+          />
+          <SummaryTile label="Seats" value={booking.selectedSeats.join(", ")} />
         </div>
-        <div className="flex aspect-square items-center justify-center rounded-lg border border-gold-100 bg-brand-50 dark:border-brand-900 dark:bg-brand-950">
-          <QrCode className="h-24 w-24 text-gold-600 dark:text-gold-100" aria-hidden="true" />
+        <div className="flex flex-wrap gap-3">
+          <Button asChild>
+            <Link href={`/ticket?bookingId=${booking.bookingId}`}>
+              <Ticket className="h-4 w-4" aria-hidden="true" />
+              View ticket
+            </Link>
+          </Button>
+          <InvoiceDownloadButton booking={booking} />
+          <Button asChild variant="outline">
+            <Link href={`/booking-history/${booking.bookingId}`}>Booking details</Link>
+          </Button>
         </div>
       </CardContent>
     </Card>
@@ -723,36 +681,38 @@ export function BookingFailedFlow(): React.JSX.Element {
 
 export function TicketViewFlow(): React.JSX.Element {
   const searchParams = useSearchParams();
-  const bookingId = searchParams?.get("bookingId");
   const activeBooking = useBookingStore((state) => state.booking);
-  const activeTicket = useBookingStore((state) => state.ticket);
-  const history = useBookingStore((state) => state.history);
-  const tickets = useBookingStore((state) => state.tickets);
-  const setTicket = useBookingStore((state) => state.setTicket);
-  const recordTicketDownload = useBookingStore((state) => state.recordTicketDownload);
+  const bookingId = searchParams?.get("bookingId") ?? activeBooking?.bookingId ?? "";
   const [downloading, setDownloading] = React.useState(false);
-  const booking = bookingId
-    ? (history.find((item) => item.bookingId === bookingId) ??
-      (activeBooking?.bookingId === bookingId ? activeBooking : null))
-    : activeBooking;
-  const ticket = booking
-    ? (tickets.find((item) => item.bookingId === booking.bookingId) ??
-      (activeTicket?.bookingId === booking.bookingId ? activeTicket : null))
-    : activeTicket;
+  const [error, setError] = React.useState<string | null>(null);
+  const bookingQuery = useQuery({
+    queryKey: ["booking", bookingId],
+    queryFn: () => getBooking(bookingId),
+    enabled: Boolean(bookingId),
+    retry: false,
+  });
+  const ticketQuery = useQuery({
+    queryKey: ["ticket", bookingId],
+    queryFn: () => getTicket(bookingId),
+    enabled: Boolean(bookingId),
+    retry: false,
+  });
+  const booking = bookingQuery.data;
+  const ticket = ticketQuery.data;
 
-  React.useEffect(() => {
-    if (booking && !ticket) {
-      void getTicket(booking)
-        .then(setTicket)
-        .catch(() => undefined);
-    }
-  }, [booking, setTicket, ticket]);
+  if (bookingQuery.isLoading || ticketQuery.isLoading) {
+    return <BookingSkeleton />;
+  }
 
   if (!booking || !ticket) {
     return (
       <EmptyState
         title="Ticket not available"
-        description="Confirm a booking to generate a ticket."
+        description={
+          ticketQuery.error instanceof Error
+            ? ticketQuery.error.message
+            : "Confirm a booking to generate a ticket."
+        }
         actionLabel="Search buses"
         onAction={() => {
           window.location.href = "/search";
@@ -762,73 +722,78 @@ export function TicketViewFlow(): React.JSX.Element {
   }
 
   async function download(): Promise<void> {
-    if (!booking || !ticket) {
+    if (!booking) {
       return;
     }
-    setDownloading(true);
-    const pdf = await downloadTicketPdf(booking);
-    const link = document.createElement("a");
-    link.href = `data:${pdf.mimeType};base64,${pdf.base64}`;
-    link.download = pdf.fileName;
-    link.click();
-    if (pdf.ticketId && pdf.downloadStatus) {
-      recordTicketDownload(pdf.ticketId, pdf.downloadStatus);
-      setTicket({
-        ...ticket,
-        status: "DOWNLOADED",
-        lastDownloadedAt: pdf.downloadedAt ?? new Date().toISOString(),
-      });
+    try {
+      setDownloading(true);
+      setError(null);
+      const pdf = await downloadTicketPdf(booking);
+      const link = document.createElement("a");
+      link.href = `data:${pdf.mimeType};base64,${pdf.base64}`;
+      link.download = pdf.fileName;
+      link.click();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Download failed");
+    } finally {
+      setDownloading(false);
     }
-    setDownloading(false);
   }
 
   return (
     <Card>
-      <CardContent className="grid gap-6 p-6 lg:grid-cols-[1fr_260px]">
-        <div className="grid gap-4">
-          <div>
-            <Badge>Vriddhi Nexus Pvt Ltd</Badge>
-            <h2 className="mt-3 text-2xl font-semibold text-gray-950 dark:text-gray-50">
-              {ticket.ticketNumber}
-            </h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400">PNR {ticket.pnr}</p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <SummaryTile
-              label="Passenger"
-              value={booking.passengers
-                .map((passenger) => `${passenger.firstName} ${passenger.lastName}`)
-                .join(", ")}
-            />
-            <SummaryTile label="Seats" value={booking.selectedSeats.join(", ")} />
-            <SummaryTile
-              label="Route"
-              value={`${booking.trip.sourceCity} to ${booking.trip.destinationCity}`}
-            />
-            <SummaryTile label="Operator" value={booking.trip.operatorName} />
-            <SummaryTile label="Bus Type" value={booking.trip.busType} />
-            <SummaryTile
-              label="Boarding"
-              value={`${booking.boardingPoint.time} · ${booking.boardingPoint.name}`}
-            />
-            <SummaryTile
-              label="Dropping"
-              value={`${booking.droppingPoint.time} · ${booking.droppingPoint.name}`}
-            />
-            <SummaryTile
-              label="Emergency Contact"
-              value={booking.passengers[0]?.emergencyContact ?? "Not provided"}
-            />
-          </div>
-          <StatusChip tone="info">Live Tracking Coming Soon</StatusChip>
-          <div>
-            <h3 className="text-sm font-semibold text-gray-950 dark:text-gray-50">Terms</h3>
-            <ul className="mt-2 grid gap-1 text-sm text-gray-600 dark:text-gray-400">
-              {ticket.terms.map((term) => (
-                <li key={term}>- {term}</li>
-              ))}
-            </ul>
-          </div>
+      <CardContent className="grid gap-4 p-6">
+        <div>
+          <Badge>Vriddhi Nexus Pvt Ltd</Badge>
+          <h2 className="mt-3 text-2xl font-semibold text-gray-950 dark:text-gray-50">
+            {ticket.ticketNumber}
+          </h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400">PNR {ticket.pnr}</p>
+        </div>
+        {error ? (
+          <Alert variant="danger">
+            <AlertTitle>Download failed</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <SummaryTile
+            label="Passenger"
+            value={booking.passengers
+              .map((passenger) => `${passenger.firstName} ${passenger.lastName}`)
+              .join(", ")}
+          />
+          <SummaryTile label="Seats" value={booking.selectedSeats.join(", ")} />
+          <SummaryTile
+            label="Route"
+            value={`${booking.trip.sourceCity} to ${booking.trip.destinationCity}`}
+          />
+          <SummaryTile label="Operator" value={booking.trip.operatorName} />
+          <SummaryTile label="Bus Type" value={booking.trip.busType} />
+          <SummaryTile
+            label="Boarding"
+            value={`${formatDateTime(booking.boardingPoint.time)} · ${booking.boardingPoint.name}`}
+          />
+          <SummaryTile
+            label="Dropping"
+            value={`${formatDateTime(booking.droppingPoint.time)} · ${booking.droppingPoint.name}`}
+          />
+          <SummaryTile
+            label="Emergency Contact"
+            value={booking.passengers[0]?.emergencyContact ?? "Not provided"}
+          />
+          <SummaryTile label="Support" value={ticket.supportContact.email} />
+        </div>
+        <StatusChip tone="info">Live Tracking Coming Soon</StatusChip>
+        <div>
+          <h3 className="text-sm font-semibold text-gray-950 dark:text-gray-50">Terms</h3>
+          <ul className="mt-2 grid gap-1 text-sm text-gray-600 dark:text-gray-400">
+            {ticket.terms.map((term) => (
+              <li key={term}>- {term}</li>
+            ))}
+          </ul>
+        </div>
+        <div className="flex flex-wrap gap-3">
           <Button
             type="button"
             className="w-fit"
@@ -841,19 +806,6 @@ export function TicketViewFlow(): React.JSX.Element {
           </Button>
           <InvoiceDownloadButton booking={booking} size="default" />
         </div>
-        <div className="grid gap-3 lg:justify-items-center">
-          <div className="flex aspect-square w-full max-w-[260px] self-start items-center justify-center rounded-lg border border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900">
-            <span
-              className="block h-40 w-40"
-              aria-label="Ticket verification QR code"
-              role="img"
-              dangerouslySetInnerHTML={{ __html: ticket.qrCode.svg }}
-            />
-          </div>
-          <p className="w-full max-w-[260px] break-all text-xs text-gray-500 dark:text-gray-400">
-            {ticket.qrPayload}
-          </p>
-        </div>
       </CardContent>
     </Card>
   );
@@ -861,17 +813,23 @@ export function TicketViewFlow(): React.JSX.Element {
 
 export function BookingHistoryDetailFlow(): React.JSX.Element {
   const params = useParams<{ bookingId: string }>();
-  const history = useBookingStore((state) => state.history);
-  const currentBooking = useBookingStore((state) => state.booking);
-  const booking =
-    history.find((item) => item.bookingId === params?.bookingId) ??
-    (currentBooking?.bookingId === params?.bookingId ? currentBooking : null);
+  const bookingId = params?.bookingId ?? "";
+  const query = useQuery({
+    queryKey: ["booking", bookingId],
+    queryFn: () => getBooking(bookingId),
+    enabled: Boolean(bookingId),
+    retry: false,
+  });
 
-  if (!booking) {
+  if (query.isLoading) {
+    return <BookingSkeleton />;
+  }
+
+  if (!query.data) {
     return (
       <EmptyState
         title="Booking not found"
-        description="The booking may belong to another browser session."
+        description="This booking does not exist or belongs to another account."
         actionLabel="View booking history"
         onAction={() => {
           window.location.href = "/booking-history";
@@ -880,7 +838,7 @@ export function BookingHistoryDetailFlow(): React.JSX.Element {
     );
   }
 
-  return <BookingDetails booking={booking} />;
+  return <BookingDetails booking={query.data} />;
 }
 
 function BookingStepHeader({
@@ -1185,17 +1143,13 @@ function PointPicker({
   onSelect,
   points,
   selectedId,
-  showMap = false,
   title,
 }: {
   onSelect: (point: BoardingDroppingPoint) => void;
   points: BoardingDroppingPoint[];
   selectedId: string | undefined;
-  showMap?: boolean;
   title: string;
 }): React.JSX.Element {
-  const selected = points.find((point) => point.id === selectedId) ?? points[0];
-
   return (
     <section className="grid gap-3">
       <h3 className="text-sm font-semibold text-brand-950 dark:text-white">{title}</h3>
@@ -1214,22 +1168,14 @@ function PointPicker({
           >
             <span className="flex justify-between gap-3">
               <span className="font-semibold text-brand-950 dark:text-gray-50">{point.name}</span>
-              <span className="text-gray-600 dark:text-gray-400">{point.time}</span>
+              <span className="text-gray-600 dark:text-gray-400">{formatTime(point.time)}</span>
             </span>
             <span className="mt-1 block text-xs text-gray-600 dark:text-gray-400">
-              {point.address} · {point.landmark}
+              {[point.address, point.landmark].filter(Boolean).join(" · ")}
             </span>
           </button>
         ))}
       </div>
-      {showMap && selected ? (
-        <iframe
-          title={`${selected.name} map preview`}
-          className="h-44 w-full rounded-lg border border-gold-100 shadow-sm dark:border-brand-800"
-          loading="lazy"
-          src={`https://www.openstreetmap.org/export/embed.html?marker=${selected.latitude},${selected.longitude}&layer=mapnik`}
-        />
-      ) : null}
     </section>
   );
 }
@@ -1254,38 +1200,27 @@ function Field({
   );
 }
 
-function BookingDetails({ booking }: { booking: BookingRecord }): React.JSX.Element {
-  const router = useRouter();
-  const storedTickets = useBookingStore((state) => state.tickets);
-  const activeTicket = useBookingStore((state) => state.ticket);
-  const storeTimeline = useBookingStore((state) => state.timeline);
-  const setTicket = useBookingStore((state) => state.setTicket);
-  const upsertBooking = useBookingStore((state) => state.upsertBooking);
-  const addTimeline = useBookingStore((state) => state.addTimeline);
-  const addNotification = useBookingStore((state) => state.addNotification);
-  const recordTicketDownload = useBookingStore((state) => state.recordTicketDownload);
+function BookingDetails({ booking: initial }: { booking: BookingRecord }): React.JSX.Element {
+  const [booking, setBooking] = React.useState(initial);
   const [working, setWorking] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
-  const [rescheduleDate, setRescheduleDate] = React.useState(() => futureDateValue(3));
-  const [rescheduleResults, setRescheduleResults] = React.useState<BusSearchResult[]>([]);
-  const [selectedRescheduleTripId, setSelectedRescheduleTripId] = React.useState<string>("");
-  const ticket =
-    storedTickets.find((item) => item.bookingId === booking.bookingId) ??
-    (activeTicket?.bookingId === booking.bookingId ? activeTicket : null);
-  const timeline = getTimelineForBooking(booking, storeTimeline);
-  const cancellable = !["CANCELLED", "EXPIRED", "FAILED"].includes(booking.status);
-
-  React.useEffect(() => {
-    if (!ticket && ["CONFIRMED", "TICKET_GENERATED", "RESCHEDULED"].includes(booking.status)) {
-      void getTicketForBooking(booking)
-        .then(setTicket)
-        .catch(() => undefined);
-    }
-  }, [booking, setTicket, ticket]);
+  const [notice, setNotice] = React.useState<string | null>(null);
+  const ticketable = ["CONFIRMED", "TICKET_GENERATED"].includes(booking.status);
+  const cancellable = ticketable && Date.parse(booking.trip.departureTime) > Date.now();
+  const ticketQuery = useQuery({
+    queryKey: ["ticket", booking.bookingId],
+    queryFn: () => getTicket(booking.bookingId),
+    enabled: ticketable,
+    retry: false,
+  });
+  const timelineQuery = useQuery({
+    queryKey: ["booking-timeline", booking.bookingId, booking.status],
+    queryFn: () => getBookingTimeline(booking.bookingId),
+    retry: false,
+  });
+  const ticket = ticketQuery.data;
 
   async function download(): Promise<void> {
-    const active = ticket ?? (await getTicketForBooking(booking));
-
     try {
       setWorking("download");
       setError(null);
@@ -1294,14 +1229,6 @@ function BookingDetails({ booking }: { booking: BookingRecord }): React.JSX.Elem
       link.href = `data:${pdf.mimeType};base64,${pdf.base64}`;
       link.download = pdf.fileName;
       link.click();
-      if (pdf.ticketId && pdf.downloadStatus) {
-        recordTicketDownload(pdf.ticketId, pdf.downloadStatus);
-      }
-      setTicket({
-        ...active,
-        status: "DOWNLOADED",
-        lastDownloadedAt: pdf.downloadedAt ?? new Date().toISOString(),
-      });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Download failed");
     } finally {
@@ -1314,26 +1241,8 @@ function BookingDetails({ booking }: { booking: BookingRecord }): React.JSX.Elem
       setWorking("email");
       setError(null);
       const response = await emailTicket({ bookingId: booking.bookingId });
-      addTimeline([
-        createClientTimelineEvent(
-          booking.bookingId,
-          "EMAIL_SENT",
-          "Ticket emailed",
-          `Ticket email recorded by email log ${response.emailLogId}.`,
-          "info",
-        ),
-      ]);
-      addNotification({
-        id: createClientId("NTF", `${booking.bookingId}|${response.emailLogId}`),
-        type: "EMAIL_HISTORY",
-        readStatus: "UNREAD",
-        title: "Ticket email sent",
-        body: `Ticket email queued for ${booking.bookingReference}.`,
-        bookingId: booking.bookingId,
-        emailLogId: response.emailLogId,
-        createdAt: new Date().toISOString(),
-        readAt: null,
-      });
+      setNotice(`Ticket email ${response.status.toLowerCase()}.`);
+      void timelineQuery.refetch();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Email failed");
     } finally {
@@ -1342,6 +1251,14 @@ function BookingDetails({ booking }: { booking: BookingRecord }): React.JSX.Elem
   }
 
   async function requestCancellation(): Promise<void> {
+    if (
+      !window.confirm(
+        `Cancel ${booking.bookingReference}? The operator's cancellation charges apply.`,
+      )
+    ) {
+      return;
+    }
+
     try {
       setWorking("cancel");
       setError(null);
@@ -1349,68 +1266,10 @@ function BookingDetails({ booking }: { booking: BookingRecord }): React.JSX.Elem
         bookingId: booking.bookingId,
         reason: "Cancelled from booking details",
       });
-      upsertBooking(response.booking);
-      addTimeline(response.timeline);
-      addNotification({
-        id: createClientId("NTF", `${booking.bookingId}|cancelled`),
-        type: "CANCELLATION_UPDATE",
-        readStatus: "UNREAD",
-        title: "Booking cancelled",
-        body: `${booking.bookingReference} was cancelled. Refund status is pending.`,
-        bookingId: booking.bookingId,
-        createdAt: new Date().toISOString(),
-        readAt: null,
-      });
+      setBooking(response.booking);
+      setNotice("The operator is processing your cancellation. Your refund is pending.");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Cancellation failed");
-    } finally {
-      setWorking(null);
-    }
-  }
-
-  async function searchRescheduleBuses(): Promise<void> {
-    try {
-      setWorking("search-reschedule");
-      setError(null);
-      const response = await searchBuses({
-        sourceCity: booking.trip.sourceCity,
-        destinationCity: booking.trip.destinationCity,
-        journeyDate: rescheduleDate,
-        passengerCount: booking.passengers.length,
-      });
-      setRescheduleResults(response.buses.slice(0, 3));
-      setSelectedRescheduleTripId(response.buses[0]?.tripId ?? "");
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Reschedule search failed");
-    } finally {
-      setWorking(null);
-    }
-  }
-
-  async function confirmReschedule(): Promise<void> {
-    try {
-      setWorking("reschedule");
-      setError(null);
-      const response = await rescheduleBooking({
-        bookingId: booking.bookingId,
-        newJourneyDate: rescheduleDate,
-        ...(selectedRescheduleTripId ? { newTripId: selectedRescheduleTripId } : {}),
-      });
-      upsertBooking(response.booking);
-      addTimeline(response.timeline);
-      addNotification({
-        id: createClientId("NTF", `${booking.bookingId}|rescheduled|${rescheduleDate}`),
-        type: "RESCHEDULE_UPDATE",
-        readStatus: "UNREAD",
-        title: "Booking rescheduled",
-        body: `${booking.bookingReference} moved to ${rescheduleDate}.`,
-        bookingId: booking.bookingId,
-        createdAt: new Date().toISOString(),
-        readAt: null,
-      });
-      router.refresh();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Reschedule failed");
     } finally {
       setWorking(null);
     }
@@ -1436,11 +1295,8 @@ function BookingDetails({ booking }: { booking: BookingRecord }): React.JSX.Elem
             value={`${booking.trip.sourceCity} to ${booking.trip.destinationCity}`}
           />
           <SummaryTile label="Seats" value={booking.selectedSeats.join(", ")} />
-          <SummaryTile label="PNR" value={booking.pnr ?? "Pending"} />
-          <SummaryTile
-            label="Total"
-            value={`INR ${booking.fare.grandTotal.amount.toLocaleString("en-IN")}`}
-          />
+          <SummaryTile label="PNR" value={booking.pnr ?? "Not issued"} />
+          <SummaryTile label="Total" value={formatInr(booking.fare.grandTotal.amount)} />
         </CardContent>
       </Card>
       {error ? (
@@ -1449,39 +1305,51 @@ function BookingDetails({ booking }: { booking: BookingRecord }): React.JSX.Elem
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
-      <Card>
-        <CardHeader>
-          <CardTitle>Ticket Details</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
-          <SummaryTile label="Ticket ID" value={ticket?.ticketId ?? "Generating"} />
-          <SummaryTile label="Ticket Number" value={ticket?.ticketNumber ?? "Generating"} />
-          <SummaryTile label="Bus Number" value={ticket?.busNumber ?? "Pending"} />
-          <SummaryTile label="Support" value={ticket?.supportContact.phone ?? "+91-80-4567-8899"} />
-          <div className="flex flex-wrap gap-3 sm:col-span-2">
-            <Button type="button" onClick={() => void download()} loading={working === "download"}>
-              <Download className="h-4 w-4" aria-hidden="true" />
-              Download PDF
-            </Button>
-            <InvoiceDownloadButton booking={booking} size="default" />
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => void sendEmailAgain()}
-              loading={working === "email"}
-            >
-              <Mail className="h-4 w-4" aria-hidden="true" />
-              Email Ticket Again
-            </Button>
-            <Button asChild variant="outline">
-              <Link href={`/ticket?bookingId=${booking.bookingId}`}>
-                <Ticket className="h-4 w-4" aria-hidden="true" />
-                Ticket Viewer
-              </Link>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      {notice ? (
+        <Alert>
+          <AlertDescription>{notice}</AlertDescription>
+        </Alert>
+      ) : null}
+      {ticketable ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Ticket Details</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <SummaryTile
+              label="Ticket Number"
+              value={ticket?.ticketNumber ?? booking.ticketNumber ?? ""}
+            />
+            <SummaryTile label="Support" value={ticket?.supportContact.email ?? ""} />
+            <div className="flex flex-wrap gap-3 sm:col-span-2">
+              <Button
+                type="button"
+                onClick={() => void download()}
+                loading={working === "download"}
+              >
+                <Download className="h-4 w-4" aria-hidden="true" />
+                Download PDF
+              </Button>
+              <InvoiceDownloadButton booking={booking} size="default" />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void sendEmailAgain()}
+                loading={working === "email"}
+              >
+                <Mail className="h-4 w-4" aria-hidden="true" />
+                Email Ticket Again
+              </Button>
+              <Button asChild variant="outline">
+                <Link href={`/ticket?bookingId=${booking.bookingId}`}>
+                  <Ticket className="h-4 w-4" aria-hidden="true" />
+                  Ticket Viewer
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
       <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
         <Card>
           <CardHeader>
@@ -1512,7 +1380,7 @@ function BookingDetails({ booking }: { booking: BookingRecord }): React.JSX.Elem
         </CardHeader>
         <CardContent>
           <Timeline
-            items={timeline.map((event) => ({
+            items={(timelineQuery.data ?? []).map((event) => ({
               id: event.id,
               title: event.title,
               description: event.description,
@@ -1522,96 +1390,28 @@ function BookingDetails({ booking }: { booking: BookingRecord }): React.JSX.Elem
           />
         </CardContent>
       </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>Cancel Booking</CardTitle>
-          <CardDescription>
-            Mock refund handoff moves the booking into the refund queue without real money movement.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button
-            type="button"
-            variant="destructive"
-            disabled={!cancellable}
-            loading={working === "cancel"}
-            onClick={() => void requestCancellation()}
-          >
-            <XCircle className="h-4 w-4" aria-hidden="true" />
-            Cancel Booking
-          </Button>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>Reschedule Booking</CardTitle>
-          <CardDescription>
-            Choose a new date, pick a mock bus, review, and confirm.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4">
-          <div className="grid gap-3 sm:grid-cols-[220px_auto]">
-            <Field label="New Date" error={undefined}>
-              <Input
-                type="date"
-                value={rescheduleDate}
-                min={futureDateValue(1)}
-                onChange={(event) => setRescheduleDate(event.target.value)}
-              />
-            </Field>
-            <div className="flex items-end">
-              <Button
-                type="button"
-                variant="outline"
-                loading={working === "search-reschedule"}
-                onClick={() => void searchRescheduleBuses()}
-              >
-                <CalendarClock className="h-4 w-4" aria-hidden="true" />
-                Search Buses
-              </Button>
-            </div>
-          </div>
-          {rescheduleResults.length ? (
-            <div className="grid gap-2">
-              {rescheduleResults.map((bus) => (
-                <button
-                  key={bus.tripId}
-                  type="button"
-                  onClick={() => setSelectedRescheduleTripId(bus.tripId)}
-                  className={cn(
-                    "rounded-md border p-3 text-left text-sm transition",
-                    selectedRescheduleTripId === bus.tripId
-                      ? "border-gold-500 bg-gold-50 dark:bg-gold-500/10"
-                      : "border-gray-200 bg-white hover:border-gold-200 dark:border-brand-900 dark:bg-brand-950",
-                  )}
-                >
-                  <span className="flex flex-wrap justify-between gap-3">
-                    <span className="font-semibold text-gray-950 dark:text-gray-50">
-                      {bus.operatorName}
-                    </span>
-                    <span className="text-gray-600 dark:text-gray-400">
-                      INR {bus.fare.amount.toLocaleString("en-IN")}
-                    </span>
-                  </span>
-                  <span className="mt-1 block text-xs text-gray-600 dark:text-gray-400">
-                    {formatTime(bus.departureTime)} · {formatDuration(bus.durationMinutes)} ·{" "}
-                    {bus.busType}
-                  </span>
-                </button>
-              ))}
-              <Button
-                type="button"
-                className="w-fit"
-                loading={working === "reschedule"}
-                onClick={() => void confirmReschedule()}
-              >
-                <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-                Confirm Reschedule
-              </Button>
-            </div>
-          ) : null}
-        </CardContent>
-      </Card>
+      {cancellable ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Cancel Booking</CardTitle>
+            <CardDescription>
+              The operator&apos;s cancellation charges apply. Your refund follows once the operator
+              settles the cancellation.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              type="button"
+              variant="destructive"
+              loading={working === "cancel"}
+              onClick={() => void requestCancellation()}
+            >
+              <XCircle className="h-4 w-4" aria-hidden="true" />
+              Cancel Booking
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   );
 }
@@ -1619,86 +1419,19 @@ function BookingDetails({ booking }: { booking: BookingRecord }): React.JSX.Elem
 function FareSummary({ fare }: { fare: NonNullable<BookingRecord["fare"]> }): React.JSX.Element {
   return (
     <div className="mt-4 grid gap-3 text-sm">
-      <SummaryRow label="Base Fare" value={`INR ${fare.baseFare.amount.toLocaleString("en-IN")}`} />
-      <SummaryRow label="Taxes" value={`INR ${fare.taxes.amount.toLocaleString("en-IN")}`} />
-      <SummaryRow
-        label="Discount"
-        value={`- INR ${fare.discount.amount.toLocaleString("en-IN")}`}
-      />
-      <SummaryRow
-        label="Convenience Fee"
-        value={`INR ${fare.convenienceFee.amount.toLocaleString("en-IN")}`}
-      />
+      <SummaryRow label="Base Fare" value={formatInr(fare.baseFare.amount)} />
+      <SummaryRow label="GST" value={formatInr(fare.taxes.amount)} />
+      {fare.discount.amount > 0 ? (
+        <SummaryRow label="Discount" value={`- ${formatInr(fare.discount.amount)}`} />
+      ) : null}
+      {fare.convenienceFee.amount > 0 ? (
+        <SummaryRow label="Convenience Fee" value={formatInr(fare.convenienceFee.amount)} />
+      ) : null}
       <div className="border-t border-gray-200 pt-3 dark:border-gray-800">
-        <SummaryRow
-          label="Grand Total"
-          value={`INR ${fare.grandTotal.amount.toLocaleString("en-IN")}`}
-        />
+        <SummaryRow label="Grand Total" value={formatInr(fare.grandTotal.amount)} />
       </div>
     </div>
   );
-}
-
-async function getTicketForBooking(booking: BookingRecord): Promise<TicketRecord> {
-  return getTicket(booking);
-}
-
-function getTimelineForBooking(
-  booking: BookingRecord,
-  events: BookingTimelineEvent[],
-): BookingTimelineEvent[] {
-  const scoped = events.filter((event) => event.bookingId === booking.bookingId);
-  if (scoped.length) {
-    return scoped;
-  }
-
-  const createdAt = booking.createdAt;
-  const confirmedAt = booking.confirmedAt ?? booking.createdAt;
-  const fallback = [
-    createClientTimelineEvent(
-      booking.bookingId,
-      "BOOKING_CREATED",
-      "Booking created",
-      "Booking created from selected seats.",
-      "info",
-      createdAt,
-    ),
-    createClientTimelineEvent(
-      booking.bookingId,
-      "SEAT_RESERVED",
-      "Seat reserved",
-      `Seats ${booking.selectedSeats.join(", ")} reserved.`,
-      "success",
-      createdAt,
-    ),
-  ];
-
-  if (["CONFIRMED", "TICKET_GENERATED", "RESCHEDULED"].includes(booking.status)) {
-    fallback.push(
-      createClientTimelineEvent(
-        booking.bookingId,
-        "TICKET_GENERATED",
-        "Ticket generated",
-        "Ticket generated from the internal ticket model.",
-        "success",
-        confirmedAt,
-      ),
-    );
-  }
-  if (booking.status === "CANCELLED") {
-    fallback.push(
-      createClientTimelineEvent(
-        booking.bookingId,
-        "CANCELLED",
-        "Booking cancelled",
-        "Cancellation completed.",
-        "danger",
-        booking.cancelledAt ?? new Date().toISOString(),
-      ),
-    );
-  }
-
-  return fallback;
 }
 
 function statusToneForBooking(
@@ -1720,41 +1453,6 @@ function statusToneForBooking(
   return "neutral";
 }
 
-function createClientTimelineEvent(
-  bookingId: string,
-  type: BookingTimelineEvent["type"],
-  title: string,
-  description: string,
-  tone: BookingTimelineEvent["tone"],
-  occurredAt = new Date().toISOString(),
-): BookingTimelineEvent {
-  return {
-    id: createClientId("TL", `${bookingId}|${type}|${occurredAt}`),
-    bookingId,
-    type,
-    title,
-    description,
-    occurredAt,
-    tone,
-  };
-}
-
-function createClientId(prefix: string, value: string): string {
-  const hash = [...value].reduce(
-    (current, char) => (current * 31 + char.charCodeAt(0)) >>> 0,
-    2166136261,
-  );
-
-  return `${prefix}-${hash.toString(36).toUpperCase().padStart(8, "0").slice(0, 8)}`;
-}
-
-function futureDateValue(daysAhead: number): string {
-  const date = new Date();
-  date.setUTCDate(date.getUTCDate() + daysAhead);
-
-  return date.toISOString().slice(0, 10);
-}
-
 function SummaryRow({ label, value }: { label: string; value: string }): React.JSX.Element {
   return (
     <div className="flex justify-between gap-4">
@@ -1773,15 +1471,6 @@ function SummaryTile({ label, value }: { label: string; value: string }): React.
   );
 }
 
-function HoldTimer({ secondsLeft }: { secondsLeft: number }): React.JSX.Element {
-  return (
-    <span className="inline-flex items-center gap-1 rounded-md bg-gold-50 px-2 py-1 text-xs font-semibold text-gold-700 dark:bg-gold-500/10 dark:text-gold-100">
-      <Timer className="h-3.5 w-3.5" aria-hidden="true" />
-      {formatCountdown(secondsLeft)}
-    </span>
-  );
-}
-
 function BookingSkeleton(): React.JSX.Element {
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
@@ -1792,39 +1481,6 @@ function BookingSkeleton(): React.JSX.Element {
       <Skeleton className="h-80 w-full" />
     </div>
   );
-}
-
-function useSeatHoldTimer(): number {
-  const router = useRouter();
-  const hold = useBookingStore((state) => state.hold);
-  const layout = useBookingStore((state) => state.layout);
-  const clearHold = useBookingStore((state) => state.clearHold);
-  const [secondsLeft, setSecondsLeft] = React.useState(() => calculateSecondsLeft(hold?.expiresAt));
-
-  React.useEffect(() => {
-    setSecondsLeft(calculateSecondsLeft(hold?.expiresAt));
-    if (!hold) {
-      return undefined;
-    }
-    const timer = window.setInterval(() => {
-      const next = calculateSecondsLeft(hold.expiresAt);
-      setSecondsLeft(next);
-      if (next <= 0) {
-        window.clearInterval(timer);
-        void releaseSeats({ reservationId: hold.reservationId });
-        clearHold();
-        router.push(
-          layout
-            ? `/seat-layout?tripId=${layout.tripId}&date=${layout.journeyDate}`
-            : "/seat-layout",
-        );
-      }
-    }, 1000);
-
-    return () => window.clearInterval(timer);
-  }, [clearHold, hold, layout, router]);
-
-  return secondsLeft;
 }
 
 function getSelectedSeatModels(
@@ -1856,39 +1512,37 @@ function seatTooltip(seat: SeatMapSeat): string {
   return `${seat.seatNumber}: ${flags.join(", ")}`;
 }
 
-function calculateSecondsLeft(expiresAt: string | undefined): number {
-  if (!expiresAt) {
-    return 0;
-  }
-
-  return Math.max(0, Math.ceil((Date.parse(expiresAt) - Date.now()) / 1000));
-}
-
-function formatCountdown(seconds: number): string {
-  const minutes = Math.floor(seconds / 60);
-  const remaining = seconds % 60;
-
-  return `${minutes}:${String(remaining).padStart(2, "0")}`;
-}
-
+/** Times are shown on the clock in India, whatever the browser's zone. */
 function formatTime(iso: string): string {
-  return new Intl.DateTimeFormat("en-IN", {
-    hour: "numeric",
-    hour12: true,
-    minute: "2-digit",
-    timeZone: "UTC",
-  }).format(new Date(iso));
+  const date = new Date(iso);
+
+  return Number.isNaN(date.getTime())
+    ? iso
+    : new Intl.DateTimeFormat("en-IN", {
+        hour: "numeric",
+        hour12: true,
+        minute: "2-digit",
+        timeZone: "Asia/Kolkata",
+      }).format(date);
 }
 
 function formatDateTime(iso: string): string {
-  return new Intl.DateTimeFormat("en-IN", {
-    day: "2-digit",
-    hour: "numeric",
-    hour12: true,
-    minute: "2-digit",
-    month: "short",
-    timeZone: "UTC",
-  }).format(new Date(iso));
+  const date = new Date(iso);
+
+  return Number.isNaN(date.getTime())
+    ? iso
+    : new Intl.DateTimeFormat("en-IN", {
+        day: "2-digit",
+        hour: "numeric",
+        hour12: true,
+        minute: "2-digit",
+        month: "short",
+        timeZone: "Asia/Kolkata",
+      }).format(date);
+}
+
+function formatInr(amount: number): string {
+  return `INR ${amount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 }
 
 function formatDuration(minutes: number): string {

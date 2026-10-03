@@ -27,13 +27,8 @@ export class IntegrationController {
   @Public()
   @Get("health")
   @ApiOkResponse({ description: "Integration framework readiness without exposing secrets." })
-  getHealth(): Pick<IntegrationDashboardResponse, "supplierMode" | "security"> {
-    const dashboard = this.manager.getDashboard();
-
-    return {
-      supplierMode: dashboard.supplierMode,
-      security: dashboard.security,
-    };
+  getHealth(): Pick<IntegrationDashboardResponse, "security"> {
+    return { security: this.manager.getDashboard().security };
   }
 
   @Roles("ADMIN")
@@ -93,11 +88,9 @@ export class IntegrationController {
   @Get("configuration")
   getConfiguration(): {
     paymentProviders: ReturnType<IntegrationConfigurationService["getPaymentProviderConfigs"]>;
-    supplierMode: "mock" | "production";
     suppliers: SupplierIntegrationConfig[];
   } {
     return {
-      supplierMode: this.configuration.getSupplierMode(),
       suppliers: this.manager.listSuppliers(),
       paymentProviders: this.configuration.getPaymentProviderConfigs(),
     };

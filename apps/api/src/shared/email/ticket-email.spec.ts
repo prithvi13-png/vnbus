@@ -13,7 +13,6 @@ function ticketWith(overrides: Partial<TicketRecord> = {}): TicketRecord {
     journeyDate: "2026-10-02T21:30:00+05:30",
     operatorName: "Orange Travels",
     busType: "AC Sleeper (2+1)",
-    busNumber: "TS09UB4412",
     route: "Hyderabad to Bengaluru",
     departureTime: "2026-10-02T21:30:00+05:30",
     arrivalTime: "2026-10-03T06:15:00+05:30",
@@ -59,7 +58,6 @@ function ticketWith(overrides: Partial<TicketRecord> = {}): TicketRecord {
     },
     bookingDate: "2026-09-23T11:05:00+05:30",
     bookingStatus: "TICKET_GENERATED",
-    qrCode: { format: "PNG", data: "x" },
     ...overrides,
   } as TicketRecord;
 }
@@ -87,7 +85,6 @@ describe("buildTicketEmail", () => {
       "PNR7QK2M9XA",
       "VNT-8C31D0",
       "Orange Travels",
-      "TS09UB4412",
       "L3",
       "Miyapur Metro",
       "Madiwala",

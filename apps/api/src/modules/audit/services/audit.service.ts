@@ -21,7 +21,7 @@ export class AuditService implements AuditModulePort {
     return new AuditSummaryDto(summary);
   }
 
-  listLogs(query: ListAuditLogsQueryDto): AdminAuditLogRecord[] {
+  listLogs(query: ListAuditLogsQueryDto): Promise<AdminAuditLogRecord[]> {
     return this.repository.listLogs(query);
   }
 }

@@ -11,6 +11,7 @@ import { NormalizationService } from "./services/normalization.service";
 import { SupplierHealthService } from "./services/supplier-health.service";
 import { SupplierManagerService } from "./services/supplier-manager.service";
 import { SupplierRequestLogService } from "./services/supplier-request-log.service";
+import { TripCacheService } from "./services/trip-cache.service";
 
 @Module({
   controllers: [IntegrationController],
@@ -25,6 +26,7 @@ import { SupplierRequestLogService } from "./services/supplier-request-log.servi
     SupplierHealthService,
     SupplierManagerService,
     SupplierRequestLogService,
+    TripCacheService,
   ],
   exports: [
     CircuitBreakerService,
@@ -37,6 +39,7 @@ import { SupplierRequestLogService } from "./services/supplier-request-log.servi
     SupplierHealthService,
     SupplierManagerService,
     SupplierRequestLogService,
+    TripCacheService,
   ],
 })
 export class IntegrationModule {}

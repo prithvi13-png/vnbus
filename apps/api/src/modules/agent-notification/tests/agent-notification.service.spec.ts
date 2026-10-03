@@ -1,32 +1,38 @@
+import { NotificationRepository } from "../../notification/repositories/notification.repository";
+import { NotificationService } from "../../notification/services/notification.service";
+import { NotificationModuleValidator } from "../../notification/validators/notification.validator";
 import { AgentNotificationMapper } from "../mappers/agent-notification.mapper";
 import { AgentNotificationRepository } from "../repositories/agent-notification.repository";
 import { AgentNotificationService } from "../services/agent-notification.service";
 import { AgentNotificationValidator } from "../validators/agent-notification.validator";
 
 describe("AgentNotificationService", () => {
-  it("merges seed and shared notifications with read-state filtering", () => {
+  it("lists the agent's own notifications, filtered by read state", () => {
+    const notifications = new NotificationService(
+      new NotificationRepository(),
+      new NotificationModuleValidator(),
+    );
     const service = new AgentNotificationService(
       new AgentNotificationRepository(),
       new AgentNotificationValidator(),
-      {
-        listNotifications: () => [
-          {
-            id: "NTF-LIVE-001",
-            type: "AGENT_BOOKING_CREATED",
-            readStatus: "UNREAD",
-            title: "Booking created",
-            body: "Agent booking was created.",
-            createdAt: "2026-08-08T09:00:00.000Z",
-            readAt: null,
-          },
-        ],
-      } as never,
+      notifications,
       new AgentNotificationMapper(),
     );
+    const mine = notifications.create({
+      userId: "agent-1",
+      type: "AGENT_BOOKING_CREATED",
+      title: "Booking created",
+      body: "Agent booking was created.",
+    });
+    notifications.create({
+      userId: "agent-2",
+      type: "AGENT_BOOKING_CREATED",
+      title: "Someone else's booking",
+      body: "Not for agent-1.",
+    });
+    notifications.markRead(mine.id, "agent-1");
 
-    expect(service.listNotifications()).toHaveLength(3);
-    expect(service.listNotifications("UNREAD").every((item) => item.readStatus === "UNREAD")).toBe(
-      true,
-    );
+    expect(service.listNotifications("agent-1").map((item) => item.id)).toEqual([mine.id]);
+    expect(service.listNotifications("agent-1", "UNREAD")).toEqual([]);
   });
 });

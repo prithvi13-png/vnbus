@@ -22,17 +22,6 @@ import type {
   SearchTimeWindow,
 } from "@vnbus/types";
 
-const busTypes = [
-  "AC Sleeper",
-  "Non AC Sleeper",
-  "Seater",
-  "Semi Sleeper",
-  "Volvo",
-  "Mercedes",
-  "Luxury",
-  "Electric",
-] as const satisfies BusType[];
-
 const amenities = [
   "WiFi",
   "Charging Point",
@@ -103,14 +92,18 @@ export class SearchTripsDto implements BusSearchRequest {
   @IsIn(timeWindows, { each: true })
   arrivalWindows?: SearchTimeWindow[];
 
-  @ApiPropertyOptional({ enum: busTypes, isArray: true })
+  @ApiPropertyOptional({
+    description: "Bus types exactly as a search's filter options name them.",
+    isArray: true,
+  })
   @IsOptional()
   @IsArray()
-  @ArrayMaxSize(8)
-  @IsIn(busTypes, { each: true })
+  @ArrayMaxSize(25)
+  @IsString({ each: true })
+  @MaxLength(120, { each: true })
   busTypes?: BusType[];
 
-  @ApiPropertyOptional({ example: ["Vriddhi Express"], isArray: true })
+  @ApiPropertyOptional({ isArray: true })
   @IsOptional()
   @IsArray()
   @ArrayMaxSize(25)

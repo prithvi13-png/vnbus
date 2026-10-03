@@ -1,15 +1,13 @@
-import { BCIAdapter, MockSupplierAdapter, SupplierUnavailableError } from "@vnbus/supplier-sdk";
-import type {
-  SupplierIntegrationConfig,
-  TripSearchRequest,
-  TripSearchResponse,
-} from "@vnbus/types";
+import { BCIAdapter, SupplierUnavailableError } from "@vnbus/supplier-sdk";
+import type { TripSearchRequest, TripSearchResponse } from "@vnbus/types";
+
+import { FakeSupplierAdapter } from "../../../shared/tests/fake-supplier";
 
 import { DistributedLockService } from "../services/distributed-lock.service";
 import { DuplicateTripDetectionService } from "../services/duplicate-trip.service";
 import { IdempotencyService } from "../services/idempotency.service";
 import { NormalizationService } from "../services/normalization.service";
-import { createTestSupplierManager } from "./integration-test-helpers";
+import { createTestSupplierManager, supplierConfig } from "./integration-test-helpers";
 
 class FailingBCIAdapter extends BCIAdapter {
   override searchTrips(_request: TripSearchRequest): Promise<TripSearchResponse> {
@@ -18,31 +16,55 @@ class FailingBCIAdapter extends BCIAdapter {
 }
 
 class SlowBCIAdapter extends BCIAdapter {
-  private readonly mock = new MockSupplierAdapter();
+  private readonly fake = new FakeSupplierAdapter();
 
   override searchTrips(request: TripSearchRequest): Promise<TripSearchResponse> {
     return new Promise((resolve, reject) => {
       setTimeout(() => {
-        this.mock.searchTrips(request).then(resolve).catch(reject);
+        this.fake.searchTrips(request).then(resolve).catch(reject);
       }, 50);
     });
   }
 }
 
 describe("SupplierManagerService", () => {
-  it("searches through the active mock supplier", async () => {
+  it("searches through the configured supplier", async () => {
     const manager = createTestSupplierManager();
     const result = await manager.searchTrips(searchRequest());
 
     expect(result.success).toBe(true);
     expect(result.status).toBe("AVAILABLE");
-    expect(result.supplierResults[0]?.supplierCode).toBe("MOCK");
+    expect(result.supplierResults[0]?.supplierCode).toBe("SRDV");
     expect(manager.getDashboard().requestLogs.length).toBeGreaterThan(0);
+  });
+
+  it("keeps SRDV trips labelled SRDV, so seat maps and bookings reach SRDV", async () => {
+    const manager = createTestSupplierManager();
+    const result = await manager.searchTrips(searchRequest());
+
+    expect(result.trips.every((trip) => trip.supplierCode === "SRDV")).toBe(true);
+  });
+
+  it("remembers searched trips for the seat map and booking", async () => {
+    const manager = createTestSupplierManager();
+    const [trip] = (await manager.searchTrips(searchRequest())).trips;
+
+    expect(manager.findSearchedTrip(trip!.tripId)).toMatchObject({ tripId: trip!.tripId });
+    expect(manager.findSearchedTrip("never-searched")).toBeNull();
+  });
+
+  it("says so when no supplier is configured", async () => {
+    const manager = createTestSupplierManager([supplierConfig("SRDV", false, 1)]);
+    const result = await manager.searchTrips(searchRequest());
+
+    expect(result.success).toBe(false);
+    expect(result.trips).toEqual([]);
+    expect(result.errors[0]?.code).toBe("SUPPLIER_NOT_CONFIGURED");
   });
 
   it("keeps parallel search available when one supplier fails", async () => {
     const manager = createTestSupplierManager([
-      supplierConfig("MOCK", true, 1),
+      supplierConfig("SRDV", true, 1),
       supplierConfig("BCI", true, 2),
     ]);
     manager.registerSupplier(new FailingBCIAdapter());
@@ -86,12 +108,12 @@ describe("SupplierManagerService", () => {
     expect(first).toBeDefined();
 
     const duplicates = detector.detect([
-      { ...first!, supplierCode: "MOCK", tripId: "mock-trip-a" },
+      { ...first!, supplierCode: "SRDV", tripId: "srdv-trip-a" },
       { ...first!, supplierCode: "BCI", tripId: "bci-trip-a" },
     ]);
 
     expect(duplicates).toHaveLength(1);
-    expect(duplicates[0]?.tripRefs).toEqual(["MOCK:mock-trip-a", "BCI:bci-trip-a"]);
+    expect(duplicates[0]?.tripRefs).toEqual(["SRDV:srdv-trip-a", "BCI:bci-trip-a"]);
   });
 
   it("normalizes money and labels", () => {
@@ -136,34 +158,6 @@ function searchRequest(): TripSearchRequest {
     destinationCity: "Hyderabad",
     journeyDate: tomorrowIsoDate(),
     passengerCount: 1,
-  };
-}
-
-function supplierConfig(
-  code: SupplierIntegrationConfig["code"],
-  enabled: boolean,
-  priority: number,
-  requestTimeoutMs = 100,
-  retryCount = 0,
-  circuitBreakerThreshold = 3,
-): SupplierIntegrationConfig {
-  return {
-    code,
-    name: code,
-    enabled,
-    priority,
-    environment: code === "MOCK" ? "MOCK" : "SANDBOX_PLACEHOLDER",
-    baseUrl: code === "MOCK" ? null : "https://placeholder.example.test",
-    credentialReference: code === "MOCK" ? null : `secret://${code.toLowerCase()}/api-key`,
-    healthStatus: "UNKNOWN",
-    timeout: {
-      connectionTimeoutMs: 10,
-      requestTimeoutMs,
-      retryCount,
-      retryDelayMs: 1,
-      circuitBreakerThreshold,
-      circuitBreakerCooldownMs: 1000,
-    },
   };
 }
 

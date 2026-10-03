@@ -15,7 +15,6 @@ import { IntegrationConfigurationService } from "../../integration/services/inte
 import {
   CashfreeAdapter,
   CustomPaymentAdapter,
-  MockPaymentAdapter,
   PhonePeAdapter,
   RazorpayAdapter,
   StripeAdapter,
@@ -34,7 +33,6 @@ export class PaymentService {
     private readonly idempotency: IdempotencyService,
   ) {
     [
-      new MockPaymentAdapter(),
       new RazorpayAdapter(),
       new CashfreeAdapter(),
       new PhonePeAdapter(),
@@ -49,6 +47,9 @@ export class PaymentService {
 
   async createIntent(input: CreatePaymentIntentRequest): Promise<PaymentIntent> {
     const providerCode = input.providerCode ?? this.configuration.getActivePaymentProviderCode();
+    if (!providerCode) {
+      throw new BadRequestException("No payment gateway is configured.");
+    }
     const provider = this.getEnabledProvider(providerCode);
     const idempotencyKey =
       input.idempotencyKey ??
@@ -144,7 +145,7 @@ export class PaymentService {
     if (!provider || !config?.enabled) {
       throw new PaymentProviderUnavailableError(code);
     }
-    if (code !== "MOCK" && !config.credentialReference) {
+    if (!config.credentialReference) {
       throw new PaymentProviderUnavailableError(code);
     }
 

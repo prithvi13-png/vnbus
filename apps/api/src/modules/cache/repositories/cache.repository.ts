@@ -1,13 +1,9 @@
 import { Injectable } from "@nestjs/common";
 import type { CacheDashboardResponse, CacheEntryRecord, CacheNamespace } from "@vnbus/types";
 
-const sampledAt = "2026-08-08T10:00:00.000Z";
-
 @Injectable()
 export class CacheRepository {
-  private readonly entries = new Map<CacheNamespace, CacheEntryRecord>(
-    seedEntries().map((entry) => [entry.namespace, entry]),
-  );
+  private readonly entries = new Map<CacheNamespace, CacheEntryRecord>();
 
   getDashboard(): CacheDashboardResponse {
     const entries = [...this.entries.values()];
@@ -48,38 +44,6 @@ export class CacheRepository {
 
     return this.getDashboard();
   }
-}
-
-function seedEntries(): CacheEntryRecord[] {
-  return [
-    entry("POPULAR_ROUTES", "HIT", 3600, 12_800),
-    entry("SEARCH_RESULTS", "HIT", 300, 54_200),
-    entry("AUTOCOMPLETE", "WARMED", 1800, 7_200),
-    entry("POPULAR_SEARCHES", "HIT", 900, 6_100),
-    entry("RECENT_SEARCHES", "MISS", 600, 2_400),
-    entry("OPERATORS", "HIT", 7200, 18_000),
-    entry("BUS_TYPES", "HIT", 7200, 1_200),
-    entry("SETTINGS", "WARMED", 1800, 3_600),
-    entry("FEATURE_FLAGS", "WARMED", 120, 2_100),
-    entry("ANALYTICS", "STALE", 900, 24_000),
-    entry("DASHBOARD_WIDGETS", "HIT", 300, 10_400),
-  ];
-}
-
-function entry(
-  namespace: CacheNamespace,
-  status: CacheEntryRecord["status"],
-  ttlSeconds: number,
-  sizeBytes: number,
-): CacheEntryRecord {
-  return {
-    key: `cache:${namespace.toLowerCase()}`,
-    namespace,
-    status,
-    ttlSeconds,
-    sizeBytes,
-    lastAccessedAt: sampledAt,
-  };
 }
 
 function cacheStrategy(): CacheDashboardResponse["strategy"] {

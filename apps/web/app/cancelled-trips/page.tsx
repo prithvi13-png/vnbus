@@ -14,7 +14,7 @@ export default function CancelledTripsPage(): React.JSX.Element {
       <PageHeader
         eyebrow="Bookings"
         title="Cancelled Trips"
-        description="Cancelled bookings with refund placeholder visibility."
+        description="Bookings you have cancelled, and where each refund stands."
         actionHref="/search"
         actionLabel="Search buses"
       />

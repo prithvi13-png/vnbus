@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Post, Req } from "@nestjs/common";
 import { ApiBearerAuth, ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import type {
   AdminNotificationCenterResponse,
@@ -8,6 +8,8 @@ import type {
 
 import { Public } from "../../../shared/security/decorators/public.decorator";
 import { Roles } from "../../../shared/security/decorators/roles.decorator";
+import type { AuthenticatedRequest } from "../../../shared/security/interfaces/authenticated-request.interface";
+import { requireUserId } from "../../../shared/security/require-user";
 import { SendAdminNotificationDto } from "../dto/admin-notification.dto";
 import { NotificationSummaryDto } from "../dto/notification-summary.dto";
 import { NotificationService } from "../services/notification.service";
@@ -30,46 +32,45 @@ export class NotificationController {
     return this.service.getSummary();
   }
 
-  @Public()
+  // The signed-in user's own notifications. These carry booking references and
+  // passenger names, so none of them is public.
   @Get("notifications")
   @ApiOkResponse({ description: "Notification center records" })
-  listNotifications(): NotificationRecord[] {
-    return this.service.listNotifications();
+  listNotifications(@Req() request: AuthenticatedRequest): NotificationRecord[] {
+    return this.service.listNotifications(requireUserId(request));
   }
 
-  @Public()
   @Get("notifications/center")
   @ApiOkResponse({ description: "Unread, read, archived, and history notification center" })
-  getNotificationCenter(): NotificationCenterResponse {
-    return this.service.getNotificationCenter();
+  getNotificationCenter(@Req() request: AuthenticatedRequest): NotificationCenterResponse {
+    return this.service.getNotificationCenter(requireUserId(request));
   }
 
-  @Public()
   @Post("notifications/:id/read")
   @ApiOkResponse({ description: "Mark notification as read" })
-  markRead(@Param("id") id: string): NotificationRecord {
-    return this.service.markRead(id);
+  markRead(@Param("id") id: string, @Req() request: AuthenticatedRequest): NotificationRecord {
+    return this.service.markRead(id, requireUserId(request));
   }
 
-  @Public()
   @Post("notifications/mark-all-read")
   @ApiOkResponse({ description: "Mark all notifications as read" })
-  markAllRead(): NotificationCenterResponse {
-    return this.service.markAllRead();
+  markAllRead(@Req() request: AuthenticatedRequest): NotificationCenterResponse {
+    return this.service.markAllRead(requireUserId(request));
   }
 
-  @Public()
   @Post("notifications/:id/archive")
   @ApiOkResponse({ description: "Archive notification" })
-  archive(@Param("id") id: string): NotificationRecord {
-    return this.service.archive(id);
+  archive(@Param("id") id: string, @Req() request: AuthenticatedRequest): NotificationRecord {
+    return this.service.archive(id, requireUserId(request));
   }
 
-  @Public()
   @Delete("notifications/:id")
   @ApiOkResponse({ description: "Delete notification from active history" })
-  delete(@Param("id") id: string): NotificationCenterResponse {
-    return this.service.delete(id);
+  delete(
+    @Param("id") id: string,
+    @Req() request: AuthenticatedRequest,
+  ): NotificationCenterResponse {
+    return this.service.delete(id, requireUserId(request));
   }
 
   @Roles("ADMIN")

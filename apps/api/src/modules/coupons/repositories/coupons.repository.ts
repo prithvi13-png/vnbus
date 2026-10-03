@@ -29,9 +29,7 @@ const summary = {
 
 @Injectable()
 export class CouponsRepository {
-  private readonly coupons = new Map<string, AdminCouponRecord>(
-    seedCoupons().map((coupon) => [coupon.couponId, coupon]),
-  );
+  private readonly coupons = new Map<string, AdminCouponRecord>();
 
   findSummary(): ModuleSummary {
     return summary;
@@ -105,42 +103,4 @@ export class CouponsRepository {
       null
     );
   }
-}
-
-function seedCoupons(): AdminCouponRecord[] {
-  const now = "2026-08-08T08:00:00.000Z";
-
-  return [
-    coupon("CPN-WELCOME500", "WELCOME500", "FLAT", 500, 5000, 824, 1000, 500, "ACTIVE", now),
-    coupon("CPN-AGENT10", "AGENT10", "PERCENTAGE", 10, 2500, 612, 1200, 800, "ACTIVE", now),
-    coupon("CPN-FESTIVE15", "FESTIVE15", "PERCENTAGE", 15, 10000, 0, 1500, 1000, "SCHEDULED", now),
-  ];
-}
-
-function coupon(
-  couponId: string,
-  code: string,
-  type: AdminCouponRecord["type"],
-  discountValue: number,
-  usageLimit: number,
-  usedCount: number,
-  minimumBookingAmount: number,
-  maximumDiscount: number,
-  status: AdminCouponRecord["status"],
-  timestamp: string,
-): AdminCouponRecord {
-  return {
-    couponId,
-    code,
-    type,
-    discountValue,
-    usageLimit,
-    usedCount,
-    expiresAt: "2026-12-31T18:29:59.000Z",
-    minimumBookingAmount: { amount: minimumBookingAmount, currency: "INR" },
-    maximumDiscount: { amount: maximumDiscount, currency: "INR" },
-    status,
-    createdAt: timestamp,
-    updatedAt: timestamp,
-  };
 }

@@ -1,10 +1,15 @@
+import { createTestSupplierManager } from "../../integration/tests/integration-test-helpers";
+import { TripCacheService } from "../../integration/services/trip-cache.service";
 import { AiRepository } from "../repositories/ai.repository";
 import { AiService } from "../services/ai.service";
 import { AiModuleValidator } from "../validators/ai.validator";
 
 describe("AiService", () => {
   it("returns module readiness and capabilities", () => {
-    const service = new AiService(new AiRepository(), new AiModuleValidator());
+    const service = new AiService(
+      new AiRepository(new TripCacheService()),
+      new AiModuleValidator(),
+    );
     const summary = service.getSummary();
 
     expect(summary.module).toBe("ai");
@@ -12,21 +17,41 @@ describe("AiService", () => {
     expect(summary.capabilities.length).toBeGreaterThan(0);
   });
 
-  it("returns mock trip recommendations and recently viewed routes", () => {
-    const service = new AiService(new AiRepository(), new AiModuleValidator());
-    const updated = service.recordRecentlyViewed({
+  it("suggests nothing for a route nobody has searched", () => {
+    const service = new AiService(
+      new AiRepository(new TripCacheService()),
+      new AiModuleValidator(),
+    );
+    const response = service.getRecommendations({ sourceCity: "Pune", destinationCity: "Goa" });
+
+    expect(response.engine).toBe("RULES");
+    expect(response.recommendations).toEqual([]);
+    expect(response.trendingRoutes).toEqual([]);
+  });
+
+  it("suggests the cheapest and fastest of the buses a search returned", async () => {
+    const cache = new TripCacheService();
+    const service = new AiService(new AiRepository(cache), new AiModuleValidator());
+    const manager = createTestSupplierManager();
+    const response = await manager.searchTrips({
       sourceCity: "Bangalore",
-      destinationCity: "Mysore",
+      destinationCity: "Hyderabad",
+      journeyDate: "2099-01-01",
+      passengerCount: 1,
     });
-    const response = service.getRecommendations({
+    cache.remember(response.trips);
+    service.recordRecentlyViewed({ sourceCity: "Bangalore", destinationCity: "Mysore" });
+
+    const recommendations = service.getRecommendations({
       sourceCity: "Bangalore",
       destinationCity: "Hyderabad",
     });
 
-    expect(response.engine).toBe("MOCK_RULES");
-    expect(response.recommendations.map((item) => item.type)).toContain("CHEAPEST_ROUTE");
-    expect(response.recommendations.map((item) => item.type)).toContain("TRENDING_ROUTE");
-    expect(updated.recentlyViewed[0]?.type).toBe("RECENTLY_VIEWED_ROUTE");
-    expect(response.architecture.modelProvider).toBe("NONE");
+    expect(recommendations.recommendations.map((item) => item.type)).toEqual([
+      "CHEAPEST_ROUTE",
+      "FASTEST_ROUTE",
+    ]);
+    expect(recommendations.recentlyViewed[0]?.route).toBe("Bangalore to Mysore");
+    expect(recommendations.architecture.modelProvider).toBe("NONE");
   });
 });

@@ -367,6 +367,11 @@ function toSeatFare(seat: SrdvSeat): Money {
   return money(num(seat.Price?.PublishedFare, num(seat.SeatFare)));
 }
 
+/** The GST SRDV says is inside PublishedFare, so totals never add it twice. */
+function toSeatTax(seat: SrdvSeat): Money {
+  return money(num(seat.Price?.GSTAmount));
+}
+
 function toDeckSeats(grid: SrdvSeatGrid | undefined, deck: "LOWER" | "UPPER"): SeatMapSeat[] {
   const seats: SeatMapSeat[] = [];
 
@@ -384,6 +389,7 @@ function toDeckSeats(grid: SrdvSeatGrid | undefined, deck: "LOWER" | "UPPER"): S
         kind: toSeatKind(seat.SeatType ?? ""),
         status: toSeatStatus(seat),
         fare: toSeatFare(seat),
+        tax: toSeatTax(seat),
         // SRDV reports no window/legroom/emergency-exit attributes. Column
         // position does not reliably imply a window across coach layouts, so
         // these stay false rather than being inferred.

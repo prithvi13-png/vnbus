@@ -11,6 +11,7 @@ import { Prisma } from "@prisma/client";
 import type { Response } from "express";
 import type { Request } from "express";
 
+import { PublicHttpException } from "../errors/public-http.exception";
 import { ObservabilityMetricsStore } from "../observability/metrics-store";
 
 interface ErrorResponseBody {
@@ -45,8 +46,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
             statusCode: status,
             message: exception instanceof Error ? exception.message : "Internal server error",
           };
-    const productionSafeMessage =
-      status >= 500 ? "Internal server error" : (body.message ?? "Request failed");
+    const messageIsPublic = status < 500 || exception instanceof PublicHttpException;
+    const productionSafeMessage = messageIsPublic
+      ? (body.message ?? "Request failed")
+      : "Internal server error";
 
     ObservabilityMetricsStore.recordRequest({
       durationMs: Math.max(Date.now() - startedAt, 0),
@@ -79,7 +82,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       statusCode: status,
       errorCode: errorCodeFor(status),
       message: productionSafeMessage,
-      error: status >= 500 ? "Internal Server Error" : body.error,
+      error: messageIsPublic ? body.error : "Internal Server Error",
       path: request.originalUrl,
       method: request.method,
       correlationId: request.correlationId,

@@ -28,7 +28,7 @@ export class AnalyticsController {
   @Roles("ADMIN")
   @Get("dashboard")
   @ApiOkResponse({ description: "Admin analytics dashboard datasets" })
-  getAdminAnalytics(): AdminAnalyticsResponse {
+  getAdminAnalytics(): Promise<AdminAnalyticsResponse> {
     return this.service.getAdminAnalytics();
   }
 }

@@ -1,12 +1,11 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import type { BookingRecord, SeatHoldResponse } from "@vnbus/types";
+import { BadRequestException, ConflictException, Injectable } from "@nestjs/common";
+import type { BookingRecord, SeatLayoutDetails, SeatMapSeat } from "@vnbus/types";
 
 import type { ModuleSummary } from "../../../shared/domain/module-summary";
-import type {
-  ConfirmBookingDto,
-  CreateBookingDto,
-  RescheduleBookingDto,
-} from "../dto/booking-workflow.dto";
+import type { CreateBookingDto } from "../dto/booking-workflow.dto";
+
+/** A booking the supplier has sold and not yet cancelled. */
+const ACTIVE_STATUSES = new Set(["CONFIRMED", "TICKET_GENERATED"]);
 
 @Injectable()
 export class BookingModuleValidator {
@@ -20,72 +19,79 @@ export class BookingModuleValidator {
     }
   }
 
-  ensureCreateRequest(
-    dto: CreateBookingDto,
-    hold: SeatHoldResponse | null,
-  ): asserts hold is SeatHoldResponse {
-    if (!hold) {
-      throw new NotFoundException("Seat reservation not found");
-    }
-    if (hold.status === "EXPIRED" || Date.parse(hold.expiresAt) <= Date.now()) {
-      throw new BadRequestException("Seat reservation expired");
+  ensureCreateRequest(dto: CreateBookingDto): void {
+    if (new Set(dto.selectedSeats).size !== dto.selectedSeats.length) {
+      throw new BadRequestException("Duplicate seat numbers are not allowed");
     }
     if (dto.selectedSeats.length !== dto.passengers.length) {
       throw new BadRequestException("Passenger count must match selected seats");
     }
-    if (dto.supplierCode !== "MOCK") {
-      throw new BadRequestException("This supplier is not enabled");
+
+    const passengerSeats = dto.passengers.map((passenger) => passenger.seatNumber).sort();
+    const selectedSeats = [...dto.selectedSeats].sort();
+
+    if (passengerSeats.join("|") !== selectedSeats.join("|")) {
+      throw new BadRequestException("Each passenger must be assigned one of the selected seats");
     }
   }
 
-  ensureConfirmRequest(
-    dto: ConfirmBookingDto,
-    booking: BookingRecord | null,
-  ): asserts booking is BookingRecord {
-    if (!booking) {
-      throw new NotFoundException("Booking not found");
+  /**
+   * Checks the selection against the supplier's live seat map, so a seat that
+   * sold since the traveller opened the page is refused here instead of
+   * failing half-way through the supplier's block.
+   */
+  ensureSeatsBookable(dto: CreateBookingDto, layout: SeatLayoutDetails): SeatMapSeat[] {
+    const seats = layout.decks.flatMap((deck) => deck.seats);
+    const selected = dto.selectedSeats.map((seatNumber) =>
+      seats.find((seat) => seat.seatNumber === seatNumber),
+    );
+
+    if (selected.some((seat) => !seat)) {
+      throw new BadRequestException("One or more seats are not part of this bus");
     }
-    if (booking.status === "EXPIRED") {
-      throw new BadRequestException("Booking session expired");
+
+    const chosen = selected as SeatMapSeat[];
+    const taken = chosen.filter((seat) => seat.status !== "AVAILABLE" && seat.status !== "LADIES");
+
+    if (taken.length > 0) {
+      throw new ConflictException(
+        `Seat ${taken.map((seat) => seat.seatNumber).join(", ")} is no longer available`,
+      );
     }
-    if (booking.status === "CONFIRMED" || booking.status === "TICKET_GENERATED") {
-      throw new BadRequestException("Booking is already confirmed");
+    if (layout.maxSelectableSeats > 0 && chosen.length > layout.maxSelectableSeats) {
+      throw new BadRequestException(
+        `This operator allows at most ${layout.maxSelectableSeats} seats per booking`,
+      );
     }
-    if (!dto.paymentReference.trim()) {
-      throw new BadRequestException("paymentReference is required");
+
+    const ladiesSeatForMan = dto.passengers.find(
+      (passenger) =>
+        passenger.gender !== "FEMALE" &&
+        chosen.find((seat) => seat.seatNumber === passenger.seatNumber)?.genderRestriction ===
+          "LADIES",
+    );
+
+    if (ladiesSeatForMan) {
+      throw new BadRequestException(
+        `Seat ${ladiesSeatForMan.seatNumber} is reserved for women passengers`,
+      );
     }
+
+    return chosen;
   }
 
-  ensureCancellable(booking: BookingRecord | null): asserts booking is BookingRecord {
-    if (!booking) {
-      throw new NotFoundException("Booking not found");
+  ensureCancellable(booking: BookingRecord): void {
+    if (booking.status === "CANCELLATION_REQUESTED") {
+      throw new BadRequestException("Cancellation has already been requested for this booking");
     }
     if (booking.status === "CANCELLED" || booking.status === "REFUND_PENDING") {
       throw new BadRequestException("Booking is already cancelled");
     }
-    if (booking.status === "EXPIRED" || booking.status === "FAILED") {
-      throw new BadRequestException("Only active bookings can be cancelled");
+    if (!ACTIVE_STATUSES.has(booking.status)) {
+      throw new BadRequestException("Only confirmed bookings can be cancelled");
     }
     if (Date.parse(booking.trip.departureTime) <= Date.now()) {
       throw new BadRequestException("Journey completed bookings cannot be cancelled");
-    }
-  }
-
-  ensureReschedulable(
-    dto: RescheduleBookingDto,
-    booking: BookingRecord | null,
-  ): asserts booking is BookingRecord {
-    if (!booking) {
-      throw new NotFoundException("Booking not found");
-    }
-    if (booking.status === "CANCELLED" || booking.status === "REFUND_PENDING") {
-      throw new BadRequestException("Cancelled bookings cannot be rescheduled");
-    }
-    if (Date.parse(booking.trip.departureTime) <= Date.now()) {
-      throw new BadRequestException("Journey completed bookings cannot be rescheduled");
-    }
-    if (Date.parse(dto.newJourneyDate) <= Date.now()) {
-      throw new BadRequestException("Select a future journey date");
     }
   }
 }

@@ -21,7 +21,6 @@ import type {
   BusSearchRequest,
   BusSearchResponse,
   BusSearchResult,
-  BusType,
   SearchFilterOption,
   SearchSortOption,
   SearchTimeWindow,
@@ -48,7 +47,12 @@ import {
   Tag,
   cn,
 } from "@vnbus/ui";
-import { buildSearchParams, buildSearchRequestFromParams, SEARCH_SORT_LABELS } from "@vnbus/shared";
+import {
+  buildSearchParams,
+  buildSearchRequestFromParams,
+  DEFAULT_SEARCH_SORT,
+  SEARCH_SORT_LABELS,
+} from "@vnbus/shared";
 
 import { searchBuses } from "../lib/api-client";
 import type { SearchFormValues } from "../lib/search-schema";
@@ -141,7 +145,9 @@ export function SearchExperience(): React.JSX.Element {
             <Alert variant="danger">
               <AlertTitle>Search failed</AlertTitle>
               <AlertDescription>
-                The mock search service could not return results. Try again.
+                {query.error instanceof Error
+                  ? query.error.message
+                  : "The search could not be completed. Try again."}
               </AlertDescription>
             </Alert>
             <Button type="button" className="mt-4" onClick={() => void query.refetch()}>
@@ -192,7 +198,9 @@ export function SearchExperience(): React.JSX.Element {
             ) : (
               <EmptyState
                 title="No buses found"
-                description="Adjust filters, choose another date, or try a popular route."
+                description={
+                  query.data.notice ?? "Adjust filters, choose another date, or try another route."
+                }
                 actionLabel="Clear filters"
                 onAction={() =>
                   updateSearch({
@@ -255,20 +263,21 @@ function ResultsToolbar({
       <div className="flex min-w-64 items-center gap-2">
         <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Sort</span>
         <Select
-          value={request.sortBy ?? "POPULARITY_DESC"}
+          value={request.sortBy ?? DEFAULT_SEARCH_SORT}
           onValueChange={(value) => onChange({ sortBy: value as SearchSortOption })}
         >
           <SelectTrigger aria-label="Sort results">
             <SelectValue placeholder="Sort results" />
           </SelectTrigger>
           <SelectContent>
-            {(Object.entries(SEARCH_SORT_LABELS) as Array<[SearchSortOption, string]>).map(
-              ([value, label]) => (
+            {(Object.entries(SEARCH_SORT_LABELS) as Array<[SearchSortOption, string]>)
+              // Suppliers report no ratings or popularity, so those orders mean nothing.
+              .filter(([value]) => value !== "RATING_DESC" && value !== "POPULARITY_DESC")
+              .map(([value, label]) => (
                 <SelectItem key={value} value={value}>
                   {label}
                 </SelectItem>
-              ),
-            )}
+              ))}
           </SelectContent>
         </Select>
       </div>
@@ -363,9 +372,7 @@ function SearchFilters({
           <CheckboxList
             options={filters.busTypes}
             selected={request.busTypes ?? []}
-            onToggle={(value) =>
-              onChange({ busTypes: toggleValue(request.busTypes ?? [], value as BusType) })
-            }
+            onToggle={(value) => onChange({ busTypes: toggleValue(request.busTypes ?? [], value) })}
           />
           <div className="mt-3 grid grid-cols-2 gap-2">
             <TogglePill
@@ -391,7 +398,7 @@ function SearchFilters({
           </div>
         </FilterGroup>
 
-        <FilterGroup title="Seats, Rating, Tracking">
+        <FilterGroup title={filters.ratings.length ? "Seats, Rating, Tracking" : "Seats, Tracking"}>
           <div className="grid gap-2">
             <Input
               type="number"
@@ -406,24 +413,26 @@ function SearchFilters({
                 })
               }
             />
-            <Select
-              value={request.minRating ? String(request.minRating) : "any"}
-              onValueChange={(value) =>
-                onChange({ minRating: value === "any" ? undefined : Number(value) })
-              }
-            >
-              <SelectTrigger aria-label="Minimum rating">
-                <SelectValue placeholder="Minimum rating" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="any">Any rating</SelectItem>
-                {filters.ratings.map((rating) => (
-                  <SelectItem key={rating.value} value={rating.value}>
-                    {rating.label} ({rating.count})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {filters.ratings.length ? (
+              <Select
+                value={request.minRating ? String(request.minRating) : "any"}
+                onValueChange={(value) =>
+                  onChange({ minRating: value === "any" ? undefined : Number(value) })
+                }
+              >
+                <SelectTrigger aria-label="Minimum rating">
+                  <SelectValue placeholder="Minimum rating" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="any">Any rating</SelectItem>
+                  {filters.ratings.map((rating) => (
+                    <SelectItem key={rating.value} value={rating.value}>
+                      {rating.label} ({rating.count})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null}
             <label className="flex items-center gap-2 rounded-md border border-gold-100 bg-gold-50/40 p-2.5 text-sm font-medium dark:border-brand-800 dark:bg-white/5">
               <Checkbox
                 checked={request.liveTracking === true}
@@ -470,11 +479,11 @@ function BusResultCard({
                 {bus.discountLabel ? <Badge variant="warning">{bus.discountLabel}</Badge> : null}
               </div>
               <div className="mt-2 flex flex-wrap gap-2">
-                <Rating rating={bus.rating} reviews={bus.reviewCount} />
+                {bus.reviewCount > 0 ? (
+                  <Rating rating={bus.rating} reviews={bus.reviewCount} />
+                ) : null}
                 <Tag>{bus.seatLayout.layoutType}</Tag>
                 <Tag>{bus.availableSeats} seats left</Tag>
-                <Tag>Cancellation policy</Tag>
-                <Tag>Verified reviews</Tag>
               </div>
             </div>
           </div>
@@ -512,7 +521,9 @@ function BusResultCard({
               </p>
             </div>
             <Button asChild className="md:mt-3">
-              <Link href={`/seat-layout?tripId=${bus.tripId}&date=${journeyDate}`}>
+              <Link
+                href={`/seat-layout?${new URLSearchParams({ tripId: bus.tripId, date: journeyDate }).toString()}`}
+              >
                 <Armchair className="h-4 w-4" aria-hidden="true" />
                 View Seats
               </Link>
@@ -530,12 +541,12 @@ function BusResultCard({
           <Fact
             icon={Wifi}
             label="Amenities"
-            value={bus.amenities.slice(0, 2).join(", ") || "Standard"}
+            value={bus.amenities.slice(0, 2).join(", ") || "Not listed"}
           />
           <Fact
             icon={bus.liveTracking ? ShieldCheck : RotateCcw}
             label={bus.liveTracking ? "Tracking" : "Refund"}
-            value={bus.liveTracking ? "Ready" : "Policy shown"}
+            value={bus.liveTracking ? "Ready" : "Operator policy"}
           />
         </div>
       </CardContent>
@@ -686,12 +697,13 @@ function toggleValue<TValue extends string>(current: TValue[], value: TValue): T
   return current.includes(value) ? current.filter((item) => item !== value) : [...current, value];
 }
 
+/** Departure and arrival on the clock in India, whatever the browser's zone. */
 function formatTime(iso: string): string {
   return new Intl.DateTimeFormat("en-IN", {
     hour: "numeric",
     hour12: true,
     minute: "2-digit",
-    timeZone: "UTC",
+    timeZone: "Asia/Kolkata",
   }).format(new Date(iso));
 }
 

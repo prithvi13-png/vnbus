@@ -25,9 +25,7 @@ const summary = {
 
 @Injectable()
 export class CmsRepository {
-  private readonly pages = new Map<string, CmsPageRecord>(
-    seedPages().map((page) => [page.pageId, page]),
-  );
+  private readonly pages = new Map<string, CmsPageRecord>();
 
   findSummary(): ModuleSummary {
     return summary;
@@ -100,50 +98,4 @@ export class CmsRepository {
       null
     );
   }
-}
-
-function seedPages(): CmsPageRecord[] {
-  const now = "2026-08-08T08:00:00.000Z";
-
-  return [
-    page("CMS-HOME-BANNER", "home-banner", "Home Banner", "HOME_BANNER", "PUBLISHED", now),
-    page("CMS-ABOUT", "about-us", "About Us", "ABOUT_US", "PUBLISHED", now),
-    page("CMS-PRIVACY", "privacy-policy", "Privacy Policy", "PRIVACY_POLICY", "PUBLISHED", now),
-    page("CMS-TERMS", "terms", "Terms & Conditions", "TERMS", "PUBLISHED", now),
-    page("CMS-REFUND", "refund-policy", "Refund Policy", "REFUND_POLICY", "DRAFT", now),
-    page("CMS-FAQ", "faq", "FAQ", "FAQ", "PUBLISHED", now),
-    page("CMS-CONTACT", "contact", "Contact Page", "CONTACT", "PUBLISHED", now),
-    page("CMS-BLOG", "blog", "Blog Placeholder", "BLOG", "DRAFT", now),
-    page(
-      "CMS-SEO-BLR-HYD",
-      "seo-bangalore-hyderabad",
-      "Bangalore Hyderabad SEO",
-      "SEO",
-      "DRAFT",
-      now,
-    ),
-  ];
-}
-
-function page(
-  pageId: string,
-  key: string,
-  title: string,
-  section: CmsPageRecord["section"],
-  status: CmsPageRecord["status"],
-  updatedAt: string,
-): CmsPageRecord {
-  return {
-    pageId,
-    key,
-    title,
-    section,
-    status,
-    content: `${title} content managed from the enterprise admin portal.`,
-    seoTitle: `${title} | Vriddhi Nexus`,
-    seoDescription: `${title} metadata prepared for the admin CMS workflow.`,
-    updatedBy: "admin",
-    publishedAt: status === "PUBLISHED" ? updatedAt : null,
-    updatedAt,
-  };
 }

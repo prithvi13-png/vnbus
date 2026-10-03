@@ -19,9 +19,7 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import type {
   BookingPassengerInput,
   CancelBookingRequest,
-  ConfirmBookingRequest,
   CreateBookingRequest,
-  RescheduleBookingRequest,
 } from "@vnbus/types";
 
 export class BookingPassengerDto implements BookingPassengerInput {
@@ -68,19 +66,16 @@ export class BookingPassengerDto implements BookingPassengerInput {
 }
 
 export class CreateBookingDto implements CreateBookingRequest {
-  @ApiProperty({ example: "RES-00ABC123" })
-  @IsString()
-  @MaxLength(80)
-  reservationId!: string;
-
-  @ApiProperty({ example: "MOCK" })
+  @ApiProperty({ example: "SRDV" })
   @IsString()
   @MaxLength(40)
   supplierCode!: string;
 
-  @ApiProperty({ example: "vn-route-001-1" })
+  @ApiProperty({
+    description: "The tripId from a search result, exactly as the search returned it.",
+  })
   @IsString()
-  @MaxLength(120)
+  @MaxLength(200)
   tripId!: string;
 
   @ApiProperty({ example: "2026-09-10" })
@@ -119,20 +114,8 @@ export class CreateBookingDto implements CreateBookingRequest {
   emergencyContact?: string;
 }
 
-export class ConfirmBookingDto implements ConfirmBookingRequest {
-  @ApiProperty({ example: "BKG-00ABC123" })
-  @IsString()
-  @MaxLength(80)
-  bookingId!: string;
-
-  @ApiProperty({ example: "PAY-REFERENCE-SUCCESS" })
-  @IsString()
-  @MaxLength(120)
-  paymentReference!: string;
-}
-
 export class CancelBookingDto implements CancelBookingRequest {
-  @ApiProperty({ example: "BKG-00ABC123" })
+  @ApiProperty({ format: "uuid" })
   @IsString()
   @MaxLength(80)
   bookingId!: string;
@@ -142,21 +125,4 @@ export class CancelBookingDto implements CancelBookingRequest {
   @IsString()
   @MaxLength(240)
   reason?: string;
-}
-
-export class RescheduleBookingDto implements RescheduleBookingRequest {
-  @ApiProperty({ example: "BKG-00ABC123" })
-  @IsString()
-  @MaxLength(80)
-  bookingId!: string;
-
-  @ApiProperty({ example: "2026-09-14" })
-  @IsDateString()
-  newJourneyDate!: string;
-
-  @ApiPropertyOptional({ example: "vn-route-001-2" })
-  @IsOptional()
-  @IsString()
-  @MaxLength(120)
-  newTripId?: string;
 }

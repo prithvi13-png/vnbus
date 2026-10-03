@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Query, Req } from "@nestjs/common";
 import { ApiBearerAuth, ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import type {
   AdminBookingListResponse,
@@ -11,6 +11,8 @@ import type {
 
 import { Public } from "../../../shared/security/decorators/public.decorator";
 import { Roles } from "../../../shared/security/decorators/roles.decorator";
+import type { AuthenticatedRequest } from "../../../shared/security/interfaces/authenticated-request.interface";
+import { requirePrincipal } from "../../../shared/security/require-user";
 import { AdminBookingQueryDto } from "../dto/admin-booking-query.dto";
 import {
   AdminEmailTemplatePreviewDto,
@@ -40,29 +42,32 @@ export class AdminController {
   @Roles("ADMIN")
   @Get("dashboard")
   @ApiOkResponse({ description: "Enterprise admin dashboard control center" })
-  getDashboard(): AdminDashboardResponse {
+  getDashboard(): Promise<AdminDashboardResponse> {
     return this.service.getDashboard();
   }
 
   @Roles("ADMIN")
   @Get("bookings")
   @ApiOkResponse({ description: "Admin booking management list with advanced filters" })
-  listBookings(@Query() query: AdminBookingQueryDto): AdminBookingListResponse {
+  listBookings(@Query() query: AdminBookingQueryDto): Promise<AdminBookingListResponse> {
     return this.service.listBookings(query);
   }
 
   @Roles("ADMIN")
   @Get("bookings/:bookingId")
   @ApiOkResponse({ description: "Admin booking detail with ticket and timeline metadata" })
-  getBooking(@Param("bookingId") bookingId: string): AdminBookingRecord {
+  getBooking(@Param("bookingId") bookingId: string): Promise<AdminBookingRecord> {
     return this.service.getBooking(bookingId);
   }
 
   @Roles("ADMIN")
   @Post("bookings/:bookingId/resend-email")
   @ApiOkResponse({ description: "Resend ticket email through the email queue" })
-  resendEmail(@Param("bookingId") bookingId: string): Promise<TicketEmailResponse> {
-    return this.service.resendBookingEmail(bookingId);
+  resendEmail(
+    @Param("bookingId") bookingId: string,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<TicketEmailResponse> {
+    return this.service.resendBookingEmail(bookingId, requirePrincipal(request));
   }
 
   @Roles("ADMIN")
@@ -78,8 +83,9 @@ export class AdminController {
   updateEmailTemplate(
     @Param("key") key: string,
     @Body() dto: UpdateAdminEmailTemplateDto,
+    @Req() request: AuthenticatedRequest,
   ): AdminEmailTemplateRecord {
-    return this.service.updateEmailTemplate(key, dto);
+    return this.service.updateEmailTemplate(key, dto, requirePrincipal(request));
   }
 
   @Roles("ADMIN")

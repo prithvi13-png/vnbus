@@ -1,14 +1,30 @@
 import { Injectable } from "@nestjs/common";
 import type {
   AdminSupplierConfigurationRecord,
+  SupplierIntegrationConfig,
   UpdateAdminSupplierConfigurationRequest,
 } from "@vnbus/types";
 
+import { IntegrationConfigurationService } from "../../integration/services/integration-configuration.service";
+
+/**
+ * Supplier settings as the environment configures them: a supplier is enabled
+ * when its URL and credential are set. Admin edits are kept in memory on top.
+ */
 @Injectable()
 export class SupplierConfigurationRepository {
-  private readonly configurations = new Map<string, AdminSupplierConfigurationRecord>(
-    seedConfigurations().map((configuration) => [configuration.supplierId, configuration]),
-  );
+  private readonly configurations: Map<string, AdminSupplierConfigurationRecord>;
+
+  constructor(configuration: IntegrationConfigurationService) {
+    const loadedAt = new Date().toISOString();
+
+    this.configurations = new Map(
+      configuration
+        .getSupplierConfigs()
+        .map((config) => toRecord(config, loadedAt))
+        .map((record) => [record.supplierId, record]),
+    );
+  }
 
   list(): AdminSupplierConfigurationRecord[] {
     return [...this.configurations.values()].sort((left, right) => left.priority - right.priority);
@@ -42,34 +58,19 @@ export class SupplierConfigurationRepository {
   }
 }
 
-function seedConfigurations(): AdminSupplierConfigurationRecord[] {
-  return [
-    supplier("SUPCFG-MOCK", "MOCK", "Simulated Supplier", true, 1, "HEALTHY"),
-    supplier("SUPCFG-BCI", "BCI", "BCI", false, 2, "DISABLED"),
-    supplier("SUPCFG-ABHIBUS", "ABHIBUS", "AbhiBus", false, 3, "DISABLED"),
-    supplier("SUPCFG-REDBUS", "REDBUS", "RedBus", false, 4, "DISABLED"),
-    supplier("SUPCFG-TBO", "TBO", "TBO", false, 5, "DISABLED"),
-    supplier("SUPCFG-CUSTOM", "CUSTOM", "Custom", false, 6, "DISABLED"),
-  ];
-}
-
-function supplier(
-  supplierId: string,
-  code: AdminSupplierConfigurationRecord["code"],
-  name: string,
-  enabled: boolean,
-  priority: number,
-  healthStatus: AdminSupplierConfigurationRecord["healthStatus"],
+function toRecord(
+  config: SupplierIntegrationConfig,
+  loadedAt: string,
 ): AdminSupplierConfigurationRecord {
   return {
-    supplierId,
-    code,
-    name,
-    enabled,
-    priority,
-    healthStatus,
-    environment: "MOCK",
-    apiKeySecretRef: `encrypted-placeholder://${code.toLowerCase()}/api-key`,
-    updatedAt: "2026-08-08T08:00:00.000Z",
+    supplierId: `SUPCFG-${config.code}`,
+    code: config.code,
+    name: config.name,
+    enabled: config.enabled,
+    priority: config.priority,
+    healthStatus: config.enabled ? "HEALTHY" : "DISABLED",
+    environment: config.environment,
+    apiKeySecretRef: config.credentialReference ?? "",
+    updatedAt: loadedAt,
   };
 }

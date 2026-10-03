@@ -3,7 +3,7 @@ import { IsEmail, IsOptional, IsString, MaxLength } from "class-validator";
 import type { TicketEmailRequest } from "@vnbus/types";
 
 export class TicketEmailDto implements TicketEmailRequest {
-  @ApiProperty({ example: "BKG-00ABC123" })
+  @ApiProperty({ format: "uuid" })
   @IsString()
   @MaxLength(80)
   bookingId!: string;

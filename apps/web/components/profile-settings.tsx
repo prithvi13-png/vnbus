@@ -24,9 +24,9 @@ export function ProfileSettings(): React.JSX.Element {
   } = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     values: {
-      firstName: user?.firstName ?? "Aarav",
-      lastName: user?.lastName ?? "Sharma",
-      phone: user?.phone ?? "+919876543210",
+      firstName: user?.firstName ?? "",
+      lastName: user?.lastName ?? "",
+      phone: user?.phone ?? "",
       avatar: user?.avatar ?? "",
     },
   });
@@ -123,7 +123,7 @@ export function ProfileSettings(): React.JSX.Element {
           </div>
         </CardHeader>
         <CardContent className="grid gap-4">
-          <StatusRow label="Email" value={user?.email ?? "traveller@example.com"} />
+          <StatusRow label="Email" value={user?.email ?? ""} />
           <StatusRow label="Role" value={user?.role ?? "CUSTOMER"} />
           <div className="flex flex-wrap gap-2">
             <Badge variant={user?.emailVerified === false ? "warning" : "success"}>

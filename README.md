@@ -1,8 +1,21 @@
 # Vriddhi Nexus Bus Booking Platform
 
-Milestone 11 foundation for the Vriddhi Nexus Pvt Ltd enterprise bus booking platform. This repository is a Turborepo monorepo with a Next.js web app, NestJS API, Prisma/PostgreSQL data model, Redis/BullMQ readiness, shared packages, supplier adapter contracts, payment provider contracts, Docker, CI, authentication, user management, a reusable UI design system, role dashboards, mock-backed bus search, complete mock seat selection and booking flow, ticket management, booking history, notifications, B2B travel-agent portal, enterprise admin portal, performance architecture, caching, queues, jobs, AI recommendations, SEO, monitoring, observability, and production hardening documentation.
+Milestone 11 foundation for the Vriddhi Nexus Pvt Ltd enterprise bus booking platform. This repository is a Turborepo monorepo with a Next.js web app, NestJS API, Prisma/PostgreSQL data model, Redis/BullMQ readiness, shared packages, supplier adapter contracts, payment provider contracts, Docker, CI, authentication, user management, a reusable UI design system, role dashboards, live bus search, seat selection and booking through the SRDV supplier, ticket management, booking history, notifications, B2B travel-agent portal, enterprise admin portal, performance architecture, caching, queues, jobs, AI recommendations, SEO, monitoring, observability, and production hardening documentation.
 
-Milestone 11 intentionally prepares the system for deployment and launch readiness while keeping realistic local mock data, adapter boundaries, request logging, failover, circuit breaker, timeout, idempotency, lock, webhook, payment-provider, and supplier-manager architecture. It does not integrate BCI, RedBus, AbhiBus, TBO, payment gateways, external email providers, S3, OpenAI/LLM providers, monitoring vendors, live tracking providers, or supplier APIs. Those systems remain isolated behind ports, adapter boundaries, queue boundaries, cache boundaries, and secret-reference placeholders for later milestones.
+## Live supplier, no mock data
+
+The app carries no sample or mock data. Where the milestone notes below mention mock suppliers, mock payments, or seeded records, they describe history; this section is the current behaviour.
+
+- **Search, seats, and booking** come from SRDV (Bus API v9) once `SRDV_API_URL` and `SRDV_API_TOKEN` are set. Without them, searches return no buses and say so.
+- **Cities** are SRDV's own list of 27,201 cities, shipped in `packages/supplier-sdk/src/srdv/city-codes.ts` and offered as type-ahead in the search box. Add or correct a city without a release through `SRDV_CITY_CODES` (`"kochi:938,vizag:27"`); regenerate the list from SRDV's export with `pnpm --filter @vnbus/supplier-sdk import:city-codes <file>`.
+- **Booking** blocks the seats with SRDV, saves the booking in PostgreSQL, then books with SRDV and stores the PNR and ticket number it issues. A booking SRDV refuses is kept as `FAILED`.
+- **Payment**: no gateway is integrated yet. Bookings are confirmed without collecting payment from the traveller, and SRDV charges the platform's own account for each ticket. The Razorpay, Cashfree, PhonePe, and Stripe adapters are placeholders that refuse to take money.
+- **Email** is delivered through Resend (`EMAIL_PROVIDER=resend`, `RESEND_API_KEY`). Without a key, nothing is delivered and every message is logged as undelivered.
+- **Dashboards** (admin, agent, customer) are counted from real bookings and accounts; an empty platform shows empty tables, not sample figures.
+- **Not yet available**: live bus tracking, rewards, saved travellers, reschedule (SRDV offers none), and a support helpdesk. Those pages say so.
+- **Still in memory** (lost on an API restart): notifications, agent customer lists, generated admin reports, and search activity counts. Bookings, passengers, and their timelines are in the database.
+
+Tests use test-only doubles — an in-memory Prisma and a fake SRDV adapter for the API (`apps/api/src/shared/tests`), and a fake API for Playwright (`apps/web/tests/fixtures`) — never product code.
 
 ## Stack
 
@@ -49,7 +62,7 @@ pnpm --filter @vnbus/ui storybook:build
 - `packages/shared`: shared constants and primitives
 - `packages/types`: cross-app domain contracts
 - `packages/config`: typed environment parsing
-- `packages/supplier-sdk`: supplier adapter contract, mock search/seat/hold adapter, and empty real supplier adapters
+- `packages/supplier-sdk`: supplier adapter contract, the SRDV Bus API v9 adapter and its city list, and placeholder adapters for suppliers not yet integrated
 - `docs`: architecture, API, folder, database, and standards documents
 
 ## Milestone 11 Boundary
@@ -79,10 +92,10 @@ Completed:
 - Stable supplier contract in `@vnbus/supplier-sdk`: `searchTrips`, `getTripDetails`, `getSeatLayout`, `holdSeats`, `releaseSeats`, `confirmBooking`, `getBookingStatus`, `cancelBooking`, `rescheduleBooking`, `getTicket`, `trackBus`, `getCancellationPolicy`, `getBoardingPoints`, `getDroppingPoints`, and `healthCheck`.
 - Normalized shared data models for supplier search, trips, bus/operator/seat/point/passenger/booking/ticket/tracking/fare/cancellation-policy, supplier errors, health, request logs, duplicate trip groups, payment intents, transactions, refunds, and webhooks.
 - Stub adapters for BCI, RedBus, AbhiBus, TBO, and Custom Bus API that compile against the same contract and return not-configured health/errors without making live HTTP requests.
-- MockSupplierAdapter remains active and implements the production supplier contract. Existing customer search, seat selection, booking, ticket, notification, and agent workflows continue to use mock mode.
+- The SRDV adapter implements the supplier contract for search, seat layout, boarding points, block, book, cancel, and balance. Customer and agent search, seat selection, booking, ticket, and cancellation all run through it.
 - Parallel supplier search architecture using safe settled fan-out so one supplier failure does not fail all results.
 - NormalizationService, duplicate-trip detection, FareService, SupplierHealthService, request logs, timeout policy, retry-safe execution, and circuit breaker state.
-- Payment provider framework with MockPaymentAdapter plus Razorpay, Cashfree, PhonePe, Stripe, and CustomPaymentAdapter placeholders. No gateway dependency or API key is added.
+- Payment provider framework with Razorpay, Cashfree, PhonePe, Stripe, and CustomPaymentAdapter placeholders. No gateway is wired yet, so none takes money.
 - Payment intent, capture, transaction, refund, webhook signature verification interface, duplicate webhook protection, idempotency, and event logging architecture.
 - Redis-ready distributed lock service for critical operations such as seat hold, booking confirmation, cancellation, payment confirmation, refund, and reschedule. Runtime implementation is in-memory until Redis wiring is enabled.
 - Prisma schema and migration targets for supplier request logs, health snapshots, circuit states, payment provider configurations, payment transactions, payment webhook events, idempotency keys, and distributed locks.

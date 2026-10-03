@@ -44,11 +44,12 @@ function seedFlags(): AdminFeatureFlagRecord[] {
       "FF-SUPPLIERS",
       "enable-supplier-integrations",
       "Enable Supplier Integrations",
-      false,
-      0,
+      true,
+      100,
       "SRE",
     ),
-    flag("FF-PAYMENTS", "enable-payments", "Enable Payments", true, 100, "Finance"),
+    // No payment gateway is wired yet.
+    flag("FF-PAYMENTS", "enable-payments", "Enable Payments", false, 0, "Finance"),
     flag("FF-MAINT", "enable-maintenance-mode", "Enable Maintenance Mode", false, 0, "SRE"),
   ];
 }
@@ -69,6 +70,6 @@ function flag(
     enabled,
     rolloutPercentage,
     owner,
-    updatedAt: "2026-08-08T08:00:00.000Z",
+    updatedAt: new Date().toISOString(),
   };
 }

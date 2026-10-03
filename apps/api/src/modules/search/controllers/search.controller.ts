@@ -2,6 +2,7 @@ import { Body, Controller, Get, Post, Query } from "@nestjs/common";
 import { ApiBearerAuth, ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import type {
   BusSearchResponse,
+  CitySuggestion,
   SearchInsightsResponse,
   SearchSuggestionRecord,
 } from "@vnbus/types";
@@ -27,7 +28,7 @@ export class SearchController {
 
   @Public()
   @ApiOkResponse({
-    description: "Production-shaped bus search response.",
+    description: "Bus search results from the configured suppliers.",
     schema: {
       example: {
         success: true,
@@ -50,9 +51,10 @@ export class SearchController {
   }
 
   @Public()
-  @Get("dataset")
-  getMockDataset(): ReturnType<SearchService["getDatasetSummary"]> {
-    return this.service.getDatasetSummary();
+  @Get("cities")
+  @ApiOkResponse({ description: "Cities the bus supplier serves, best match first" })
+  suggestCities(@Query("q") query = "", @Query("limit") limit?: string): CitySuggestion[] {
+    return this.service.suggestCities(query, limit ? Number.parseInt(limit, 10) || 10 : 10);
   }
 
   @Public()

@@ -1,22 +1,21 @@
-import { DistributedLockService } from "../../integration/services/distributed-lock.service";
-import { IdempotencyService } from "../../integration/services/idempotency.service";
-import { createTestSupplierManager } from "../../integration/tests/integration-test-helpers";
+import { GoneException } from "@nestjs/common";
+
+import {
+  createSupplierManager,
+  futureDate,
+  searchTrip,
+} from "../../../shared/tests/booking-harness";
 import { SeatRepository } from "../repositories/seat.repository";
 import { SeatService } from "../services/seat.service";
 import { SeatModuleValidator } from "../validators/seat.validator";
 
 describe("SeatService", () => {
-  const createService = (): SeatService =>
-    new SeatService(
+  it("returns module readiness and capabilities", () => {
+    const service = new SeatService(
       new SeatRepository(),
       new SeatModuleValidator(),
-      createTestSupplierManager(),
-      new IdempotencyService(),
-      new DistributedLockService(),
+      createSupplierManager(),
     );
-
-  it("returns module readiness and capabilities", () => {
-    const service = createService();
     const summary = service.getSummary();
 
     expect(summary.module).toBe("seat");
@@ -24,32 +23,34 @@ describe("SeatService", () => {
     expect(summary.capabilities.length).toBeGreaterThan(0);
   });
 
-  it("returns a mock supplier layout and holds seats", async () => {
-    const service = createService();
-    const journeyDate = tomorrowIsoDate();
-    const layout = await service.getSeatLayout("vn-route-001-1", journeyDate);
-    const firstSeat = layout.decks
-      .flatMap((deck) => deck.seats)
-      .find((seat) => seat.status === "AVAILABLE");
+  it("shows the supplier's seat map with the searched trip's details", async () => {
+    const manager = createSupplierManager();
+    const service = new SeatService(new SeatRepository(), new SeatModuleValidator(), manager);
+    const journeyDate = futureDate();
+    const trip = await searchTrip(manager, journeyDate);
 
-    expect(firstSeat).toBeDefined();
+    const layout = await service.getSeatLayout(trip.tripId, journeyDate);
 
-    const hold = await service.holdSeats({
-      supplierCode: "MOCK",
-      tripId: layout.tripId,
-      journeyDate,
-      seatNumbers: [firstSeat?.seatNumber ?? "1A"],
-    });
+    expect(layout.operatorName).toBe(trip.operatorName);
+    expect(layout.departureTime).toBe(trip.departureTime);
+    expect(layout.boardingPoints.map((point) => point.id)).toEqual(["BP1"]);
+    expect(layout.decks.flatMap((deck) => deck.seats).map((seat) => seat.seatNumber)).toEqual([
+      "L1",
+      "L2",
+      "L3",
+      "U1",
+    ]);
+  });
 
-    expect(hold.status).toBe("SEAT_HELD");
-    expect(hold.heldSeats).toHaveLength(1);
-    expect(hold.fare.grandTotal.amount).toBeGreaterThan(0);
+  it("asks for a fresh search once the trip has expired", async () => {
+    const service = new SeatService(
+      new SeatRepository(),
+      new SeatModuleValidator(),
+      createSupplierManager(),
+    );
+
+    await expect(service.getSeatLayout("unknown~1~1~6", futureDate())).rejects.toBeInstanceOf(
+      GoneException,
+    );
   });
 });
-
-function tomorrowIsoDate(): string {
-  const date = new Date();
-  date.setUTCDate(date.getUTCDate() + 1);
-
-  return date.toISOString().slice(0, 10);
-}

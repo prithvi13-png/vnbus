@@ -25,9 +25,7 @@ export class HealthRepository {
   private productionDependencyChecks(): HealthCheckComponent[] {
     const env = this.value("NODE_ENV", process.env.NODE_ENV ?? "development");
     const isProductionLike = env === "production" || env === "staging";
-    const supplierMode = this.value("SUPPLIER_MODE", "mock");
-    const paymentProvider = this.value("PAYMENT_PROVIDER", "MOCK").toUpperCase();
-    const emailProvider = this.value("EMAIL_PROVIDER", "mock");
+    const paymentProvider = this.value("PAYMENT_PROVIDER", "").trim().toUpperCase();
 
     return [
       component("API", "HEALTHY", 4, "Nest process is serving the versioned API."),
@@ -64,33 +62,24 @@ export class HealthRepository {
       ),
       this.configuredOrDegraded(
         "EMAIL",
-        emailProvider === "mock" ? [] : ["EMAIL_FROM", "SMTP_HOST"],
-        isProductionLike && emailProvider !== "mock",
-        emailProvider === "mock"
-          ? "Simulated email adapter is active; live delivery is disabled."
-          : "Email provider configuration is present.",
-        "Live email provider settings are incomplete.",
+        ["EMAIL_FROM", "RESEND_API_KEY"],
+        isProductionLike,
+        "Resend email delivery is configured.",
+        "RESEND_API_KEY is not set; booking and account emails are not delivered.",
       ),
-      supplierMode === "mock"
-        ? component(
-            "SUPPLIER",
-            "HEALTHY",
-            7,
-            "Simulated supplier adapter is active; live suppliers are disabled.",
-          )
-        : this.configuredOrDegraded(
-            "SUPPLIER",
-            ["BCI_API_URL", "BCI_API_KEY"],
-            isProductionLike,
-            "At least one production supplier configuration is present.",
-            "Production supplier mode is enabled but supplier credentials are incomplete.",
-          ),
-      paymentProvider === "MOCK"
+      this.configuredOrDegraded(
+        "SUPPLIER",
+        ["SRDV_API_URL", "SRDV_API_TOKEN"],
+        isProductionLike,
+        "SRDV supplier credentials are configured.",
+        "SRDV is not configured; searches return no buses and nothing can be booked.",
+      ),
+      !paymentProvider
         ? component(
             "PAYMENT",
-            "HEALTHY",
-            6,
-            "Simulated payment provider is active; live gateway is disabled.",
+            "DISABLED",
+            0,
+            "No payment gateway is configured; bookings are confirmed without collecting payment.",
           )
         : this.configuredOrDegraded(
             "PAYMENT",

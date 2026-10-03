@@ -3,9 +3,10 @@ import type { BackgroundJobRecord, SchedulerDashboardResponse } from "@vnbus/typ
 
 @Injectable()
 export class SchedulerValidator {
+  /** An empty job list is a valid answer: nothing is scheduled yet. */
   ensureDashboard(response: SchedulerDashboardResponse): void {
-    if (response.jobs.length === 0) {
-      throw new BadRequestException("Scheduler has no background jobs.");
+    if (!Array.isArray(response.jobs)) {
+      throw new BadRequestException("Scheduler dashboard is malformed.");
     }
   }
 

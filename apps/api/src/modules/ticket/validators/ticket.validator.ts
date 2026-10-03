@@ -1,5 +1,5 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import type { BookingRecord, TicketRecord } from "@vnbus/types";
+import { BadRequestException, Injectable } from "@nestjs/common";
+import type { BookingRecord } from "@vnbus/types";
 
 import type { ModuleSummary } from "../../../shared/domain/module-summary";
 
@@ -15,24 +15,15 @@ export class TicketModuleValidator {
     }
   }
 
-  ensureTicketable(booking: BookingRecord | null): asserts booking is BookingRecord {
-    if (!booking) {
-      throw new NotFoundException("Booking not found");
+  /** Only a booking the supplier sold, with the numbers it issued, has a ticket. */
+  ensureTicketable(booking: BookingRecord): void {
+    if (!["CONFIRMED", "TICKET_GENERATED"].includes(booking.status)) {
+      throw new BadRequestException("A ticket is available only for a confirmed booking");
     }
-    if (
-      !["CONFIRMED", "TICKET_GENERATED", "RESCHEDULED"].includes(booking.status) ||
-      booking.status === "CANCELLED"
-    ) {
-      throw new BadRequestException("Ticket is available only after booking confirmation");
-    }
-  }
-
-  ensureTicket(ticket: TicketRecord | null): asserts ticket is TicketRecord {
-    if (!ticket) {
-      throw new NotFoundException("Ticket not found");
-    }
-    if (ticket.status === "CANCELLED" || ticket.status === "REFUNDED") {
-      throw new BadRequestException("Ticket is no longer active");
+    if (!booking.pnr && !booking.ticketNumber) {
+      throw new BadRequestException(
+        "The operator has not issued a ticket number for this booking yet",
+      );
     }
   }
 }

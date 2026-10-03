@@ -18,14 +18,14 @@ describe("CmsService", () => {
       key: "seo-pune-goa",
       title: "Pune to Goa SEO",
       section: "SEO",
-      content: "SEO landing copy for Pune to Goa mock route.",
+      content: "Landing copy for the Pune to Goa route.",
     });
     const updated = service.updatePage(draft.pageId, {
       seoTitle: "Pune to Goa Bus Tickets",
     });
     const published = service.publishPage(draft.pageId);
 
-    expect(service.listPages().length).toBeGreaterThan(8);
+    expect(service.listPages()).toHaveLength(1);
     expect(updated.seoTitle).toBe("Pune to Goa Bus Tickets");
     expect(published.status).toBe("PUBLISHED");
   });

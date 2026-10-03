@@ -4,16 +4,17 @@ import type {
   AgentBookingListResponse,
   AgentBookingRecord,
   AgentEmailTicketRequest,
-  CreateAgentBookingRequest,
   CreateAgentBookingResponse,
   TicketEmailResponse,
   TicketRecord,
 } from "@vnbus/types";
 
+import type { JwtPrincipal } from "../../../shared/security/interfaces/jwt-principal.interface";
 import { AgentService } from "../../agent/services/agent.service";
 import { BookingService } from "../../booking/services/booking.service";
 import { CustomerService } from "../../customer/services/customer.service";
 import { TicketService } from "../../ticket/services/ticket.service";
+import type { CreateAgentBookingDto } from "../dto/agent-booking.dto";
 import { AgentBookingMapper } from "../mappers/agent-booking.mapper";
 import { AgentBookingRepository } from "../repositories/agent-booking.repository";
 import { AgentBookingValidator } from "../validators/agent-booking.validator";
@@ -30,25 +31,31 @@ export class AgentBookingService {
     private readonly mapper: AgentBookingMapper,
   ) {}
 
-  listBookings(query: AgentBookingListQuery = {}): AgentBookingListResponse {
+  /** The signed-in agent's own bookings. */
+  async listBookings(
+    principal: JwtPrincipal,
+    query: AgentBookingListQuery = {},
+  ): Promise<AgentBookingListResponse> {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 10;
-    const filtered = this.bookingService
-      .listBookings()
-      .filter(
-        (booking) => booking.channel === "AGENT" || this.repository.ownsBooking(booking.bookingId),
-      )
-      .map((booking): AgentBookingRecord => {
+    const bookings = await this.bookingService.listBookings(principal);
+    const records = await Promise.all(
+      bookings.map(async (booking): Promise<AgentBookingRecord> => {
         const customer = booking.customerId
-          ? this.customerService.getCustomer(booking.customerId)
+          ? this.customerService.getCustomer(principal, booking.customerId)
           : this.customerService.findByPhoneOrEmail(
+              principal,
               booking.passengers[0]?.phone ?? "",
               booking.passengers[0]?.email ?? "",
             );
-        const ticket = safeTicket(() => this.ticketService.getTicket(booking.bookingId));
+        const ticket = await safeTicket(() =>
+          this.ticketService.getTicket(booking.bookingId, principal),
+        );
 
         return this.mapper.toEntity(booking, customer, ticket);
-      })
+      }),
+    );
+    const filtered = records
       .filter((record) => matchesQuery(record, query))
       .sort((left, right) => compareBookings(left, right, query));
 
@@ -60,36 +67,37 @@ export class AgentBookingService {
     };
   }
 
-  async createBooking(request: CreateAgentBookingRequest): Promise<CreateAgentBookingResponse> {
-    const customer = this.customerService.ensureBookable(request.customerId);
-    const created = await this.bookingService.createBooking(request);
-    this.validator.ensureBookingCreated(created);
-    const confirmation = await this.bookingService.confirmBooking({
-      bookingId: created.bookingId,
-      paymentReference: request.paymentReference ?? "AGENT-MOCK-PAYMENT",
-    });
-    const booking = this.bookingService.upsertBooking({
-      ...confirmation.booking,
+  /**
+   * Books for one of the agent's customers through the same supplier flow as
+   * a traveller's own booking, owned by the agent's account.
+   */
+  async createBooking(
+    principal: JwtPrincipal,
+    request: CreateAgentBookingDto,
+  ): Promise<CreateAgentBookingResponse> {
+    const customer = this.customerService.ensureBookable(principal, request.customerId);
+    const confirmation = await this.bookingService.createBooking(request, principal, {
       channel: "AGENT",
-      agentId: "AGT-VN-001",
+      agentId: principal.sub,
       customerId: customer.customerId,
     });
+    const booking = confirmation.booking;
 
-    this.repository.recordBooking(booking.bookingId);
-    this.customerService.recordBooking(customer.customerId, booking);
-    this.agentService.recordActivity({
+    this.validator.ensureBookingCreated(booking);
+    this.customerService.recordBooking(principal, customer.customerId, booking);
+    this.agentService.recordActivity(principal, {
       type: "BOOKING_CREATED",
       title: "Agent booking created",
-      description: `${booking.bookingReference} generated for ${customer.name}.`,
-      actor: "Agent",
+      description: `${booking.bookingReference} booked for ${customer.name}.`,
+      actor: principal.email,
     });
 
     let emailLogId: string | undefined;
     if (request.emailTicket !== false) {
-      const email = await this.ticketService.emailTicket({
-        bookingId: booking.bookingId,
-        to: customer.email,
-      });
+      const email = await this.ticketService.emailTicket(
+        { bookingId: booking.bookingId, to: customer.email },
+        principal,
+      );
       emailLogId = email.emailLogId;
     }
 
@@ -101,24 +109,27 @@ export class AgentBookingService {
     };
   }
 
-  async emailTicket(request: AgentEmailTicketRequest): Promise<TicketEmailResponse> {
-    const booking = this.bookingService.getBooking(request.bookingId);
+  async emailTicket(
+    principal: JwtPrincipal,
+    request: AgentEmailTicketRequest,
+  ): Promise<TicketEmailResponse> {
+    const booking = await this.bookingService.getBookingForUser(request.bookingId, principal);
     this.validator.ensureCanEmailTicket(booking);
-    const response = await this.ticketService.emailTicket(request);
-    this.agentService.recordActivity({
+    const response = await this.ticketService.emailTicket(request, principal);
+    this.agentService.recordActivity(principal, {
       type: "TICKET_EMAILED",
       title: "Ticket emailed",
       description: `${booking.bookingReference} ticket emailed from the agent workspace.`,
-      actor: request.agentId ?? "Agent",
+      actor: principal.email,
     });
 
     return response;
   }
 }
 
-function safeTicket(getTicket: () => TicketRecord): TicketRecord | null {
+async function safeTicket(getTicket: () => Promise<TicketRecord>): Promise<TicketRecord | null> {
   try {
-    return getTicket();
+    return await getTicket();
   } catch {
     return null;
   }

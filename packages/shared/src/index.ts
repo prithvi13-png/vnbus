@@ -33,40 +33,19 @@ export function buildReference(prefix: string, id: string | number): string {
 }
 
 export {
-  AMENITIES,
-  BUS_TYPES,
-  CITY_ALIASES,
-  CITY_POINTS,
-  getMockTripById,
-  getMockSupplierTrips,
-  getPopularRoutes,
-  mockSearchDatabase,
-  normalizeCity,
-  POPULAR_CITIES,
-  type MockOperator,
-  type MockRoute,
-  type MockSearchDatabase,
-} from "./search/mock-search-data.js";
-export {
   buildSearchParams,
   buildSearchRequestFromParams,
+  DEFAULT_SEARCH_SORT,
   filterSortPaginateTrips,
-  getSearchDatasetSummary,
-  searchMockTrips,
+  normalizeCity,
   SEARCH_SORT_LABELS,
   TIME_WINDOW_LABELS,
   todayIsoDate,
-  type SearchDatasetSummary,
 } from "./search/search-engine.js";
 export {
-  calculateFare,
-  confirmMockBooking,
-  createMockBooking,
-  createMockSeatHold,
-  createMockTicketPdf,
+  createTicketPdf,
   createTicketRecord,
-  getMockSeatLayout,
-  isHoldExpired,
-  prepareMockBookingEmail,
-  releaseMockSeatHold,
-} from "./booking/mock-booking-engine.js";
+  summarizeSeatFare,
+  TICKET_TERMS,
+  type TicketOptions,
+} from "./booking/ticket.js";

@@ -2,28 +2,44 @@ import {
   AbhiBusAdapter,
   BCIAdapter,
   CustomApiAdapter,
-  MockSupplierAdapter,
   RedBusAdapter,
+  SrdvBusAdapter,
   SupplierNotConfiguredError,
   TBOAdapter,
   type SupplierAdapter,
 } from "@vnbus/supplier-sdk";
 
+const placeholderAdapters: SupplierAdapter[] = [
+  new BCIAdapter(),
+  new RedBusAdapter(),
+  new AbhiBusAdapter(),
+  new TBOAdapter(),
+  new CustomApiAdapter(),
+];
+
+const srdv = new SrdvBusAdapter(
+  {
+    credentials: {
+      baseUrl: "https://srdv.test/bus",
+      apiToken: "token",
+      clientId: "",
+      userName: "",
+      password: "",
+      endUserIp: "",
+    },
+    fetchImpl: () => Promise.reject(new Error("No network in tests")),
+  },
+  new Map(),
+);
+
 describe("SupplierAdapter contract", () => {
-  const adapters: SupplierAdapter[] = [
-    new MockSupplierAdapter(),
-    new BCIAdapter(),
-    new RedBusAdapter(),
-    new AbhiBusAdapter(),
-    new TBOAdapter(),
-    new CustomApiAdapter(),
-  ];
   const requiredMethods: Array<keyof SupplierAdapter> = [
     "searchTrips",
     "getTripDetails",
     "getSeatLayout",
     "holdSeats",
     "releaseSeats",
+    "blockSeats",
     "confirmBooking",
     "getBookingStatus",
     "cancelBooking",
@@ -37,52 +53,15 @@ describe("SupplierAdapter contract", () => {
   ];
 
   it("registers every required supplier adapter method", () => {
-    for (const adapter of adapters) {
+    for (const adapter of [...placeholderAdapters, srdv]) {
       for (const method of requiredMethods) {
         expect(typeof adapter[method]).toBe("function");
       }
     }
   });
 
-  it("keeps mock supplier fully active", async () => {
-    const adapter = new MockSupplierAdapter();
-    const journeyDate = tomorrowIsoDate();
-    const search = await adapter.searchTrips({
-      sourceCity: "Bangalore",
-      destinationCity: "Hyderabad",
-      journeyDate,
-      passengerCount: 1,
-    });
-
-    expect(search.success).toBe(true);
-    expect(search.trips.length).toBeGreaterThan(0);
-
-    const layout = await adapter.getSeatLayout({
-      supplierCode: "MOCK",
-      tripId: search.trips[0]?.tripId ?? "vn-route-001-1",
-      journeyDate,
-    });
-    const seat = layout.decks
-      .flatMap((deck) => deck.seats)
-      .find((item) => item.status === "AVAILABLE");
-
-    expect(seat).toBeDefined();
-
-    const hold = await adapter.holdSeats({
-      supplierCode: "MOCK",
-      tripId: layout.tripId,
-      journeyDate,
-      seatNumbers: [seat?.seatNumber ?? "1A"],
-    });
-
-    expect(hold.status).toBe("SEAT_HELD");
-    await expect(adapter.healthCheck()).resolves.toMatchObject({ status: "AVAILABLE" });
-  });
-
-  it("reports real supplier adapters as not configured without live calls", async () => {
-    const liveAdapters = adapters.filter((adapter) => adapter.code !== "MOCK");
-
-    for (const adapter of liveAdapters) {
+  it("reports unbuilt supplier adapters as not configured without live calls", async () => {
+    for (const adapter of placeholderAdapters) {
       await expect(adapter.healthCheck()).resolves.toMatchObject({
         status: "UNAVAILABLE",
         message: "Not configured. No live connection attempted.",
@@ -96,6 +75,18 @@ describe("SupplierAdapter contract", () => {
         }),
       ).rejects.toBeInstanceOf(SupplierNotConfiguredError);
     }
+  });
+
+  it("refuses a city SRDV has no code for rather than guessing", async () => {
+    const result = await srdv.searchTrips({
+      sourceCity: "Nowhere",
+      destinationCity: "Elsewhere",
+      journeyDate: tomorrowIsoDate(),
+      passengerCount: 1,
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.trips).toEqual([]);
   });
 });
 

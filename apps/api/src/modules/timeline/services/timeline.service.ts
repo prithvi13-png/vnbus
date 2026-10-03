@@ -23,32 +23,20 @@ export class TimelineService implements TimelineModulePort {
     return new TimelineSummaryDto(summary);
   }
 
-  append(input: CreateTimelineEventInput): BookingTimelineEvent {
+  append(input: CreateTimelineEventInput): Promise<BookingTimelineEvent> {
     this.validator.ensureEvent(input);
-    const occurredAt = input.occurredAt ?? new Date().toISOString();
-    const event: BookingTimelineEvent = {
-      id: createTimelineId(input.bookingId, input.type, occurredAt),
+
+    return this.repository.append({
       bookingId: input.bookingId,
       type: input.type,
       title: input.title,
       description: input.description,
-      occurredAt,
+      occurredAt: input.occurredAt ?? new Date().toISOString(),
       tone: input.tone ?? "info",
-    };
-
-    return this.repository.append(event);
+    });
   }
 
-  listForBooking(bookingId: string): BookingTimelineEvent[] {
-    return this.repository.listForBooking(bookingId);
+  listForBookings(bookingIds: string[]): Promise<BookingTimelineEvent[]> {
+    return this.repository.listForBookings(bookingIds);
   }
-}
-
-function createTimelineId(bookingId: string, type: string, occurredAt: string): string {
-  const hash = [...`${bookingId}|${type}|${occurredAt}`].reduce(
-    (value, char) => (value * 31 + char.charCodeAt(0)) >>> 0,
-    2166136261,
-  );
-
-  return `TL-${hash.toString(36).toUpperCase().padStart(8, "0").slice(0, 8)}`;
 }

@@ -1,4 +1,4 @@
-import { Injectable, Optional } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import type {
   AgentDashboardResponse,
   AgentRouteMetric,
@@ -6,6 +6,7 @@ import type {
   BookingRecord,
 } from "@vnbus/types";
 
+import type { JwtPrincipal } from "../../../shared/security/interfaces/jwt-principal.interface";
 import { BookingService } from "../../booking/services/booking.service";
 import { CustomerService } from "../../customer/services/customer.service";
 import { NotificationService } from "../../notification/services/notification.service";
@@ -21,9 +22,9 @@ export class AgentService implements AgentModulePort {
     private readonly repository: AgentRepository,
     private readonly validator: AgentModuleValidator,
     private readonly mapper: AgentMapper,
-    @Optional() private readonly bookingService?: BookingService,
-    @Optional() private readonly customerService?: CustomerService,
-    @Optional() private readonly notificationService?: NotificationService,
+    private readonly bookingService: BookingService,
+    private readonly customerService: CustomerService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   getSummary(): AgentSummaryDto {
@@ -33,18 +34,23 @@ export class AgentService implements AgentModulePort {
     return new AgentSummaryDto(summary);
   }
 
-  getDashboard(): AgentDashboardResponse {
-    const profile = this.repository.getProfile();
+  async getDashboard(principal: JwtPrincipal): Promise<AgentDashboardResponse> {
+    const profile = await this.repository.getProfile(principal.sub);
     this.validator.ensureActive(profile);
-    const bookings = this.bookingService?.listBookings() ?? [];
-    const today = new Date().toISOString().slice(0, 10);
-    const todaysBookings = bookings.filter((booking) => booking.createdAt.startsWith(today));
+    const bookings = await this.bookingService.listBookings(principal);
+    const todayStart = istDayStart(new Date());
+    const todaysBookings = bookings.filter(
+      (booking) => Date.parse(booking.createdAt) >= todayStart,
+    );
     const upcomingJourneys = bookings.filter(
       (booking) =>
         Date.parse(booking.trip.departureTime) >= Date.now() &&
-        !["CANCELLED", "FAILED", "EXPIRED"].includes(booking.status),
+        ["CONFIRMED", "TICKET_GENERATED"].includes(booking.status),
     );
-    const cancelledBookings = bookings.filter((booking) => booking.status === "CANCELLED");
+    const cancelledBookings = bookings.filter((booking) =>
+      ["CANCELLATION_REQUESTED", "CANCELLED", "REFUND_PENDING"].includes(booking.status),
+    );
+    const routes = routeMetrics(bookings);
 
     return this.mapper.toDashboard({
       profile,
@@ -52,36 +58,32 @@ export class AgentService implements AgentModulePort {
         todaysBookings: todaysBookings.length,
         upcomingJourneys: upcomingJourneys.length,
         todaysRevenue: {
-          amount: todaysBookings.reduce(
-            (total, booking) => total + booking.fare.grandTotal.amount,
-            0,
-          ),
+          amount: todaysBookings
+            .filter((booking) => ["CONFIRMED", "TICKET_GENERATED"].includes(booking.status))
+            .reduce((total, booking) => total + booking.fare.grandTotal.amount, 0),
           currency: "INR",
         },
         cancelledBookings: cancelledBookings.length,
       },
-      recentCustomers: this.customerService?.listRecent(5) ?? [],
-      recentActivity: this.repository.listActivity(8),
-      quickBookingRoutes: routeMetrics(bookings).slice(0, 4),
-      popularRoutes: routeMetrics(bookings).slice(0, 6),
+      recentCustomers: this.customerService.listRecent(principal, 5),
+      recentActivity: this.repository.listActivity(principal.sub, 8),
+      quickBookingRoutes: routes.slice(0, 4),
+      popularRoutes: routes.slice(0, 6),
       bookingStatusSummary: statusSummary(bookings),
-      notifications: this.notificationService?.listNotifications().slice(0, 6) ?? [],
+      notifications: this.notificationService.listNotifications(principal.sub).slice(0, 6),
     });
   }
 
-  recordActivity(input: Parameters<AgentRepository["appendActivity"]>[0]): void {
-    this.repository.appendActivity(input);
+  recordActivity(
+    principal: JwtPrincipal,
+    input: Parameters<AgentRepository["appendActivity"]>[1],
+  ): void {
+    this.repository.appendActivity(principal.sub, input);
   }
 }
 
 function routeMetrics(bookings: BookingRecord[]): AgentRouteMetric[] {
   const grouped = new Map<string, AgentRouteMetric>();
-  const fallbackRoutes: AgentRouteMetric[] = [
-    { route: "Bangalore to Hyderabad", bookings: 18, revenue: { amount: 28800, currency: "INR" } },
-    { route: "Chennai to Coimbatore", bookings: 11, revenue: { amount: 13200, currency: "INR" } },
-    { route: "Pune to Goa", bookings: 8, revenue: { amount: 11600, currency: "INR" } },
-    { route: "Mumbai to Pune", bookings: 7, revenue: { amount: 6300, currency: "INR" } },
-  ];
 
   bookings.forEach((booking) => {
     const route = `${booking.trip.sourceCity} to ${booking.trip.destinationCity}`;
@@ -101,23 +103,10 @@ function routeMetrics(bookings: BookingRecord[]): AgentRouteMetric[] {
     });
   });
 
-  const values = [...grouped.values()].sort((left, right) => right.bookings - left.bookings);
-
-  return values.length ? values : fallbackRoutes;
+  return [...grouped.values()].sort((left, right) => right.bookings - left.bookings);
 }
 
 function statusSummary(bookings: BookingRecord[]): AgentStatusSummary[] {
-  const seed: AgentStatusSummary[] = [
-    { status: "TICKET_GENERATED", count: 12 },
-    { status: "PENDING_PAYMENT", count: 3 },
-    { status: "RESCHEDULED", count: 2 },
-    { status: "CANCELLED", count: 1 },
-  ];
-
-  if (!bookings.length) {
-    return seed;
-  }
-
   return Object.entries(
     bookings.reduce<Record<string, number>>((summary, booking) => {
       summary[booking.status] = (summary[booking.status] ?? 0) + 1;
@@ -128,4 +117,15 @@ function statusSummary(bookings: BookingRecord[]): AgentStatusSummary[] {
     status: status as AgentStatusSummary["status"],
     count,
   }));
+}
+
+/** India has one zone, UTC+05:30, with no daylight saving. */
+const IST_OFFSET_MS = 330 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Midnight in India for the day `now` falls on, as a UTC timestamp. */
+function istDayStart(now: Date): number {
+  const ist = now.getTime() + IST_OFFSET_MS;
+
+  return ist - (ist % DAY_MS) - IST_OFFSET_MS;
 }

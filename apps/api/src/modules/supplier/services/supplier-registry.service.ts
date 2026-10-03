@@ -3,7 +3,6 @@ import {
   AbhiBusAdapter,
   BCIAdapter,
   CustomApiAdapter,
-  MockSupplierAdapter,
   RedBusAdapter,
   TBOAdapter,
   type SupplierAdapter,
@@ -15,7 +14,6 @@ import type { SupplierRegistryPort } from "../interfaces/supplier-registry.inter
 export class SupplierRegistryService implements SupplierRegistryPort {
   private readonly adapters = new Map<string, SupplierAdapter>(
     [
-      new MockSupplierAdapter(),
       new BCIAdapter(),
       new RedBusAdapter(),
       new AbhiBusAdapter(),

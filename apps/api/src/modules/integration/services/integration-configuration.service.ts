@@ -10,7 +10,6 @@ import type {
 } from "@vnbus/types";
 
 const SUPPLIER_NAMES: Record<SupplierCode, string> = {
-  MOCK: "Simulated Supplier",
   BCI: "BCI",
   REDBUS: "RedBus",
   ABHIBUS: "AbhiBus",
@@ -33,7 +32,6 @@ export interface SrdvConnectionSettings {
 }
 
 const PAYMENT_NAMES: Record<PaymentProviderCode, string> = {
-  MOCK: "Simulated Payment",
   RAZORPAY: "Razorpay",
   CASHFREE: "Cashfree",
   PHONEPE: "PhonePe",
@@ -45,20 +43,12 @@ const PAYMENT_NAMES: Record<PaymentProviderCode, string> = {
 export class IntegrationConfigurationService {
   constructor(@Optional() private readonly config?: ConfigService) {}
 
-  getSupplierMode(): "mock" | "production" {
-    return this.read("SUPPLIER_MODE", "mock").toLowerCase() === "production"
-      ? "production"
-      : "mock";
-  }
-
   getSupplierConfigs(): SupplierIntegrationConfig[] {
-    const mode = this.getSupplierMode();
-    const priority = this.read("SUPPLIER_PRIORITY", "MOCK,BCI,ABHIBUS,REDBUS,TBO,SRDV,CUSTOM")
+    const priority = this.read("SUPPLIER_PRIORITY", "SRDV,BCI,ABHIBUS,REDBUS,TBO,CUSTOM")
       .split(",")
       .map((code) => code.trim().toUpperCase())
       .filter(Boolean) as SupplierCode[];
     const orderedCodes = uniqueSupplierCodes([
-      "MOCK",
       ...priority,
       "BCI",
       "ABHIBUS",
@@ -71,14 +61,18 @@ export class IntegrationConfigurationService {
     ]);
 
     return orderedCodes
-      .map((code, index) => this.createSupplierConfig(code, index + 1, mode))
+      .map((code, index) => this.createSupplierConfig(code, index + 1))
       .sort((left, right) => left.priority - right.priority);
   }
 
+  /**
+   * No payment gateway is wired yet: every provider below is a placeholder that
+   * refuses to take money. One counts as enabled only when PAYMENT_PROVIDER
+   * names it, so nothing reports a working checkout that does not exist.
+   */
   getPaymentProviderConfigs(): PaymentProviderConfig[] {
-    const selected = this.read("PAYMENT_PROVIDER", "MOCK").toUpperCase() as PaymentProviderCode;
+    const selected = this.getActivePaymentProviderCode();
     const providers: PaymentProviderCode[] = [
-      "MOCK",
       "RAZORPAY",
       "CASHFREE",
       "PHONEPE",
@@ -89,14 +83,13 @@ export class IntegrationConfigurationService {
     return providers.map((code) => ({
       code,
       name: PAYMENT_NAMES[code],
-      enabled: code === "MOCK" || code === selected,
-      environment: code === "MOCK" ? "MOCK" : "SANDBOX_PLACEHOLDER",
+      enabled: code === selected,
+      environment: "SANDBOX_PLACEHOLDER",
       currency: code === "STRIPE" ? "USD" : "INR",
-      credentialReference:
-        code === "MOCK" ? null : `secret://${code.toLowerCase()}/payment-api-key`,
+      credentialReference: `secret://${code.toLowerCase()}/payment-api-key`,
       configuration: {
         apiUrl: this.read(`${paymentEnvPrefix(code)}_API_URL`, ""),
-        webhookSecretRef: code === "MOCK" ? null : `secret://${code.toLowerCase()}/webhook-secret`,
+        webhookSecretRef: `secret://${code.toLowerCase()}/webhook-secret`,
       },
     }));
   }
@@ -172,33 +165,27 @@ export class IntegrationConfigurationService {
     return mapping;
   }
 
-  getActivePaymentProviderCode(): PaymentProviderCode {
-    const configured = this.read("PAYMENT_PROVIDER", "MOCK").toUpperCase() as PaymentProviderCode;
+  /** The provider PAYMENT_PROVIDER names, or null when none is configured. */
+  getActivePaymentProviderCode(): PaymentProviderCode | null {
+    const configured = this.read("PAYMENT_PROVIDER", "").trim().toUpperCase();
 
-    return configured || "MOCK";
+    return configured in PAYMENT_NAMES ? (configured as PaymentProviderCode) : null;
   }
 
-  private createSupplierConfig(
-    code: SupplierCode,
-    priority: number,
-    mode: "mock" | "production",
-  ): SupplierIntegrationConfig {
+  /** A supplier is enabled exactly when its URL and credential are both set. */
+  private createSupplierConfig(code: SupplierCode, priority: number): SupplierIntegrationConfig {
     const apiUrl = this.read(`${supplierEnvPrefix(code)}_API_URL`, "");
     const enabled =
-      code === "MOCK"
-        ? mode === "mock"
-        : mode === "production" &&
-          Boolean(apiUrl.trim()) &&
-          Boolean(this.read(supplierCredentialEnv(code), "").trim());
+      Boolean(apiUrl.trim()) && Boolean(this.read(supplierCredentialEnv(code), "").trim());
 
     return {
       code,
       name: SUPPLIER_NAMES[code],
       enabled,
       priority,
-      environment: code === "MOCK" ? "MOCK" : "SANDBOX_PLACEHOLDER",
+      environment: "SANDBOX_PLACEHOLDER",
       baseUrl: apiUrl.trim() || null,
-      credentialReference: code === "MOCK" ? null : `secret://${code.toLowerCase()}/api-key`,
+      credentialReference: `secret://${code.toLowerCase()}/api-key`,
       healthStatus: enabled ? "UNKNOWN" : "UNKNOWN",
       timeout: this.getSupplierTimeoutPolicy(code),
     };
@@ -251,9 +238,6 @@ function supplierCredentialEnv(code: SupplierCode): string {
 }
 
 function supplierEnvPrefix(code: SupplierCode): string {
-  if (code === "MOCK") {
-    return "MOCK_SUPPLIER";
-  }
   if (code === "CUSTOM") {
     return "CUSTOM_BUS";
   }

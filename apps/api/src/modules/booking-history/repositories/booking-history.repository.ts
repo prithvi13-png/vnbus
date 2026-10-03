@@ -9,7 +9,7 @@ const summary = {
   capabilities: [
     {
       name: "Upcoming trips",
-      description: "Expose future confirmed, ticketed, and rescheduled trips.",
+      description: "Expose future confirmed and ticketed trips.",
     },
     {
       name: "Past trips",

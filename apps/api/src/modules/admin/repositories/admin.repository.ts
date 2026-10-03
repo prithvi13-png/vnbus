@@ -1,23 +1,35 @@
 import { Injectable } from "@nestjs/common";
-import { searchMockTrips } from "@vnbus/shared";
 import type {
   AdminActivityRecord,
   AdminBookingListQuery,
   AdminBookingListResponse,
   AdminBookingRecord,
-  AdminChartPoint,
+  AdminCustomerMetric,
   AdminDashboardResponse,
   AdminEmailTemplatePreviewResponse,
   AdminEmailTemplateRecord,
-  AdminOperatorMetric,
-  AdminRouteMetric,
+  AdminMetricRecord,
+  AdminQueueStatusRecord,
+  AdminSystemHealthRecord,
   BookingRecord,
-  BusPoint,
-  TicketEmailResponse,
+  HealthCheckResponse,
   UpdateAdminEmailTemplateRequest,
 } from "@vnbus/types";
 
+import {
+  CANCELLED_STATUSES,
+  DAY_MS,
+  SOLD_STATUSES,
+  dailyTrend,
+  groupBy,
+  istDayStart,
+  popularRoutes,
+  sumFares,
+  topOperators,
+} from "../../../shared/domain/booking-metrics";
 import type { ModuleSummary } from "../../../shared/domain/module-summary";
+import { EMAIL_TEMPLATES } from "../../../shared/email/email-template.service";
+import { PrismaService } from "../../../shared/prisma/prisma.service";
 
 const summary = {
   module: "admin",
@@ -39,124 +51,80 @@ const summary = {
   ],
 } satisfies ModuleSummary;
 
+export interface DashboardSources {
+  bookings: BookingRecord[];
+  health: HealthCheckResponse;
+  emailQueue: AdminQueueStatusRecord;
+  notificationQueue: AdminQueueStatusRecord;
+}
+
 @Injectable()
 export class AdminRepository {
   private readonly emailTemplates = new Map<string, AdminEmailTemplateRecord>(
-    seedEmailTemplates().map((template) => [template.key, template]),
+    currentEmailTemplates().map((template) => [template.key, template]),
   );
+
+  constructor(private readonly prisma: PrismaService) {}
 
   findSummary(): ModuleSummary {
     return summary;
   }
 
-  getDashboard(bookings: BookingRecord[] = []): AdminDashboardResponse {
-    const today = "2026-08-08";
-    const activeBookings = bookings.length ? bookings : seedBookings();
-    const todaysBookings = activeBookings.filter((booking) => booking.createdAt.startsWith(today));
-    const cancelledBookings = activeBookings.filter((booking) => booking.status === "CANCELLED");
-    const revenue = activeBookings.reduce(
-      (total, booking) => total + booking.fare.grandTotal.amount,
-      0,
-    );
+  /** Every figure here is counted from real records; nothing is a sample. */
+  async getDashboard(sources: DashboardSources, now = new Date()): Promise<AdminDashboardResponse> {
+    const { bookings } = sources;
+    const sold = bookings.filter((booking) => SOLD_STATUSES.has(booking.status));
+    const todayStart = istDayStart(now);
+    const createdSince = (since: number): BookingRecord[] =>
+      bookings.filter((booking) => Date.parse(booking.createdAt) >= since);
+    const [users, travelAgents, recentActivities] = await Promise.all([
+      this.prisma.user.count({ where: { deletedAt: null } }),
+      this.prisma.user.count({
+        where: { deletedAt: null, role: { code: "TRAVEL_AGENT" } },
+      }),
+      this.listRecentActivities(),
+    ]);
+    const metrics = {
+      todaysBookings: createdSince(todayStart).length,
+      weeklyBookings: createdSince(todayStart - 6 * DAY_MS).length,
+      monthlyBookings: createdSince(todayStart - 29 * DAY_MS).length,
+      revenue: { amount: sumFares(sold), currency: "INR" as const },
+      users,
+      travelAgents,
+      upcomingJourneys: sold.filter(
+        (booking) => Date.parse(booking.trip.departureTime) >= now.getTime(),
+      ).length,
+      cancelledBookings: bookings.filter((booking) => CANCELLED_STATUSES.has(booking.status))
+        .length,
+    };
 
     return {
-      metrics: {
-        todaysBookings: todaysBookings.length || 36,
-        weeklyBookings: 242,
-        monthlyBookings: activeBookings.length || 1128,
-        revenue: { amount: revenue || 1864000, currency: "INR" },
-        users: 12408,
-        travelAgents: 326,
-        upcomingJourneys: 418,
-        cancelledBookings: cancelledBookings.length || 19,
-      },
-      cards: [
-        { label: "Today's Bookings", value: "36", change: "+12% vs yesterday", tone: "success" },
-        { label: "Weekly Bookings", value: "242", change: "+8% week over week", tone: "success" },
-        { label: "Monthly Bookings", value: "1,128", change: "+14% month lift", tone: "success" },
-        { label: "Revenue", value: "INR 18.6L", change: "Settlement", tone: "neutral" },
-        { label: "Users", value: "12,408", change: "Customer and staff", tone: "neutral" },
-        { label: "Travel Agents", value: "326", change: "294 active", tone: "success" },
-        { label: "Upcoming Journeys", value: "418", change: "Next 7 days", tone: "neutral" },
-        { label: "Cancelled Bookings", value: "19", change: "1.7% rate", tone: "warning" },
-      ],
-      bookingTrends: seedChartPoints(),
-      popularRoutes: seedRouteMetrics(),
-      topOperators: seedOperators(),
-      mostActiveCustomers: [
-        {
-          customerId: "CUS-001",
-          name: "Aarav Sharma",
-          bookings: 14,
-          revenue: { amount: 22400, currency: "INR" },
-          lastBookedAt: "2026-08-08T07:45:00.000Z",
-        },
-        {
-          customerId: "CUS-002",
-          name: "Meera Iyer",
-          bookings: 11,
-          revenue: { amount: 17600, currency: "INR" },
-          lastBookedAt: "2026-08-07T14:20:00.000Z",
-        },
-        {
-          customerId: "CUS-003",
-          name: "Rohan Gupta",
-          bookings: 8,
-          revenue: { amount: 13200, currency: "INR" },
-          lastBookedAt: "2026-08-07T09:10:00.000Z",
-        },
-      ],
-      recentActivities: seedActivities(),
-      systemHealth: [
-        health("API", "HEALTHY", 42, "Core REST surface responding normally."),
-        health("Database", "HEALTHY", 18, "Postgres read/write checks passing."),
-        health("Redis", "DEGRADED", 96, "Queue latency above target in this snapshot."),
-        health("Storage", "HEALTHY", 25, "Ticket object storage placeholder reachable."),
-        health(
-          "Email",
-          "HEALTHY",
-          12,
-          "Simulated email queue is active; live provider is not enabled.",
-        ),
-        health(
-          "Suppliers",
-          "HEALTHY",
-          8,
-          "Simulated supplier is active; live suppliers are disabled.",
-        ),
-        health(
-          "Payments",
-          "HEALTHY",
-          6,
-          "Simulated payment provider is active; live gateway is disabled.",
-        ),
-      ],
-      emailQueueStatus: {
-        name: "Email Queue",
-        queued: 28,
-        sent: 1240,
-        failed: 3,
-        retryScheduled: 7,
-      },
-      notificationQueueStatus: {
-        name: "Notification Queue",
-        queued: 41,
-        sent: 3920,
-        failed: 4,
-        retryScheduled: 9,
-      },
+      metrics,
+      cards: metricCards(metrics),
+      bookingTrends: dailyTrend(bookings, now),
+      popularRoutes: popularRoutes(bookings),
+      topOperators: topOperators(bookings),
+      mostActiveCustomers: mostActiveCustomers(sold),
+      recentActivities,
+      systemHealth: sources.health.components.map((component): AdminSystemHealthRecord => ({
+        component: component.component,
+        status: component.status,
+        latencyMs: component.latencyMs,
+        // No uptime history is collected, so none is claimed.
+        uptimePercentage: 0,
+        message: component.message,
+        sampledAt: sources.health.checkedAt,
+      })),
+      emailQueueStatus: sources.emailQueue,
+      notificationQueueStatus: sources.notificationQueue,
     };
   }
 
-  listBookings(
-    bookings: BookingRecord[] = [],
-    query: AdminBookingListQuery,
-  ): AdminBookingListResponse {
+  listBookings(bookings: BookingRecord[], query: AdminBookingListQuery): AdminBookingListResponse {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
-    const records = (bookings.length ? bookings : seedBookings()).map(toAdminBookingRecord);
     const normalized = query.search?.trim().toLowerCase();
-    const filtered = records.filter((record) => {
+    const filtered = bookings.map(toAdminBookingRecord).filter((record) => {
       const booking = record.booking;
       const haystack = [
         booking.bookingId,
@@ -200,23 +168,12 @@ export class AdminRepository {
     };
   }
 
-  getBooking(bookings: BookingRecord[] = [], bookingId: string): AdminBookingRecord | null {
-    return (
-      this.listBookings(bookings, { page: 1, pageSize: 100 }).bookings.find(
-        (record) =>
-          record.booking.bookingId === bookingId || record.booking.bookingReference === bookingId,
-      ) ?? null
+  findBooking(bookings: BookingRecord[], bookingId: string): AdminBookingRecord | null {
+    const booking = bookings.find(
+      (candidate) => candidate.bookingId === bookingId || candidate.bookingReference === bookingId,
     );
-  }
 
-  resendBookingEmail(bookingId: string): TicketEmailResponse {
-    return {
-      bookingId,
-      ticketId: `TCK-${bookingId.slice(-8)}`,
-      queued: true,
-      emailLogId: `EML-ADM-${Date.now().toString(36).toUpperCase()}`,
-      status: "QUEUED",
-    };
+    return booking ? toAdminBookingRecord(booking) : null;
   }
 
   listEmailTemplates(): AdminEmailTemplateRecord[] {
@@ -226,6 +183,7 @@ export class AdminRepository {
   updateEmailTemplate(
     key: string,
     input: UpdateAdminEmailTemplateRequest,
+    changedBy: string,
   ): AdminEmailTemplateRecord | null {
     const existing = this.emailTemplates.get(key);
     if (!existing) {
@@ -238,7 +196,7 @@ export class AdminRepository {
       ...input,
       version: existing.version + 1,
       versionHistory: [
-        { version: existing.version + 1, changedBy: "admin", changedAt: updatedAt },
+        { version: existing.version + 1, changedBy, changedAt: updatedAt },
         ...existing.versionHistory,
       ],
       updatedAt,
@@ -263,276 +221,115 @@ export class AdminRepository {
       text: renderTemplate(template.textBody, variables),
     };
   }
+
+  private async listRecentActivities(): Promise<AdminActivityRecord[]> {
+    const rows = await this.prisma.activityLog.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 10,
+      include: { actor: { select: { email: true } } },
+    });
+
+    return rows.map((row) => ({
+      activityId: row.id,
+      actor: row.actor?.email ?? row.actorType.toLowerCase(),
+      action: row.action,
+      entityType: row.entityType ?? "",
+      entityId: row.entityId,
+      ipAddress: row.ipAddress ?? "",
+      device: "",
+      browser: row.userAgent ?? "",
+      occurredAt: row.createdAt.toISOString(),
+    }));
+  }
 }
 
 function toAdminBookingRecord(booking: BookingRecord): AdminBookingRecord {
+  const lead = booking.passengers[0];
+
   return {
     booking,
-    customerName: booking.passengers[0]
-      ? `${booking.passengers[0].firstName} ${booking.passengers[0].lastName}`
-      : "Traveller",
-    agentName: booking.channel === "AGENT" ? "Vriddhi Nexus Partner Desk" : null,
+    customerName: lead ? `${lead.firstName} ${lead.lastName}`.trim() : "Traveller",
+    agentName: booking.channel === "AGENT" ? (booking.agentId ?? "Travel agent") : null,
     ticket: null,
-    timelineCount: booking.status === "TICKET_GENERATED" ? 5 : 3,
+    timelineCount: 0,
   };
 }
 
-function seedBookings(): BookingRecord[] {
-  const trip = searchMockTrips({
-    sourceCity: "Bangalore",
-    destinationCity: "Hyderabad",
-    journeyDate: "2026-08-20",
-    passengerCount: 1,
-  }).buses[0];
-  if (!trip) {
-    return [];
-  }
+function metricCards(metrics: AdminDashboardResponse["metrics"]): AdminMetricRecord[] {
+  const count = (value: number): string => value.toLocaleString("en-IN");
 
   return [
-    {
-      bookingId: "BKG-ADM-001",
-      bookingReference: "VNB-ADM-001",
-      channel: "CUSTOMER",
-      agentId: null,
-      customerId: "CUS-001",
-      supplierCode: trip.supplierCode,
-      supplierBookingId: "SUP-001",
-      pnr: "PNRADM001",
-      ticketNumber: "VNT-ADM-001",
-      status: "TICKET_GENERATED",
-      trip,
-      selectedSeats: ["1A"],
-      boardingPoint: withLandmark(trip.boardingPoints[0]!),
-      droppingPoint: withLandmark(trip.droppingPoints[0]!),
-      passengers: [
-        {
-          seatNumber: "1A",
-          firstName: "Aarav",
-          lastName: "Sharma",
-          age: 34,
-          gender: "MALE",
-          phone: "+919876543210",
-          email: "aarav.sharma@example.com",
-        },
-      ],
-      fare: {
-        baseFare: trip.fare,
-        taxes: { amount: 80, currency: "INR" },
-        discount: { amount: 0, currency: "INR" },
-        convenienceFee: { amount: 40, currency: "INR" },
-        grandTotal: { amount: trip.fare.amount + 120, currency: "INR" },
-      },
-      reservationId: "RSV-ADM-001",
-      createdAt: "2026-08-08T07:30:00.000Z",
-      expiresAt: null,
-      confirmedAt: "2026-08-08T07:32:00.000Z",
-      cancelledAt: null,
-      emailPrepared: true,
-    },
-    {
-      bookingId: "BKG-ADM-002",
-      bookingReference: "VNB-ADM-002",
-      channel: "AGENT",
-      agentId: "AGT-VN-001",
-      customerId: "CUS-002",
-      supplierCode: trip.supplierCode,
-      supplierBookingId: "SUP-002",
-      pnr: "PNRADM002",
-      ticketNumber: null,
-      status: "PENDING_PAYMENT",
-      trip,
-      selectedSeats: ["1B"],
-      boardingPoint: withLandmark(trip.boardingPoints[0]!),
-      droppingPoint: withLandmark(trip.droppingPoints[0]!),
-      passengers: [
-        {
-          seatNumber: "1B",
-          firstName: "Meera",
-          lastName: "Iyer",
-          age: 29,
-          gender: "FEMALE",
-          phone: "+919876543211",
-          email: "meera.iyer@example.com",
-        },
-      ],
-      fare: {
-        baseFare: trip.fare,
-        taxes: { amount: 80, currency: "INR" },
-        discount: { amount: 50, currency: "INR" },
-        convenienceFee: { amount: 40, currency: "INR" },
-        grandTotal: { amount: trip.fare.amount + 70, currency: "INR" },
-      },
-      reservationId: "RSV-ADM-002",
-      createdAt: "2026-08-08T08:10:00.000Z",
-      expiresAt: "2026-08-08T08:20:00.000Z",
-      confirmedAt: null,
-      cancelledAt: null,
-      emailPrepared: false,
-    },
+    card("Today's Bookings", count(metrics.todaysBookings), "Since midnight IST"),
+    card("Weekly Bookings", count(metrics.weeklyBookings), "Last 7 days"),
+    card("Monthly Bookings", count(metrics.monthlyBookings), "Last 30 days"),
+    card(
+      "Revenue",
+      `INR ${metrics.revenue.amount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`,
+      "Ticket value of sold bookings",
+    ),
+    card("Users", count(metrics.users), "Registered accounts"),
+    card("Travel Agents", count(metrics.travelAgents), "Agent accounts"),
+    card("Upcoming Journeys", count(metrics.upcomingJourneys), "Sold, not yet departed"),
+    card(
+      "Cancelled Bookings",
+      count(metrics.cancelledBookings),
+      "Requested or completed",
+      metrics.cancelledBookings > 0 ? "warning" : "neutral",
+    ),
   ];
 }
 
-function withLandmark(point: BusPoint): BookingRecord["boardingPoint"] {
-  return {
-    ...point,
-    landmark: "Near main gate",
-  };
+function card(
+  label: string,
+  value: string,
+  change: string,
+  tone: AdminMetricRecord["tone"] = "neutral",
+): AdminMetricRecord {
+  return { label, value, change, tone };
 }
 
-function seedChartPoints(): AdminChartPoint[] {
-  return [
-    { label: "Mon", bookings: 118, revenue: 188800, users: 62, cancellations: 3 },
-    { label: "Tue", bookings: 142, revenue: 227200, users: 71, cancellations: 4 },
-    { label: "Wed", bookings: 136, revenue: 217600, users: 68, cancellations: 5 },
-    { label: "Thu", bookings: 168, revenue: 268800, users: 84, cancellations: 6 },
-    { label: "Fri", bookings: 191, revenue: 305600, users: 95, cancellations: 5 },
-    { label: "Sat", bookings: 224, revenue: 358400, users: 119, cancellations: 8 },
-    { label: "Sun", bookings: 149, revenue: 238400, users: 77, cancellations: 4 },
-  ];
+function mostActiveCustomers(sold: BookingRecord[]): AdminCustomerMetric[] {
+  return groupBy(sold, (booking) => booking.passengers[0]?.email ?? booking.bookingId)
+    .map(([email, group]) => {
+      const lead = group[0]?.passengers[0];
+
+      return {
+        customerId: email,
+        name: lead ? `${lead.firstName} ${lead.lastName}`.trim() : email,
+        bookings: group.length,
+        revenue: { amount: sumFares(group), currency: "INR" as const },
+        lastBookedAt: group
+          .map((booking) => booking.createdAt)
+          .sort()
+          .at(-1) as string,
+      };
+    })
+    .sort((left, right) => right.bookings - left.bookings)
+    .slice(0, 5);
 }
 
-function seedRouteMetrics(): AdminRouteMetric[] {
-  return [
-    {
-      route: "Bangalore to Hyderabad",
-      bookings: 318,
-      revenue: { amount: 508800, currency: "INR" },
-      cancellationRate: 1.9,
-    },
-    {
-      route: "Chennai to Coimbatore",
-      bookings: 242,
-      revenue: { amount: 290400, currency: "INR" },
-      cancellationRate: 2.4,
-    },
-    {
-      route: "Pune to Goa",
-      bookings: 196,
-      revenue: { amount: 284200, currency: "INR" },
-      cancellationRate: 1.5,
-    },
-    {
-      route: "Mumbai to Pune",
-      bookings: 171,
-      revenue: { amount: 153900, currency: "INR" },
-      cancellationRate: 1.1,
-    },
-  ];
-}
+/** The templates outgoing email really uses, as the editor's starting point. */
+function currentEmailTemplates(): AdminEmailTemplateRecord[] {
+  const loadedAt = new Date().toISOString();
 
-function seedOperators(): AdminOperatorMetric[] {
-  return [
-    {
-      operatorId: "OP-EASTERN",
-      operatorName: "Eastern Travels",
-      bookings: 214,
-      revenue: { amount: 342600, currency: "INR" },
-      rating: 4.6,
-      status: "HEALTHY",
-    },
-    {
-      operatorId: "OP-GREENLINE",
-      operatorName: "GreenLine Roadways",
-      bookings: 188,
-      revenue: { amount: 351560, currency: "INR" },
-      rating: 4.4,
-      status: "HEALTHY",
-    },
-    {
-      operatorId: "OP-ROYAL",
-      operatorName: "Royal Express",
-      bookings: 144,
-      revenue: { amount: 208800, currency: "INR" },
-      rating: 4.2,
-      status: "DEGRADED",
-    },
-  ];
-}
-
-function seedActivities(): AdminActivityRecord[] {
-  return [
-    {
-      activityId: "ADM-ACT-001",
-      actor: "admin@vriddhinexus.com",
-      action: "booking.resend_email",
-      entityType: "booking",
-      entityId: "VNB-ADM-001",
-      ipAddress: "103.21.244.12",
-      device: "MacBook",
-      browser: "Chrome",
-      occurredAt: "2026-08-08T08:55:00.000Z",
-    },
-    {
-      activityId: "ADM-ACT-002",
-      actor: "ops@vriddhinexus.com",
-      action: "feature_flag.updated",
-      entityType: "feature_flag",
-      entityId: "enable-agent-portal",
-      ipAddress: "103.21.244.13",
-      device: "Windows",
-      browser: "Edge",
-      occurredAt: "2026-08-08T08:35:00.000Z",
-    },
-  ];
-}
-
-function health(
-  component: string,
-  status: AdminDashboardResponse["systemHealth"][number]["status"],
-  latencyMs: number,
-  message: string,
-): AdminDashboardResponse["systemHealth"][number] {
-  return {
-    component,
-    status,
-    latencyMs,
-    uptimePercentage: status === "HEALTHY" ? 99.98 : 98.7,
-    message,
-    sampledAt: "2026-08-08T09:00:00.000Z",
-  };
-}
-
-function seedEmailTemplates(): AdminEmailTemplateRecord[] {
-  return [
-    emailTemplate("booking-confirmation", "Booking confirmed: {{bookingReference}}", [
-      "bookingReference",
-      "route",
-      "travellerName",
-    ]),
-    emailTemplate("booking-cancelled", "Booking cancelled: {{bookingReference}}", [
-      "bookingReference",
-      "refundStatus",
-    ]),
-    emailTemplate("booking-rescheduled", "Booking rescheduled: {{bookingReference}}", [
-      "bookingReference",
-      "journeyDate",
-    ]),
-    emailTemplate("password-reset", "Reset your Vriddhi Nexus password", ["resetUrl"]),
-    emailTemplate("welcome", "Welcome to Vriddhi Nexus", ["firstName"]),
-    emailTemplate("verify-email", "Verify your Vriddhi Nexus email", ["verificationUrl"]),
-  ];
-}
-
-function emailTemplate(
-  key: string,
-  subject: string,
-  variables: string[],
-): AdminEmailTemplateRecord {
-  return {
+  return Object.entries(EMAIL_TEMPLATES).map(([key, template]) => ({
     templateId: `TPL-${key.toUpperCase()}`,
     key,
-    subject,
-    htmlBody: `<p>${subject}</p><p>{{route}}</p>`,
-    textBody: `${subject}\n{{route}}`,
-    variables,
-    isActive: true,
-    version: 3,
-    versionHistory: [
-      { version: 3, changedBy: "admin", changedAt: "2026-08-08T08:00:00.000Z" },
-      { version: 2, changedBy: "ops", changedAt: "2026-08-02T10:00:00.000Z" },
+    subject: template.subject,
+    htmlBody: template.htmlBody,
+    textBody: template.textBody,
+    variables: [
+      ...new Set(
+        [template.subject, template.htmlBody, template.textBody].flatMap((text) =>
+          [...text.matchAll(/\{\{(\w+)\}\}/gu)].map((match) => match[1] as string),
+        ),
+      ),
     ],
-    updatedAt: "2026-08-08T08:00:00.000Z",
-  };
+    isActive: true,
+    version: 1,
+    versionHistory: [],
+    updatedAt: loadedAt,
+  }));
 }
 
 function renderTemplate(template: string, variables: Record<string, string>): string {

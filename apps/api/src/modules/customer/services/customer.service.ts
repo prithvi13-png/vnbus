@@ -1,4 +1,4 @@
-import { Injectable, Optional } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import type {
   AgentCustomerDetailsResponse,
   AgentCustomerListQuery,
@@ -9,6 +9,7 @@ import type {
   UpdateAgentCustomerRequest,
 } from "@vnbus/types";
 
+import type { JwtPrincipal } from "../../../shared/security/interfaces/jwt-principal.interface";
 import { BookingService } from "../../booking/services/booking.service";
 import { CustomerSummaryDto } from "../dto/customer-summary.dto";
 import type { CustomerModulePort } from "../interfaces/customer.interface";
@@ -22,7 +23,7 @@ export class CustomerService implements CustomerModulePort {
     private readonly repository: CustomerRepository,
     private readonly validator: CustomerModuleValidator,
     private readonly mapper: CustomerMapper,
-    @Optional() private readonly bookingService?: BookingService,
+    private readonly bookingService: BookingService,
   ) {}
 
   getSummary(): CustomerSummaryDto {
@@ -32,22 +33,32 @@ export class CustomerService implements CustomerModulePort {
     return new CustomerSummaryDto(summary);
   }
 
-  listCustomers(query: AgentCustomerListQuery = {}): AgentCustomerListResponse {
-    return this.repository.list(query);
+  listCustomers(
+    principal: JwtPrincipal,
+    query: AgentCustomerListQuery = {},
+  ): AgentCustomerListResponse {
+    return this.repository.list(principal.sub, query);
   }
 
-  getCustomer(customerId: string): AgentCustomerRecord | null {
-    return this.repository.findById(customerId);
+  getCustomer(principal: JwtPrincipal, customerId: string): AgentCustomerRecord | null {
+    return this.repository.findById(principal.sub, customerId);
   }
 
-  findByPhoneOrEmail(phone: string, email: string): AgentCustomerRecord | null {
-    return this.repository.findByPhoneOrEmail(phone, email);
+  findByPhoneOrEmail(
+    principal: JwtPrincipal,
+    phone: string,
+    email: string,
+  ): AgentCustomerRecord | null {
+    return this.repository.findByPhoneOrEmail(principal.sub, phone, email);
   }
 
-  getCustomerDetails(customerId: string): AgentCustomerDetailsResponse {
-    const customer = this.repository.findById(customerId);
+  async getCustomerDetails(
+    principal: JwtPrincipal,
+    customerId: string,
+  ): Promise<AgentCustomerDetailsResponse> {
+    const customer = this.repository.findById(principal.sub, customerId);
     this.validator.ensureFound(customer);
-    const bookingHistory = this.findCustomerBookings(customer);
+    const bookingHistory = await this.findCustomerBookings(principal, customer);
 
     return {
       customer,
@@ -60,8 +71,11 @@ export class CustomerService implements CustomerModulePort {
     };
   }
 
-  createCustomer(request: CreateAgentCustomerRequest): AgentCustomerRecord {
-    const existing = this.repository.list({ pageSize: 100 }).customers;
+  createCustomer(
+    principal: JwtPrincipal,
+    request: CreateAgentCustomerRequest,
+  ): AgentCustomerRecord {
+    const existing = this.repository.list(principal.sub, { pageSize: 100 }).customers;
     this.validator.ensureUnique(request, existing);
     const createdAt = new Date().toISOString();
     const customer = this.mapper.fromCreateRequest(request, {
@@ -69,47 +83,61 @@ export class CustomerService implements CustomerModulePort {
       createdAt,
     });
 
-    return this.repository.save(customer);
+    return this.repository.save(principal.sub, customer);
   }
 
-  updateCustomer(customerId: string, request: UpdateAgentCustomerRequest): AgentCustomerRecord {
-    const customer = this.repository.findById(customerId);
+  updateCustomer(
+    principal: JwtPrincipal,
+    customerId: string,
+    request: UpdateAgentCustomerRequest,
+  ): AgentCustomerRecord {
+    const customer = this.repository.findById(principal.sub, customerId);
     this.validator.ensureFound(customer);
     const updated = this.mapper.mergeUpdate(customer, request, new Date().toISOString());
 
-    return this.repository.save(updated);
+    return this.repository.save(principal.sub, updated);
   }
 
-  deleteCustomer(customerId: string): { customerId: string; deleted: boolean } {
-    const customer = this.repository.findById(customerId);
+  deleteCustomer(
+    principal: JwtPrincipal,
+    customerId: string,
+  ): { customerId: string; deleted: boolean } {
+    const customer = this.repository.findById(principal.sub, customerId);
     this.validator.ensureFound(customer);
 
     return {
       customerId,
-      deleted: this.repository.delete(customerId),
+      deleted: this.repository.delete(principal.sub, customerId),
     };
   }
 
-  ensureBookable(customerId: string): AgentCustomerRecord {
-    const customer = this.repository.findById(customerId);
+  ensureBookable(principal: JwtPrincipal, customerId: string): AgentCustomerRecord {
+    const customer = this.repository.findById(principal.sub, customerId);
     this.validator.ensureBookable(customer);
 
     return customer;
   }
 
-  recordBooking(customerId: string, booking: BookingRecord): AgentCustomerRecord | null {
-    return this.repository.updateMetrics(customerId, {
+  recordBooking(
+    principal: JwtPrincipal,
+    customerId: string,
+    booking: BookingRecord,
+  ): AgentCustomerRecord | null {
+    return this.repository.updateMetrics(principal.sub, customerId, {
       amount: booking.fare.grandTotal.amount,
       bookedAt: booking.confirmedAt ?? booking.createdAt,
     });
   }
 
-  listRecent(limit = 5): AgentCustomerRecord[] {
-    return this.repository.listRecent(limit);
+  listRecent(principal: JwtPrincipal, limit = 5): AgentCustomerRecord[] {
+    return this.repository.listRecent(principal.sub, limit);
   }
 
-  private findCustomerBookings(customer: AgentCustomerRecord): BookingRecord[] {
-    return (this.bookingService?.listBookings() ?? []).filter((booking) =>
+  private async findCustomerBookings(
+    principal: JwtPrincipal,
+    customer: AgentCustomerRecord,
+  ): Promise<BookingRecord[]> {
+    return (await this.bookingService.listBookings(principal)).filter((booking) =>
       booking.passengers.some(
         (passenger) => passenger.email === customer.email || passenger.phone === customer.phone,
       ),

@@ -434,6 +434,12 @@ model Booking {
   cancelledAt       DateTime?     @map("cancelled_at")
   rescheduledAt     DateTime?     @map("rescheduled_at")
   newJourneyDate    DateTime?     @map("new_journey_date") @db.Date
+  tripId            String?       @map("trip_id") @db.VarChar(200)
+  supplierBlockId   String?       @map("supplier_block_id") @db.VarChar(200)
+  ticketNumber      String?       @map("ticket_number") @db.VarChar(80)
+  confirmedAt       DateTime?     @map("confirmed_at")
+  channel           String        @default("CUSTOMER") @db.VarChar(20)
+  details           Json          @default("{}")
   agent             Agent?        @relation(fields: [agentId], references: [id])
   coupon            Coupon?       @relation(fields: [couponId], references: [id])
   customer          Customer?     @relation(fields: [customerId], references: [id])
@@ -452,6 +458,8 @@ model Booking {
   @@index([pnr])
   @@index([supplierCode])
   @@index([supplierCode, supplierBookingId])
+  @@index([userId, createdAt])
+  @@index([ticketNumber])
   @@map("bookings")
 }
 

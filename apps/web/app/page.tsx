@@ -7,13 +7,11 @@ import {
   Bus,
   CalendarCheck,
   CheckCircle2,
-  Clock3,
   Headphones,
   MapPinned,
   Route,
   Smartphone,
   TicketCheck,
-  WalletCards,
 } from "lucide-react";
 import {
   Accordion,
@@ -23,13 +21,11 @@ import {
   Badge,
   Button,
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
   PublicLayout,
   SlideUp,
-  StatusChip,
 } from "@vnbus/ui";
 
 import { SearchPanel } from "../components/search-panel";
@@ -54,19 +50,14 @@ const features = [
     icon: TicketCheck,
   },
   {
-    title: "Track bus preview",
-    description: "Customers can check scheduled-route tracking and journey reminders.",
+    title: "Real operator seats",
+    description: "Seat maps, fares, and boarding points come live from the bus operator.",
     icon: MapPinned,
   },
   {
     title: "Support desk",
     description: "Ticket, invoice, refund, and boarding-point help stays easy to find.",
     icon: Headphones,
-  },
-  {
-    title: "Wallet rewards",
-    description: "Wallet credits, referrals, and loyalty benefits are ready in customer UI.",
-    icon: WalletCards,
   },
 ];
 
@@ -75,7 +66,6 @@ const reasons = [
   ["Fewer clicks", "Default stops help customers continue after selecting seats."],
   ["Easy review", "Trip, passengers, and fare are separated into simple sections."],
   ["Ready records", "Tickets and invoices are available from completed bookings."],
-  ["Tracking preview", "Trip status, ETA, and message channels are visible in preview mode."],
   ["Support ready", "Customers can raise ticket, invoice, refund, and boarding questions."],
 ];
 
@@ -94,31 +84,6 @@ const steps = [
     title: "Ticket",
     description: "Confirm booking and download ticket or invoice.",
     icon: BadgeCheck,
-  },
-];
-
-const popularRoutes = [
-  { route: "Bengaluru to Hyderabad", duration: "8h 40m", fare: "from INR 1,090", tone: "success" },
-  { route: "Chennai to Coimbatore", duration: "7h 15m", fare: "from INR 780", tone: "info" },
-  { route: "Pune to Goa", duration: "10h 20m", fare: "from INR 1,120", tone: "warning" },
-  { route: "Delhi to Jaipur", duration: "5h 30m", fare: "from INR 640", tone: "neutral" },
-] as const;
-
-const testimonials = [
-  {
-    name: "Frequent Traveller",
-    role: "Bengaluru route",
-    quote: "Search, seats, and confirmation feel connected and easy to finish.",
-  },
-  {
-    name: "Family Customer",
-    role: "Weekend trip",
-    quote: "The seat page keeps the important choices in one place.",
-  },
-  {
-    name: "Customer",
-    role: "Invoice user",
-    quote: "Ticket and invoice actions are visible after booking.",
   },
 ];
 
@@ -169,9 +134,9 @@ export default function LandingPage(): React.JSX.Element {
                 </div>
                 <div className="mt-8 grid max-w-2xl gap-3 sm:grid-cols-3">
                   {[
-                    ["36", "seat map"],
-                    ["2+1", "sleeper layout"],
-                    ["INR", "invoice ready"],
+                    ["Live", "operator seat maps"],
+                    ["PNR", "e-ticket by email"],
+                    ["GST", "tax invoice"],
                   ].map(([value, label]) => (
                     <div
                       key={label}
@@ -264,57 +229,6 @@ export default function LandingPage(): React.JSX.Element {
                 </Card>
               );
             })}
-          </div>
-        </section>
-
-        <section className="border-y border-gold-100 bg-white/80 py-12 shadow-inner dark:border-brand-800 dark:bg-brand-950/80">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <SectionHeading
-              eyebrow="Popular routes"
-              title="High-demand intercity corridors"
-              description="Common routes customers can search and book quickly."
-            />
-            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              {popularRoutes.map((route) => (
-                <Card key={route.route}>
-                  <CardHeader>
-                    <MapPinned
-                      className="h-5 w-5 text-gold-600 dark:text-gold-100"
-                      aria-hidden="true"
-                    />
-                    <CardTitle className="text-base">{route.route}</CardTitle>
-                    <CardDescription>{route.duration}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="flex items-center justify-between gap-3">
-                    <StatusChip tone={route.tone}>{route.fare}</StatusChip>
-                    <Clock3 className="h-4 w-4 text-gray-400" aria-hidden="true" />
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-          <SectionHeading
-            eyebrow="Testimonials"
-            title="Customer feedback"
-            description="Booking surfaces are now focused on clarity and speed."
-          />
-          <div className="mt-6 grid gap-4 md:grid-cols-3">
-            {testimonials.map((testimonial) => (
-              <Card key={testimonial.name}>
-                <CardHeader>
-                  <CardTitle className="text-base">{testimonial.name}</CardTitle>
-                  <CardDescription>{testimonial.role}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm leading-6 text-gray-700 dark:text-gray-300">
-                    {testimonial.quote}
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
           </div>
         </section>
 

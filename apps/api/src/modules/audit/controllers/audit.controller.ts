@@ -29,7 +29,7 @@ export class AuditController {
   @Roles("ADMIN")
   @Get("logs")
   @ApiOkResponse({ description: "Admin audit logs for sensitive operations" })
-  listLogs(@Query() query: ListAuditLogsQueryDto): AdminAuditLogRecord[] {
+  listLogs(@Query() query: ListAuditLogsQueryDto): Promise<AdminAuditLogRecord[]> {
     return this.service.listLogs(query);
   }
 }

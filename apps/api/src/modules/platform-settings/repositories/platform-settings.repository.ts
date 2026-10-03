@@ -67,12 +67,15 @@ function seedSettings(): AdminPlatformSettingRecord[] {
   return [
     setting("PSET-BRAND", "brand.name", "BRAND", "Brand Name", "Vriddhi Nexus Pvt Ltd"),
     setting("PSET-LOGO", "brand.logo_url", "BRAND", "Logo", "/brand/logo.svg"),
-    setting("PSET-EMAIL", "support.email", "SUPPORT", "Support Email", "support@vriddhinexus.com"),
-    setting("PSET-PHONE", "support.phone", "SUPPORT", "Support Phone", "+918045678899"),
+    setting(
+      "PSET-EMAIL",
+      "support.email",
+      "SUPPORT",
+      "Support Email",
+      process.env.SUPPORT_EMAIL ?? "info@vriddhinexus.com",
+    ),
     setting("PSET-TZ", "general.timezone", "GENERAL", "Timezone", "Asia/Kolkata"),
     setting("PSET-CURRENCY", "finance.currency", "FINANCE", "Currency", "INR"),
-    setting("PSET-TAX", "finance.tax_percentage", "FINANCE", "Tax Percentage", "5"),
-    setting("PSET-FEE", "finance.booking_fee", "FINANCE", "Booking Fee", "40"),
     setting(
       "PSET-CANCEL",
       "policy.cancellation",
@@ -98,6 +101,6 @@ function setting(
     value,
     description: `${label} for the enterprise admin platform configuration.`,
     isSecretReference: false,
-    updatedAt: "2026-08-08T08:00:00.000Z",
+    updatedAt: new Date().toISOString(),
   };
 }

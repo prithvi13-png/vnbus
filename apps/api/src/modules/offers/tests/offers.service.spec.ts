@@ -25,6 +25,6 @@ describe("OffersService", () => {
 
     expect(updated.priority).toBe(2);
     expect(toggled.status).toBe("ACTIVE");
-    expect(service.listOffers().length).toBeGreaterThan(5);
+    expect(service.listOffers()).toHaveLength(1);
   });
 });

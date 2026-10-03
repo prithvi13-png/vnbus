@@ -24,17 +24,7 @@ const summary = {
 
 @Injectable()
 export class AgentBookingRepository {
-  private readonly bookingIds = new Set<string>();
-
   findSummary(): ModuleSummary {
     return summary;
-  }
-
-  recordBooking(bookingId: string): void {
-    this.bookingIds.add(bookingId);
-  }
-
-  ownsBooking(bookingId: string): boolean {
-    return this.bookingIds.has(bookingId);
   }
 }

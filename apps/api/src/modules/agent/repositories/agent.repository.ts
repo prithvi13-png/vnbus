@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import type { AgentActivityLogRecord, AgentProfileRecord } from "@vnbus/types";
 
 import type { ModuleSummary } from "../../../shared/domain/module-summary";
+import { PrismaService } from "../../../shared/prisma/prisma.service";
 
 const summary = {
   module: "agent",
@@ -25,25 +26,64 @@ const summary = {
 
 @Injectable()
 export class AgentRepository {
-  private readonly activity = new Map<string, AgentActivityLogRecord>(
-    seedActivity.map((item) => [item.id, item]),
-  );
+  /** Recent workspace activity per agent. In memory, so it starts empty after a restart. */
+  private readonly activity = new Map<string, AgentActivityLogRecord[]>();
+
+  constructor(private readonly prisma: PrismaService) {}
 
   findSummary(): ModuleSummary {
     return summary;
   }
 
-  getProfile(): AgentProfileRecord {
-    return agentProfile;
+  /**
+   * The signed-in agent's profile: their agency record when one has been set
+   * up, otherwise their own account. An account granted the travel-agent role
+   * by an admin counts as approved.
+   */
+  async getProfile(userId: string): Promise<AgentProfileRecord> {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      include: { agent: true },
+    });
+    const agent = user.agent;
+    const contactName = `${user.firstName} ${user.lastName}`.trim();
+
+    return {
+      agentId: agent?.id ?? user.id,
+      agencyName: agent?.agencyName ?? contactName,
+      agencyAddress: agent?.agencyAddress ?? "",
+      contactName: agent?.contactName ?? contactName,
+      email: user.email,
+      phone: agent?.phone ?? user.phone,
+      logoUrl: agent?.logoUrl ?? null,
+      status: toAgentStatus(agent?.status ?? (user.status === "ACTIVE" ? "ACTIVE" : "SUSPENDED")),
+      commissionRate: agent ? Number(agent.commissionRate) : 0,
+      emailPreferences: {
+        bookingConfirmation: true,
+        cancellation: true,
+        reschedule: true,
+        journeyReminder: true,
+        ...(agent?.emailPreferences as Partial<AgentProfileRecord["emailPreferences"]> | null),
+      },
+      notificationPreferences: {
+        inApp: true,
+        email: true,
+        system: true,
+        ...(agent?.notificationPreferences as Partial<
+          AgentProfileRecord["notificationPreferences"]
+        > | null),
+      },
+    };
   }
 
-  listActivity(limit = 8): AgentActivityLogRecord[] {
-    return [...this.activity.values()]
-      .sort((left, right) => Date.parse(right.occurredAt) - Date.parse(left.occurredAt))
-      .slice(0, limit);
+  listActivity(userId: string, limit = 8): AgentActivityLogRecord[] {
+    return (this.activity.get(userId) ?? []).slice(0, limit);
   }
 
-  appendActivity(input: Omit<AgentActivityLogRecord, "id" | "occurredAt">): AgentActivityLogRecord {
+  appendActivity(
+    userId: string,
+    input: Omit<AgentActivityLogRecord, "id" | "occurredAt">,
+  ): AgentActivityLogRecord {
     const occurredAt = new Date().toISOString();
     const activity: AgentActivityLogRecord = {
       id: createActivityId(input.type, input.title, occurredAt),
@@ -51,61 +91,15 @@ export class AgentRepository {
       ...input,
     };
 
-    this.activity.set(activity.id, activity);
+    this.activity.set(userId, [activity, ...(this.activity.get(userId) ?? [])].slice(0, 100));
 
     return activity;
   }
 }
 
-const agentProfile: AgentProfileRecord = {
-  agentId: "AGT-VN-001",
-  agencyName: "Vriddhi Nexus Partner Desk",
-  agencyAddress: "Koramangala, Bengaluru, Karnataka",
-  contactName: "Nisha Rao",
-  email: "agent.ops@vriddhinexus.example",
-  phone: "+918045678899",
-  logoUrl: null,
-  status: "ACTIVE",
-  commissionRate: 4.5,
-  emailPreferences: {
-    bookingConfirmation: true,
-    cancellation: true,
-    reschedule: true,
-    journeyReminder: true,
-  },
-  notificationPreferences: {
-    inApp: true,
-    email: true,
-    system: true,
-  },
-};
-
-const seedActivity: AgentActivityLogRecord[] = [
-  {
-    id: "AGT-ACT-001",
-    type: "BOOKING_CREATED",
-    title: "Quick booking completed",
-    description: "Bangalore to Hyderabad ticket issued for Aarav Sharma.",
-    occurredAt: "2026-08-08T08:50:00.000Z",
-    actor: "Nisha Rao",
-  },
-  {
-    id: "AGT-ACT-002",
-    type: "CUSTOMER_UPDATED",
-    title: "Customer note added",
-    description: "Meera Iyer marked as family traveller.",
-    occurredAt: "2026-08-08T08:10:00.000Z",
-    actor: "Nisha Rao",
-  },
-  {
-    id: "AGT-ACT-003",
-    type: "SYSTEM",
-    title: "Supplier adapter healthy",
-    description: "Search and seat layout adapters responded normally.",
-    occurredAt: "2026-08-08T07:45:00.000Z",
-    actor: "System",
-  },
-];
+function toAgentStatus(value: string): AgentProfileRecord["status"] {
+  return value === "ACTIVE" || value === "SUSPENDED" ? value : "PENDING_REVIEW";
+}
 
 function createActivityId(type: string, title: string, occurredAt: string): string {
   const hash = [...`${type}|${title}|${occurredAt}`].reduce(

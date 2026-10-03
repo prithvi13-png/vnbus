@@ -24,7 +24,7 @@ const REQUIRED_EXPORTS = [
   "SrdvBusAdapter",
   "SrdvClient",
   "SrdvApiError",
-  "MockSupplierAdapter",
+  "srdvCityRows",
   "SUPPLIER_CODES",
 ];
 

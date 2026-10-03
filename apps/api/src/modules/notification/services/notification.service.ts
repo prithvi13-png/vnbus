@@ -27,7 +27,9 @@ export class NotificationService implements NotificationModulePort {
     return new NotificationSummaryDto(summary);
   }
 
+  /** Pass userId for a personal notification; omit it only for a broadcast. */
   create(input: {
+    userId?: string;
     type: NotificationType;
     title: string;
     body: string;
@@ -38,6 +40,7 @@ export class NotificationService implements NotificationModulePort {
     const createdAt = new Date().toISOString();
     const notification: NotificationRecord = {
       id: createNotificationId(input.type, input.title, createdAt),
+      ...(input.userId ? { userId: input.userId } : {}),
       type: input.type,
       readStatus: "UNREAD",
       title: input.title,
@@ -52,12 +55,12 @@ export class NotificationService implements NotificationModulePort {
     return this.repository.save(notification);
   }
 
-  listNotifications(): NotificationRecord[] {
-    return this.repository.listActive();
+  listNotifications(userId: string): NotificationRecord[] {
+    return this.repository.listActive(userId);
   }
 
-  getNotificationCenter(): NotificationCenterResponse {
-    return this.repository.getNotificationCenter();
+  getNotificationCenter(userId: string): NotificationCenterResponse {
+    return this.repository.getNotificationCenter(userId);
   }
 
   getAdminCenter(): AdminNotificationCenterResponse {
@@ -79,8 +82,8 @@ export class NotificationService implements NotificationModulePort {
     });
   }
 
-  markRead(notificationId: string): NotificationRecord {
-    const notification = this.repository.find(notificationId);
+  markRead(notificationId: string, userId: string): NotificationRecord {
+    const notification = this.repository.find(notificationId, userId);
     this.validator.ensureNotification(notification);
     const updated: NotificationRecord = {
       ...notification,
@@ -91,12 +94,12 @@ export class NotificationService implements NotificationModulePort {
     return this.repository.save(updated);
   }
 
-  markAllRead(): NotificationCenterResponse {
-    return this.repository.markAllRead();
+  markAllRead(userId: string): NotificationCenterResponse {
+    return this.repository.markAllRead(userId);
   }
 
-  archive(notificationId: string): NotificationRecord {
-    const notification = this.repository.find(notificationId);
+  archive(notificationId: string, userId: string): NotificationRecord {
+    const notification = this.repository.find(notificationId, userId);
     this.validator.ensureNotification(notification);
     const archived: NotificationRecord = {
       ...notification,
@@ -107,15 +110,15 @@ export class NotificationService implements NotificationModulePort {
     return this.repository.save(archived);
   }
 
-  delete(notificationId: string): NotificationCenterResponse {
-    const notification = this.repository.find(notificationId);
+  delete(notificationId: string, userId: string): NotificationCenterResponse {
+    const notification = this.repository.find(notificationId, userId);
     this.validator.ensureNotification(notification);
     this.repository.save({
       ...notification,
       deletedAt: new Date().toISOString(),
     });
 
-    return this.repository.getNotificationCenter();
+    return this.repository.getNotificationCenter(userId);
   }
 }
 

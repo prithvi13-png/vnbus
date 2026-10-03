@@ -23,24 +23,7 @@ import type {
   TripSearchRequest,
   TripSearchResponse,
 } from "@vnbus/types";
-import {
-  createMockSeatHold,
-  getMockSeatLayout,
-  getMockSupplierTrips,
-  getMockTripById,
-  releaseMockSeatHold,
-  todayIsoDate,
-} from "@vnbus/shared";
-
-export const SUPPLIER_CODES = [
-  "MOCK",
-  "BCI",
-  "REDBUS",
-  "ABHIBUS",
-  "TBO",
-  "SRDV",
-  "CUSTOM",
-] as const;
+export const SUPPLIER_CODES = ["BCI", "REDBUS", "ABHIBUS", "TBO", "SRDV", "CUSTOM"] as const;
 
 export interface SupplierOperationContext {
   requestId?: string;
@@ -69,10 +52,10 @@ export interface SupplierTripDetailsRequest {
 }
 
 /**
- * A passenger on a block request. Only the seat is required, which is all the
- * mock supplier ever needed; real suppliers demand identity as well. SRDV's
- * Block rejects a passenger without a name, age, gender and lead flag, so its
- * adapter validates these up front rather than sending a partial booking.
+ * A passenger on a block request. Only the seat is required by the type; real
+ * suppliers demand identity as well. SRDV's Block rejects a passenger without
+ * a name, age, gender and lead flag, so its adapter validates these up front
+ * rather than sending a partial booking.
  */
 export interface SupplierBlockPassenger {
   seatNumber: string;
@@ -462,224 +445,7 @@ export class CustomApiAdapter extends NotConfiguredSupplierAdapter {
 
 export class CustomAdapter extends CustomApiAdapter {}
 
-export class MockSupplierAdapter implements SupplierAdapter {
-  readonly code = "MOCK";
-  readonly name = "Mock Supplier";
-  private readonly holds = new Map<string, { tripId: string; hold: SeatHoldResponse }>();
-
-  searchTrips(
-    request: TripSearchRequest,
-    context: SupplierOperationContext = {},
-  ): Promise<TripSearchResponse> {
-    const startedAt = Date.now();
-    const trips = getMockSupplierTrips(request);
-    const durationMs = Math.max(1, Date.now() - startedAt);
-    const requestId = context.requestId ?? createIntegrationId("REQ");
-    const correlationId = context.correlationId ?? requestId;
-
-    return Promise.resolve({
-      success: true,
-      status: "AVAILABLE",
-      trips,
-      supplierResults: [
-        {
-          supplierCode: this.code,
-          status: "SUCCESS",
-          resultCount: trips.length,
-          durationMs,
-        },
-      ],
-      errors: [],
-      duplicateGroups: [],
-      requestId,
-      correlationId,
-    });
-  }
-
-  getTripDetails(request: SupplierTripDetailsRequest): Promise<BusSearchResult> {
-    const trip = getMockTripById(request.tripId, request.journeyDate);
-
-    if (!trip) {
-      return Promise.reject(
-        new SupplierValidationError(this.code, "GET_TRIP_DETAILS", "Trip not found"),
-      );
-    }
-
-    return Promise.resolve(trip);
-  }
-
-  getSeatLayout(request: SeatLayoutRequest): Promise<SeatLayout> {
-    return Promise.resolve(
-      getMockSeatLayout({
-        tripId: request.tripId,
-        journeyDate: request.journeyDate,
-        heldSeats: this.getActiveHeldSeats(request.tripId),
-      }),
-    );
-  }
-
-  holdSeats(request: SeatHoldRequest): Promise<SeatHoldResponse> {
-    const layout = getMockSeatLayout({
-      tripId: request.tripId,
-      journeyDate: request.journeyDate,
-      heldSeats: this.getActiveHeldSeats(request.tripId),
-    });
-    const hold = createMockSeatHold(request, layout);
-
-    this.holds.set(hold.reservationId, { tripId: request.tripId, hold });
-
-    return Promise.resolve(hold);
-  }
-
-  releaseSeats(request: SeatReleaseRequest): Promise<SeatReleaseResponse> {
-    this.holds.delete(request.reservationId);
-
-    return Promise.resolve(releaseMockSeatHold(request));
-  }
-
-  blockSeats(request: SeatBlockRequest): Promise<SeatBlockResponse> {
-    return this.holdSeats({
-      supplierCode: request.supplierCode,
-      tripId: request.tripId,
-      journeyDate: todayIsoDate(),
-      seatNumbers: request.passengers.map((passenger) => passenger.seatNumber),
-    }).then((hold) => ({
-      blockId: hold.reservationId,
-      expiresAt: hold.expiresAt,
-      fare: hold.fare.grandTotal,
-    }));
-  }
-
-  confirmBooking(request: SupplierConfirmBookingRequest): Promise<SupplierConfirmBookingResponse> {
-    const suffix = request.blockId.slice(-8).replaceAll("-", "");
-
-    return Promise.resolve({
-      supplierBookingId: `MOCKSUP-${suffix}`,
-      pnr: `PNR${suffix}`,
-      ticketNumber: `VNT-${suffix}`,
-      status: "CONFIRMED",
-    });
-  }
-
-  getBookingStatus(request: SupplierBookingStatusRequest): Promise<SupplierBookingStatusResponse> {
-    const suffix = request.supplierBookingId.slice(-8).replaceAll("-", "");
-
-    return Promise.resolve({
-      supplierBookingId: request.supplierBookingId,
-      status: "CONFIRMED",
-      pnr: `PNR${suffix}`,
-      ticketNumber: `VNT-${suffix}`,
-    });
-  }
-
-  cancelBooking(request: SupplierCancelBookingRequest): Promise<Cancellation> {
-    return Promise.resolve({
-      bookingId: request.bookingId ?? request.supplierBookingId,
-      supplierBookingId: request.supplierBookingId,
-      status: "CONFIRMED",
-      refundStatus: "PENDING",
-      penalty: money(0),
-    });
-  }
-
-  rescheduleBooking(request: SupplierRescheduleBookingRequest): Promise<Reschedule> {
-    return Promise.resolve({
-      bookingId: request.bookingId ?? request.supplierBookingId,
-      newTripId: request.targetTripId,
-      newJourneyDate: request.journeyDate,
-      fareDifference: money(0),
-      status: "CONFIRMED",
-    });
-  }
-
-  getTicket(request: SupplierTicketRequest): Promise<SupplierTicketResponse> {
-    const suffix = request.supplierBookingId.slice(-8).replaceAll("-", "");
-
-    return Promise.resolve({
-      supplierBookingId: request.supplierBookingId,
-      pnr: `PNR${suffix}`,
-      ticketNumber: request.ticketNumber ?? `VNT-${suffix}`,
-      status: "GENERATED",
-      issuedAt: new Date().toISOString(),
-    });
-  }
-
-  trackBus(request: TrackBusRequest): Promise<Tracking> {
-    return Promise.resolve({
-      supplierCode: request.supplierCode,
-      tripId: request.tripId,
-      status: "COMING_SOON",
-    });
-  }
-
-  getCancellationPolicy(request: SupplierTripDetailsRequest): Promise<CancellationPolicy> {
-    return Promise.resolve({
-      supplierCode: request.supplierCode ?? this.code,
-      tripId: request.tripId,
-      slabs: [
-        {
-          beforeDepartureHours: 24,
-          refundPercentage: 80,
-          description: "Mock architecture policy for cancellations before 24 hours.",
-        },
-        {
-          beforeDepartureHours: 6,
-          refundPercentage: 50,
-          description: "Mock architecture policy for same-day cancellation windows.",
-        },
-        {
-          beforeDepartureHours: 0,
-          refundPercentage: 0,
-          description: "No mock refund after departure.",
-        },
-      ],
-      terms: ["Supplier-specific terms stay normalized behind the adapter."],
-    });
-  }
-
-  async getBoardingPoints(request: SupplierTripDetailsRequest): Promise<BoardingPoint[]> {
-    return (await this.getSeatLayout(toSeatLayoutRequest(request))).boardingPoints;
-  }
-
-  async getDroppingPoints(request: SupplierTripDetailsRequest): Promise<DroppingPoint[]> {
-    return (await this.getSeatLayout(toSeatLayoutRequest(request))).droppingPoints;
-  }
-
-  healthCheck(): Promise<SupplierHealth> {
-    return Promise.resolve({
-      supplierCode: this.code,
-      status: "AVAILABLE",
-      responseTimeMs: 8,
-      successRate: 1,
-      failureRate: 0,
-      lastSuccessfulRequestAt: new Date().toISOString(),
-      lastFailureAt: null,
-      checkedAt: new Date().toISOString(),
-      message: "Mock supplier is active. No external API call was made.",
-    });
-  }
-
-  downloadTicket(request: TicketDownloadRequest): Promise<TicketDownloadResponse> {
-    const content = `Mock ticket ${request.ticketNumber} for ${request.supplierBookingId}`;
-
-    return Promise.resolve({
-      fileName: `${request.ticketNumber}.pdf`,
-      mimeType: "application/pdf",
-      bytes: new TextEncoder().encode(content),
-    });
-  }
-
-  private getActiveHeldSeats(tripId: string): string[] {
-    const now = Date.now();
-
-    return [...this.holds.values()]
-      .filter((entry) => entry.tripId === tripId && Date.parse(entry.hold.expiresAt) > now)
-      .flatMap((entry) => entry.hold.heldSeats);
-  }
-}
-
 export const supplierAdapters = [
-  MockSupplierAdapter,
   BCIAdapter,
   RedBusAdapter,
   AbhiBusAdapter,
@@ -703,28 +469,6 @@ export function toSupplierError(
     message: error instanceof Error ? error.message : "Unknown supplier failure",
     retryable: true,
   };
-}
-
-function toSeatLayoutRequest(request: SupplierTripDetailsRequest): SeatLayoutRequest {
-  return {
-    supplierCode: request.supplierCode ?? "MOCK",
-    tripId: request.tripId,
-    journeyDate: request.journeyDate,
-  };
-}
-
-function money(amount: number): Money {
-  return {
-    amount,
-    currency: "INR",
-  };
-}
-
-function createIntegrationId(prefix: string): string {
-  return `${prefix}-${Date.now().toString(36).toUpperCase()}-${Math.random()
-    .toString(36)
-    .slice(2, 8)
-    .toUpperCase()}`;
 }
 
 export * from "./srdv/index.js";

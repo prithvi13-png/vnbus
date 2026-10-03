@@ -1,6 +1,5 @@
-import { Controller, Get, Param } from "@nestjs/common";
-import { ApiBearerAuth, ApiOkResponse, ApiTags } from "@nestjs/swagger";
-import type { BookingTimelineEvent } from "@vnbus/types";
+import { Controller, Get } from "@nestjs/common";
+import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
 import { Public } from "../../../shared/security/decorators/public.decorator";
 import { Roles } from "../../../shared/security/decorators/roles.decorator";
@@ -23,12 +22,5 @@ export class TimelineController {
   @Get("timeline/capabilities")
   getCapabilities(): TimelineSummaryDto {
     return this.service.getSummary();
-  }
-
-  @Public()
-  @Get("bookings/:bookingId/timeline")
-  @ApiOkResponse({ description: "Booking lifecycle timeline" })
-  listForBooking(@Param("bookingId") bookingId: string): BookingTimelineEvent[] {
-    return this.service.listForBooking(bookingId);
   }
 }

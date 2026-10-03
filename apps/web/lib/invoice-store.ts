@@ -296,22 +296,8 @@ export function downloadBulkBookingTemplate(): void {
     "convenienceFee",
     "total",
   ];
-  const sample = [
-    "VNB-BULK-001",
-    "Aarav Sharma",
-    "aarav@example.com",
-    "+919876543210",
-    "Bangalore to Hyderabad",
-    "Eastern Travels",
-    "2026-08-20",
-    "A1,A2",
-    "1500",
-    "75",
-    "0",
-    "50",
-    "1625",
-  ];
-  const csv = `${headers.join(",")}\n${sample.join(",")}\n`;
+  // Headers only: a sample row would become a real invoice if uploaded as-is.
+  const csv = `${headers.join(",")}\n`;
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const href = URL.createObjectURL(blob);
   const link = document.createElement("a");

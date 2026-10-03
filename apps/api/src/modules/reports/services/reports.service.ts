@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import type { AdminReportRecord, AdminReportsResponse } from "@vnbus/types";
 
+import { BookingService } from "../../booking/services/booking.service";
 import type { CreateAdminReportDto } from "../dto/admin-report.dto";
 import { ReportsSummaryDto } from "../dto/reports-summary.dto";
 import type { ReportsModulePort } from "../interfaces/reports.interface";
@@ -12,6 +13,7 @@ export class ReportsService implements ReportsModulePort {
   constructor(
     private readonly repository: ReportsRepository,
     private readonly validator: ReportsModuleValidator,
+    private readonly bookingService: BookingService,
   ) {}
 
   getSummary(): ReportsSummaryDto {
@@ -21,11 +23,11 @@ export class ReportsService implements ReportsModulePort {
     return new ReportsSummaryDto(summary);
   }
 
-  getAdminReports(): AdminReportsResponse {
-    return this.repository.getAdminReports();
+  async getAdminReports(): Promise<AdminReportsResponse> {
+    return this.repository.getAdminReports(await this.bookingService.listAllBookings());
   }
 
-  generateAdminReport(dto: CreateAdminReportDto): AdminReportRecord {
-    return this.repository.generateAdminReport(dto);
+  async generateAdminReport(dto: CreateAdminReportDto): Promise<AdminReportRecord> {
+    return this.repository.generateAdminReport(dto, await this.bookingService.listAllBookings());
   }
 }

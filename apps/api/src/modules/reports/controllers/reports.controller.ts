@@ -29,14 +29,14 @@ export class ReportsController {
   @Roles("ADMIN")
   @Get("admin")
   @ApiOkResponse({ description: "Admin reports and export metadata" })
-  getAdminReports(): AdminReportsResponse {
+  getAdminReports(): Promise<AdminReportsResponse> {
     return this.service.getAdminReports();
   }
 
   @Roles("ADMIN")
   @Post("admin")
   @ApiOkResponse({ description: "Generate admin report" })
-  generateAdminReport(@Body() dto: CreateAdminReportDto): AdminReportRecord {
+  generateAdminReport(@Body() dto: CreateAdminReportDto): Promise<AdminReportRecord> {
     return this.service.generateAdminReport(dto);
   }
 }

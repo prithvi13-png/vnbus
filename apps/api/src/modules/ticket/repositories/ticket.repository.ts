@@ -1,5 +1,4 @@
 import { Injectable } from "@nestjs/common";
-import type { TicketPdfResponse, TicketRecord } from "@vnbus/types";
 
 import type { ModuleSummary } from "../../../shared/domain/module-summary";
 
@@ -23,45 +22,33 @@ const summary = {
   ],
 } satisfies ModuleSummary;
 
+/** When a booking's ticket was last downloaded or emailed. */
+export interface TicketActivity {
+  lastDownloadedAt: string | null;
+  lastEmailedAt: string | null;
+}
+
+/**
+ * The ticket itself is rebuilt from the saved booking every time, so it can
+ * never drift from what was sold. Only its download/email activity is kept
+ * here, in memory; the booking timeline holds the durable record of both.
+ */
 @Injectable()
 export class TicketRepository {
-  private readonly tickets = new Map<string, TicketRecord>();
-  private readonly ticketIdsByBooking = new Map<string, string>();
-  private readonly downloads = new Map<string, TicketPdfResponse[]>();
+  private readonly activity = new Map<string, TicketActivity>();
 
   findSummary(): ModuleSummary {
     return summary;
   }
 
-  save(ticket: TicketRecord): TicketRecord {
-    this.tickets.set(ticket.ticketId, ticket);
-    this.ticketIdsByBooking.set(ticket.bookingId, ticket.ticketId);
-
-    return ticket;
+  findActivity(bookingId: string): TicketActivity {
+    return this.activity.get(bookingId) ?? { lastDownloadedAt: null, lastEmailedAt: null };
   }
 
-  findByTicketId(ticketId: string): TicketRecord | null {
-    return this.tickets.get(ticketId) ?? null;
-  }
+  recordActivity(bookingId: string, change: Partial<TicketActivity>): TicketActivity {
+    const updated = { ...this.findActivity(bookingId), ...change };
+    this.activity.set(bookingId, updated);
 
-  findByBookingId(bookingId: string): TicketRecord | null {
-    const ticketId = this.ticketIdsByBooking.get(bookingId);
-
-    return ticketId ? this.findByTicketId(ticketId) : null;
-  }
-
-  findById(id: string): TicketRecord | null {
-    return this.findByTicketId(id) ?? this.findByBookingId(id);
-  }
-
-  recordDownload(ticketId: string, response: TicketPdfResponse): TicketPdfResponse {
-    const current = this.downloads.get(ticketId) ?? [];
-    this.downloads.set(ticketId, [...current, response]);
-
-    return response;
-  }
-
-  listDownloads(ticketId: string): TicketPdfResponse[] {
-    return this.downloads.get(ticketId) ?? [];
+    return updated;
   }
 }
