@@ -25,6 +25,8 @@ test("search route renders mock bus results from query params", async ({ page })
 test("mock booking flow reaches ticket view", async ({ page }) => {
   const journeyDate = futureIsoDate();
 
+  // Booking requires an account: Continue sends guests to login.
+  await signInAs(page, "CUSTOMER");
   await page.goto(`/seat-layout?tripId=mock-route-001-1&date=${journeyDate}`);
 
   await expect(page.getByRole("heading", { name: "Choose seats and points" })).toBeVisible();
@@ -41,6 +43,9 @@ test("mock booking flow reaches ticket view", async ({ page }) => {
   });
   await page.getByLabel("First Name").fill("Aarav");
   await page.getByLabel("Last Name").fill("Sharma");
+  await page.getByLabel("Age").fill("29");
+  await page.getByLabel("Phone").fill("+919876543210");
+  await page.getByLabel("Email", { exact: true }).fill("aarav.sharma@example.com");
   await Promise.all([
     page.waitForURL("**/booking-review", { timeout: 15_000 }),
     page.getByRole("button", { name: /Review booking/i }).click(),
@@ -48,8 +53,14 @@ test("mock booking flow reaches ticket view", async ({ page }) => {
 
   await expect(page.getByRole("heading", { name: "Booking Review" })).toBeVisible();
   await Promise.all([
+    page.waitForURL("**/payment", { timeout: 15_000 }),
+    page.getByRole("button", { name: /Continue to Payment/i }).click(),
+  ]);
+
+  await expect(page.getByRole("heading", { name: "Payment", exact: true })).toBeVisible();
+  await Promise.all([
     page.waitForURL(/booking-confirmation/, { timeout: 15_000 }),
-    page.getByRole("button", { name: /Confirm Booking/i }).click(),
+    page.getByRole("button", { name: /^Pay / }).click(),
   ]);
 
   await expect(page.getByText("Booking Confirmed")).toBeVisible();
