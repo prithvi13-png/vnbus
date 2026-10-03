@@ -31,7 +31,15 @@ export class JwtAccessGuard implements CanActivate {
     }
 
     const token = authorization.slice("Bearer ".length);
-    request.user = await this.jwtService.verifyAsync<JwtPrincipal>(token);
+
+    // verifyAsync throws jsonwebtoken's own errors, which are not HTTP errors
+    // and would otherwise reach clients as a 500. An expired or invalid token
+    // is a 401 — the signal the web app uses to renew the session.
+    try {
+      request.user = await this.jwtService.verifyAsync<JwtPrincipal>(token);
+    } catch {
+      throw new UnauthorizedException("Access token is invalid or expired");
+    }
 
     return true;
   }

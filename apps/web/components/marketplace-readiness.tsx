@@ -206,7 +206,7 @@ const refundColumns: DataTableColumn<RefundRow>[] = [
 export function AdminRefundOperations(): React.JSX.Element {
   const query = useQuery({
     queryKey: ["admin", "bookings"],
-    queryFn: () => apiClient<AdminBookingListResponse>("/admin/bookings?page=1&pageSize=500"),
+    queryFn: () => apiClient<AdminBookingListResponse>("/admin/bookings?page=1&pageSize=100"),
   });
   const rows = (query.data?.bookings ?? [])
     .filter((record) =>

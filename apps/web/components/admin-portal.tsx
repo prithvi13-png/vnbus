@@ -229,7 +229,7 @@ type BookingRow = Record<string, unknown> & {
 export function AdminBookingsWorkspace(): React.JSX.Element {
   const query = useAdminQuery<AdminBookingListResponse>(
     "bookings",
-    "/admin/bookings?page=1&pageSize=500",
+    "/admin/bookings?page=1&pageSize=100",
   );
   const invoices = useInvoiceStore((state) => state.invoices);
   const bulkBookings = useInvoiceStore((state) => state.bulkBookings);

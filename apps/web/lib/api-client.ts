@@ -30,10 +30,16 @@ import type {
   UpdateAgentCustomerRequest,
 } from "@vnbus/types";
 
-import { useAuthStore } from "./auth-store";
+import { type AuthResponse, useAuthStore } from "./auth-store";
 
 const configuredApiBaseUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
 const apiBaseUrl = configuredApiBaseUrl || getLocalApiBaseUrl();
+
+/**
+ * Calls where a 401 means the credentials sent were wrong, not that the access
+ * token expired. Renewing the session would hide that answer.
+ */
+const SESSION_PATHS = new Set(["/auth/login", "/auth/register", "/auth/refresh", "/auth/logout"]);
 
 export async function apiClient<T>(path: string, init?: RequestInit): Promise<T> {
   if (!apiBaseUrl) {
@@ -44,15 +50,26 @@ export async function apiClient<T>(path: string, init?: RequestInit): Promise<T>
   // when there is one. Read from the store rather than a hook: this runs
   // outside React. An explicit Authorization in `init` still wins.
   const accessToken = useAuthStore.getState().accessToken;
-  const response = await fetch(`${apiBaseUrl}/api/v1${path}`, {
-    credentials: "include",
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-      ...init?.headers,
-    },
-  });
+  let response = await send(apiBaseUrl, path, init, accessToken);
+
+  // An expired access token is renewed from the refresh cookie and the request
+  // sent once more with the new token. Only once: a 401 on that second attempt
+  // is the API's answer and goes back to the caller like any other error.
+  if (response.status === 401 && accessToken && !SESSION_PATHS.has(path)) {
+    const renewedToken = await renewAccessToken(apiBaseUrl, accessToken);
+
+    if (!renewedToken) {
+      endExpiredSession();
+      throw new Error("Your session has expired. Please sign in again.");
+    }
+
+    response = await send(
+      apiBaseUrl,
+      path,
+      { ...init, headers: { ...init?.headers, Authorization: `Bearer ${renewedToken}` } },
+      renewedToken,
+    );
+  }
 
   if (!response.ok) {
     let message = `API request failed with ${response.status}`;
@@ -76,6 +93,94 @@ export async function apiClient<T>(path: string, init?: RequestInit): Promise<T>
   }
 
   return response.json() as Promise<T>;
+}
+
+function send(
+  baseUrl: string,
+  path: string,
+  init: RequestInit | undefined,
+  accessToken: string | null,
+): Promise<Response> {
+  return fetch(`${baseUrl}/api/v1${path}`, {
+    credentials: "include",
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      ...init?.headers,
+    },
+  });
+}
+
+let pendingRenewal: Promise<string | null> | null = null;
+
+/**
+ * A fresh access token in place of `expiredToken`, or null when the API
+ * refuses to renew the session.
+ *
+ * Every request that fails together shares one renewal. The API rotates the
+ * refresh token on each use and treats a second use of the old one as theft,
+ * revoking the whole session — so two parallel renewals would sign the user
+ * out. The browser lock extends that to other tabs, which share the cookie.
+ */
+function renewAccessToken(baseUrl: string, expiredToken: string): Promise<string | null> {
+  const current = useAuthStore.getState().accessToken;
+
+  // Renewed (or signed out) while this request was in flight: nothing to do.
+  if (current !== expiredToken) {
+    return Promise.resolve(current);
+  }
+
+  pendingRenewal ??= withRenewalLock(() => requestRenewal(baseUrl)).finally(() => {
+    pendingRenewal = null;
+  });
+
+  return pendingRenewal;
+}
+
+async function withRenewalLock(renew: () => Promise<string | null>): Promise<string | null> {
+  if (typeof navigator !== "undefined" && "locks" in navigator) {
+    // Resolves with what `renew` resolves with; the await unwraps the typing.
+    return await navigator.locks.request("vnbus-session-renewal", renew);
+  }
+
+  return renew();
+}
+
+async function requestRenewal(baseUrl: string): Promise<string | null> {
+  // The refresh token travels in its httpOnly cookie, never through script.
+  const response = await fetch(`${baseUrl}/api/v1/auth/refresh`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    return null;
+  }
+
+  // Anything else (rate limit, outage) leaves the session as it is: the next
+  // request will try again rather than signing the user out over a blip.
+  if (!response.ok) {
+    throw new Error(`Could not renew your session (${response.status}). Please try again.`);
+  }
+
+  const session = (await response.json()) as AuthResponse;
+  useAuthStore.getState().setSession(session);
+
+  return session.accessToken;
+}
+
+function endExpiredSession(): void {
+  useAuthStore.getState().markSessionExpired();
+
+  if (typeof window === "undefined" || window.location.pathname === "/login") {
+    return;
+  }
+
+  const here = `${window.location.pathname}${window.location.search}`;
+  window.location.replace(`/login?redirect=${encodeURIComponent(here)}`);
 }
 
 function getLocalApiBaseUrl(): string | undefined {

@@ -29,6 +29,14 @@ export class FakeApi {
   readonly bookings: BookingRecord[] = [];
   readonly notifications: NotificationRecord[] = [];
   adminBookings: BookingRecord[] = [];
+  /** Access tokens the API no longer accepts: protected routes answer 401. */
+  readonly expiredTokens = new Set<string>();
+  /** How POST /auth/refresh answers: a new session, or a refusal. */
+  refresh: { outcome: "renew"; session: unknown } | { outcome: "refuse" } = { outcome: "refuse" };
+  /** The Cookie header each POST /auth/refresh arrived with. */
+  readonly refreshCookies: (string | null)[] = [];
+  /** The bearer token each protected call arrived with, in order. */
+  readonly protectedCalls: { path: string; token: string | null }[] = [];
 
   async handle(route: Route): Promise<void> {
     const request = route.request();
@@ -40,13 +48,46 @@ export class FakeApi {
 
     const url = new URL(request.url());
     const path = url.pathname.replace(/^\/api\/v1/u, "");
-    const body = this.respond(request.method(), path, url, request.postData());
+    const result = await this.authorize(request.method(), path, route);
+    const body = result ?? this.respond(request.method(), path, url, request.postData());
+    const status = body instanceof FakeStatus ? body.status : body === undefined ? 404 : 200;
 
     await route.fulfill({
-      status: body === undefined ? 404 : 200,
+      status,
       headers: { ...corsHeaders(), "Content-Type": "application/json" },
-      body: JSON.stringify(body ?? { statusCode: 404, message: `No fake for ${path}` }),
+      body: JSON.stringify(
+        body instanceof FakeStatus
+          ? body.body
+          : (body ?? { statusCode: 404, message: `No fake for ${path}` }),
+      ),
     });
+  }
+
+  /** The real API's access-token check and refresh endpoint. */
+  private async authorize(method: string, path: string, route: Route): Promise<unknown> {
+    if (`${method} ${path}` === "POST /auth/refresh") {
+      this.refreshCookies.push(await route.request().headerValue("cookie"));
+
+      return this.refresh.outcome === "renew"
+        ? this.refresh.session
+        : new FakeStatus(401, { statusCode: 401, message: "Refresh token is invalid or expired" });
+    }
+    if (isPublicRoute(method, path)) {
+      return undefined;
+    }
+
+    const authorization = await route.request().headerValue("authorization");
+    const token = authorization?.replace(/^Bearer /u, "") ?? null;
+    this.protectedCalls.push({ path, token });
+
+    if (!token || this.expiredTokens.has(token)) {
+      return new FakeStatus(401, {
+        statusCode: 401,
+        message: "Access token is invalid or expired",
+      });
+    }
+
+    return undefined;
   }
 
   private respond(method: string, path: string, url: URL, postData: string | null): unknown {
@@ -103,6 +144,16 @@ export class FakeApi {
       return adminDashboard();
     }
     if (route === "GET /admin/bookings") {
+      const pageSize = Number(url.searchParams.get("pageSize") ?? 20);
+
+      // The real API validates this (AdminBookingQueryDto) and refuses more.
+      if (pageSize > 100) {
+        return new FakeStatus(400, {
+          statusCode: 400,
+          message: ["pageSize must not be greater than 100"],
+        });
+      }
+
       return {
         bookings: this.adminBookings.map((booking) => ({
           booking,
@@ -113,7 +164,7 @@ export class FakeApi {
         })),
         total: this.adminBookings.length,
         page: 1,
-        pageSize: 500,
+        pageSize,
       } satisfies AdminBookingListResponse;
     }
     if (route === "GET /integrations/dashboard") {
@@ -251,6 +302,23 @@ export function testBooking(reference: string): BookingRecord {
     cancelledAt: null,
     emailPrepared: true,
   };
+}
+
+/** A non-200 answer from the fake, with the real API's error body. */
+class FakeStatus {
+  constructor(
+    readonly status: number,
+    readonly body: unknown,
+  ) {}
+}
+
+/** Routes the real API marks @Public(): they never look at the access token. */
+function isPublicRoute(method: string, path: string): boolean {
+  return (
+    (path.startsWith("/auth/") && path !== "/auth/change-password" && path !== "/auth/me") ||
+    (method === "POST" && path === "/search") ||
+    (method === "GET" && (path === "/search/cities" || path.startsWith("/seats/")))
+  );
 }
 
 function corsHeaders(): Record<string, string> {
